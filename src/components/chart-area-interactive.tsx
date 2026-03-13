@@ -30,7 +30,7 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
 
-export const description = "An interactive area chart"
+export const description = "مخطط مساحي تفاعلي"
 
 const chartData = [
   { date: "2024-04-01", desktop: 222, mobile: 150 },
@@ -128,14 +128,14 @@ const chartData = [
 
 const chartConfig = {
   visitors: {
-    label: "Visitors",
+    label: "الزوار",
   },
   desktop: {
-    label: "Desktop",
+    label: "أجهزة الكمبيوتر",
     color: "var(--primary)",
   },
   mobile: {
-    label: "Mobile",
+    label: "الهواتف المحمولة",
     color: "var(--primary)",
   },
 } satisfies ChartConfig
@@ -167,12 +167,12 @@ export function ChartAreaInteractive() {
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>Total Visitors</CardTitle>
+        <CardTitle>إجمالي الزوار</CardTitle>
         <CardDescription>
           <span className="hidden @[540px]/card:block">
-            Total for the last 3 months
+            الإجمالي لآخر 3 أشهر
           </span>
-          <span className="@[540px]/card:hidden">Last 3 months</span>
+          <span className="@[540px]/card:hidden">آخر 3 أشهر</span>
         </CardDescription>
         <CardAction>
           <ToggleGroup
@@ -182,9 +182,9 @@ export function ChartAreaInteractive() {
             variant="outline"
             className="hidden *:data-[slot=toggle-group-item]:px-4! @[767px]/card:flex"
           >
-            <ToggleGroupItem value="90d">Last 3 months</ToggleGroupItem>
-            <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
-            <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
+            <ToggleGroupItem value="90d">آخر 3 أشهر</ToggleGroupItem>
+            <ToggleGroupItem value="30d">آخر 30 يوم</ToggleGroupItem>
+            <ToggleGroupItem value="7d">آخر 7 أيام</ToggleGroupItem>
           </ToggleGroup>
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger
@@ -192,17 +192,17 @@ export function ChartAreaInteractive() {
               size="sm"
               aria-label="Select a value"
             >
-              <SelectValue placeholder="Last 3 months" />
+              <SelectValue placeholder="آخر 3 أشهر" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="90d" className="rounded-lg">
-                Last 3 months
+                آخر 3 أشهر
               </SelectItem>
               <SelectItem value="30d" className="rounded-lg">
-                Last 30 days
+                آخر 30 يوم
               </SelectItem>
               <SelectItem value="7d" className="rounded-lg">
-                Last 7 days
+                آخر 7 أيام
               </SelectItem>
             </SelectContent>
           </Select>

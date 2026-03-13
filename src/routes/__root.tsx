@@ -12,7 +12,7 @@ function RootComponent() {
     <TooltipProvider>
       <Outlet />
       <Toaster />
-      <TanStackRouterDevtools position="bottom-right" />
+      <TanStackRouterDevtools position="bottom-left" />
     </TooltipProvider>
   )
 }
