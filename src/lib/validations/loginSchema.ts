@@ -1,13 +1,18 @@
 import { z } from "zod";
 
 const loginSchema = z.object({
-  email: z.string().min(1, "Email is required").email("Invalid email address").toLowerCase().trim(),
+  email: z
+    .string()
+    .min(1, "البريد الإلكتروني مطلوب")
+    .email("عنوان البريد الإلكتروني غير صالح")
+    .toLowerCase()
+    .trim(),
   password: z
     .string()
-    .min(8, "Password must be at least 8 characters long")
+    .min(8, "يجب أن تكون كلمة المرور مكونة من 8 أحرف على الأقل")
     .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+=\-{}[\]:;"'<>,.?/\\|`~])[A-Za-z\d@$!%*?&#^()_+=\-{}[\]:;"'<>,.?/\\|`~]{8,}$/,
-      "Password must contain uppercase, lowercase, number, and special character",
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&#^()_+=\-{}[\]:;"'<>,.?/\\|`~]{8,}$/,
+      "يجب أن تحتوي كلمة المرور على حرف كبير واحد، حرف صغير واحد، ورقم واحد على الأقل (مثال: StrongPass123)"
     ),
 });
 

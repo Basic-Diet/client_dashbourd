@@ -8,7 +8,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 import data from "@/constants/data.json"
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/_protected/dashboard")({
   component: RouteComponent,
 })
 
