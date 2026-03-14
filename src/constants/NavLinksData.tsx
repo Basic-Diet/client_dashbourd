@@ -1,16 +1,10 @@
-import { SearchIcon } from "lucide-react"
+import { SearchIcon } from "lucide-react";
 
 import {
   LayoutDashboardIcon,
-  ListIcon,
-  ChartBarIcon,
-  FolderIcon,
-  UsersIcon,
-  CameraIcon,
-  FileTextIcon,
   Settings2Icon,
   CircleHelpIcon,
-} from "lucide-react"
+} from "lucide-react";
 
 export const NavLinksData = {
   user: {
@@ -25,72 +19,9 @@ export const NavLinksData = {
       icon: <LayoutDashboardIcon />,
     },
     {
-      title: "دورة الحياة",
-      url: "#",
-      icon: <ListIcon />,
-    },
-    {
-      title: "التحليلات",
-      url: "#",
-      icon: <ChartBarIcon />,
-    },
-    {
-      title: "المشاريع",
-      url: "#",
-      icon: <FolderIcon />,
-    },
-    {
-      title: "الفريق",
-      url: "#",
-      icon: <UsersIcon />,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: <CameraIcon />,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      title: "الباقات",
+      url: "/packages",
+      icon: <LayoutDashboardIcon />,
     },
   ],
   navSecondary: [
@@ -110,4 +41,4 @@ export const NavLinksData = {
       icon: <SearchIcon />,
     },
   ],
-}
+};

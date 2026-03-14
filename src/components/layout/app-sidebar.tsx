@@ -1,6 +1,6 @@
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavMain } from "@/components/layout/nav-main";
+import { NavSecondary } from "@/components/layout/nav-secondary";
+import { NavUser } from "@/components/layout/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -9,8 +9,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { NavLinksData } from "@/constants/NavLinksData"
+} from "@/components/ui/sidebar";
+import { NavLinksData } from "@/constants/NavLinksData";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -40,5 +40,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavUser user={NavLinksData.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
