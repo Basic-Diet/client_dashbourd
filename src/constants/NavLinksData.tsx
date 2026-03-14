@@ -18,6 +18,16 @@ export const NavLinksData = {
       url: "/packages",
       icon: <LayoutDashboardIcon />,
     },
+    {
+      title: "الطلبات",
+      url: "/orders",
+      icon: <LayoutDashboardIcon />,
+    },
+    {
+      title: "المستخدمين",
+      url: "/users",
+      icon: <LayoutDashboardIcon />,
+    },
   ],
   navSecondary: [
     {
