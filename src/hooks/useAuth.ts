@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { login, sessionQueryOptions } from "@/lib/authApi";
 import type { LoginCredentials, AuthResponse } from "@/types/auth";
 import { useRouter } from "@tanstack/react-router";
+import { ROLE_DEFAULTS } from "../../routes";
+import type { UserRole } from "@/types/auth";
+import { ToastMessage } from "@/components/global/ToastMessage";
 import Cookies from "js-cookie";
 
 export const useAuth = () => {
@@ -13,31 +16,42 @@ export const useAuth = () => {
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginCredentials) => login(credentials),
     onSuccess: (data: AuthResponse) => {
-      // Save token securely in cookies.
-      // Set secure: true in production, sameSite: 'strict' for CSRF protection.
       Cookies.set("token", data.token, {
-        expires: 7, // 7 days example
+        expires: 7,
         secure: window.location.protocol === "https:",
         sameSite: "strict",
       });
 
-      // Update query cache
       queryClient.setQueryData(sessionQueryOptions.queryKey, data);
 
-      // Redirect to dashboard (or intended protected route)
-      router.navigate({ to: "/" });
+      ToastMessage("تم تسجيل الدخول بنجاح", "success");
+
+      // Read ?redirect= param, fall back to role's default route
+      const search = router.state.location.search as { redirect?: string };
+      const returnTo =
+        search.redirect ?? ROLE_DEFAULTS[data?.user?.role as UserRole];
+
+      router.navigate({ to: returnTo });
+    },
+    onError: () => {
+      ToastMessage("فشل تسجيل الدخول، تحقق من بياناتك", "error");
     },
   });
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Optional: Call logout API endpoint if exists
       Cookies.remove("token");
     },
     onSuccess: () => {
       queryClient.setQueryData(sessionQueryOptions.queryKey, undefined);
       queryClient.removeQueries({ queryKey: sessionQueryOptions.queryKey });
+
+      ToastMessage("تم تسجيل الخروج بنجاح", "success");
+
       router.navigate({ to: "/" });
+    },
+    onError: () => {
+      ToastMessage("حدث خطأ أثناء تسجيل الخروج", "error");
     },
   });
 

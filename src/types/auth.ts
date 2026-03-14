@@ -11,9 +11,17 @@ export interface User {
 }
 
 export interface AuthResponse {
-  ok: boolean;
+  status: boolean;
   token: string;
-  user: User;
+  user: User | null;
 }
+
+export const UserRoles = {
+  SUPERADMIN: "superadmin",
+  COURIER: "courier",
+  KITCHEN: "kitchen",
+} as const;
+
+export type UserRole = (typeof UserRoles)[keyof typeof UserRoles];
 
 export type LoginCredentials = LoginSchemaType;

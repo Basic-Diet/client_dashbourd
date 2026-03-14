@@ -7,11 +7,6 @@ import {
 } from "lucide-react";
 
 export const NavLinksData = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
       title: "لوحة التحكم",

@@ -262,7 +262,7 @@ export function DataTable<TData, TValue>({
               </Select>
             </div>
             <div className="flex w-fit items-center justify-center text-sm font-medium">
-              صفحة {table.getState().pagination.pageIndex + 1} من{" "}
+              صفحة {table.getState().pagination.pageIndex + 1} من
               {table.getPageCount()}
             </div>
             <div className="mr-auto flex items-center gap-2 lg:mr-0">

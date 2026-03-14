@@ -10,10 +10,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import useLoginForm from "@/hooks/useLoginForm";
 import { useAuth } from "@/hooks/useAuth";
-import { ToastMessage } from "@/components/global/ToastMessage";
 import { Loader2 } from "lucide-react";
-import type { LoginSchemaType } from "@/lib/validations/loginSchema";
-import { useRouter } from "@tanstack/react-router";
 
 function LoginForm() {
   const {
@@ -21,21 +18,8 @@ function LoginForm() {
     handleSubmit,
     formState: { errors },
   } = useLoginForm();
-  const router = useRouter();
 
   const { login, isLoggingIn } = useAuth();
-
-  const onSubmit = async (data: LoginSchemaType) => {
-    try {
-      await login(data);
-      ToastMessage("تم تسجيل الدخول بنجاح", "success");
-      router.navigate({ to: "/" });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "فشل تسجيل الدخول";
-      ToastMessage(errorMessage, "error");
-    }
-  };
 
   return (
     <div className="flex min-w-sm flex-col gap-6 md:min-w-lg">
@@ -50,7 +34,7 @@ function LoginForm() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit((data) => login(data))}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="email">البريد الإلكتروني</FieldLabel>

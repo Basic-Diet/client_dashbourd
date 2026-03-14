@@ -4,13 +4,20 @@ import { Loader } from "@/components/global/loader";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { SiteHeader } from "@/components/layout/site-header";
+import type { AuthResponse } from "@/types/auth";
+import { sessionQueryOptions } from "@/lib/authApi";
+import { authMiddleware } from "@/lib/authMiddleware";
 
 export const Route = createFileRoute("/_protected")({
   component: RouteComponent,
-  // beforeLoad: async ({ context, location }) => {
-  //   const data = await context.queryClient.ensureQueryData(sessionQueryOptions);
-  //   authMiddleware(data as AuthResponse, location.pathname);
-  // },
+  beforeLoad: async ({ context, location }) => {
+    const data = await context.queryClient.ensureQueryData(sessionQueryOptions);
+    authMiddleware(
+      data as AuthResponse,
+      location.pathname,
+      location.search as Record<string, string>
+    );
+  },
   pendingComponent: Loader,
   errorComponent: RouteError,
 });
