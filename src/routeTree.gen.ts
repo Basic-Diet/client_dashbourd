@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedPackagesIndexRouteImport } from './routes/_protected/packages/index'
 import { Route as ProtectedOrdersIndexRouteImport } from './routes/_protected/orders/index'
+import { Route as ProtectedPackagesCreateRouteImport } from './routes/_protected/packages/create'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -39,16 +40,23 @@ const ProtectedOrdersIndexRoute = ProtectedOrdersIndexRouteImport.update({
   path: '/orders/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
+const ProtectedPackagesCreateRoute = ProtectedPackagesCreateRouteImport.update({
+  id: '/packages/create',
+  path: '/packages/create',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/packages/create': typeof ProtectedPackagesCreateRoute
   '/orders/': typeof ProtectedOrdersIndexRoute
   '/packages/': typeof ProtectedPackagesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/packages/create': typeof ProtectedPackagesCreateRoute
   '/orders': typeof ProtectedOrdersIndexRoute
   '/packages': typeof ProtectedPackagesIndexRoute
 }
@@ -57,19 +65,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/_protected/dashboard': typeof ProtectedDashboardRoute
+  '/_protected/packages/create': typeof ProtectedPackagesCreateRoute
   '/_protected/orders/': typeof ProtectedOrdersIndexRoute
   '/_protected/packages/': typeof ProtectedPackagesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/orders/' | '/packages/'
+  fullPaths: '/' | '/dashboard' | '/packages/create' | '/orders/' | '/packages/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/orders' | '/packages'
+  to: '/' | '/dashboard' | '/packages/create' | '/orders' | '/packages'
   id:
     | '__root__'
     | '/'
     | '/_protected'
     | '/_protected/dashboard'
+    | '/_protected/packages/create'
     | '/_protected/orders/'
     | '/_protected/packages/'
   fileRoutesById: FileRoutesById
@@ -116,17 +126,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOrdersIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/packages/create': {
+      id: '/_protected/packages/create'
+      path: '/packages/create'
+      fullPath: '/packages/create'
+      preLoaderRoute: typeof ProtectedPackagesCreateRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
   }
 }
 
 interface ProtectedRouteRouteChildren {
   ProtectedDashboardRoute: typeof ProtectedDashboardRoute
+  ProtectedPackagesCreateRoute: typeof ProtectedPackagesCreateRoute
   ProtectedOrdersIndexRoute: typeof ProtectedOrdersIndexRoute
   ProtectedPackagesIndexRoute: typeof ProtectedPackagesIndexRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedDashboardRoute: ProtectedDashboardRoute,
+  ProtectedPackagesCreateRoute: ProtectedPackagesCreateRoute,
   ProtectedOrdersIndexRoute: ProtectedOrdersIndexRoute,
   ProtectedPackagesIndexRoute: ProtectedPackagesIndexRoute,
 }

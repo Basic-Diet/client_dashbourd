@@ -9,20 +9,16 @@ import {
 } from "@/components/ui/card";
 import { TrendingUpIcon } from "@/components/ui/trending-up";
 import { TrendingDownIcon } from "@/components/ui/trending-down";
-import type { DashboardCardData } from "@/types/dashboardTypes";
+import type { SectionCardsData } from "@/types/sectionCardsTypes";
 
-export function SectionCards({
-  cardsData,
-}: {
-  cardsData: DashboardCardData[];
-}) {
+export function SectionCards({ cardsData }: { cardsData: SectionCardsData[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
       {cardsData.map((card) => (
         <Card key={card.id} className="@container/card">
           <CardHeader>
             <CardDescription>{card.description}</CardDescription>
-            <CardTitle className="mt-3 text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            <CardTitle className="mt-3 text-2xl font-semibold tabular-nums @[250px]/card:text-4xl">
               {card.value}
             </CardTitle>
             <CardAction>
