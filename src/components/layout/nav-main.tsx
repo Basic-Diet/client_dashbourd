@@ -4,17 +4,17 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { Link } from "@tanstack/react-router"
+} from "@/components/ui/sidebar";
+import { Link } from "@tanstack/react-router";
 
 export function NavMain({
   items,
 }: {
   items: {
-    title: string
-    url: string
-    icon?: React.ReactNode
-  }[]
+    title: string;
+    url: string;
+    icon?: React.ReactNode;
+  }[];
 }) {
   return (
     <SidebarGroup>
@@ -24,7 +24,6 @@ export function NavMain({
             <SidebarMenuItem key={item.title}>
               <Link
                 to={item.url}
-                activeOptions={{ exact: true }}
                 activeProps={{
                   className:
                     "bg-primary block rounded-md text-background dark:text-foreground",
@@ -43,5 +42,5 @@ export function NavMain({
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
-  )
+  );
 }

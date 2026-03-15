@@ -15,9 +15,9 @@ const sizeClasses = {
 };
 
 export function Loader({
-  variant = "default",
+  variant = "full-screen",
   size = "md",
-  label,
+  label = "جاري التحميل...",
   className,
   ...props
 }: LoaderProps) {
@@ -33,13 +33,13 @@ export function Loader({
         />
         <div
           className={cn(
-            "absolute inset-0 animate-ping opacity-20 bg-primary rounded-full",
+            "absolute inset-0 animate-ping rounded-full bg-primary opacity-20",
             sizeClasses[size]
           )}
         />
       </div>
       {label && (
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">
+        <p className="animate-pulse text-sm font-medium text-muted-foreground">
           {label}
         </p>
       )}
