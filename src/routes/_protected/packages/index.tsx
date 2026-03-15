@@ -1,27 +1,34 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SectionCards } from "@/components/custom/section-cards";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { packagesSectionCards } from "@/constants/SectionCardsData";
-import { cn } from "@/lib/utils";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { PlusIcon } from "lucide-react";
+import { getPackagesSectionCards } from "@/constants/SectionCardsData";
+import { createFileRoute } from "@tanstack/react-router";
+import { packagesQueryOptions } from "@/hooks/usePackagesQuery";
+import { Loader } from "@/components/global/loader";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { PackagesTable } from "@/components/pages/packages/packages-table";
+import type { PackagesResponse } from "@/types/packageTypes";
 
 export const Route = createFileRoute("/_protected/packages/")({
   component: RouteComponent,
+  loader: ({ context: { queryClient } }: any) =>
+    queryClient.ensureQueryData(packagesQueryOptions()),
+  pendingComponent: () => (
+    <Loader variant="full-screen" label="جاري تحميل الباقات..." />
+  ),
 });
 
 function RouteComponent() {
+  const { data: packagesResponse } = useSuspenseQuery(packagesQueryOptions());
+  const typedResponse = packagesResponse as PackagesResponse;
+
+  const packages = typedResponse?.data || [];
+  const summary = typedResponse?.summary;
+  const cardsData = getPackagesSectionCards(summary);
+
   return (
     <>
-      <SectionCards cardsData={packagesSectionCards} />
-      <div className="px-4 lg:px-6">
-        <Link
-          to="/packages/create"
-          className={cn(buttonVariants({ variant: "default" }), "bg-primary")}
-        >
-          <PlusIcon />
-          إضافة باقة جديدة
-        </Link>
-      </div>
+      <SectionCards cardsData={cardsData} />
+      <PackagesTable data={packages} />
     </>
   );
 }

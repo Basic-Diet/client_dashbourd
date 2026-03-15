@@ -2,18 +2,33 @@ import * as React from "react";
 import {
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-  type ColumnDef,
   type ColumnFiltersState,
   type SortingState,
-  type VisibilityState,
 } from "@tanstack/react-table";
-import { Button } from "@/components/ui/button";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import {
+  restrictToVerticalAxis,
+  restrictToParentElement,
+} from "@dnd-kit/modifiers";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -37,96 +52,135 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Columns3Icon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  SearchIcon,
+  PlusIcon,
   ChevronsRightIcon,
   ChevronsLeftIcon,
 } from "lucide-react";
+import type { Package } from "@/types/packageTypes";
+import { packagesColumns } from "./packages-columns";
+import { DraggableRow } from "./draggable-row";
+import { Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 
-export function DataTable<TData, TValue>({
-  columns,
-  data: initialData,
-  onTabChange,
-  activeTab,
-}: {
-  columns: ColumnDef<TData, TValue>[];
-  data: TData[];
-  title?: string;
-  onTabChange?: (tab: string) => void;
-  activeTab?: string;
-}) {
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+export function PackagesTable({ data: initialData }: { data: Package[] }) {
+  const [data, setData] = React.useState(initialData);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState("");
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   });
 
+  // Update data when initialData changes
+  React.useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
   const table = useReactTable({
-    data: initialData,
-    columns,
+    data,
+    columns: packagesColumns,
     state: {
       sorting,
-      columnVisibility,
-      rowSelection,
       columnFilters,
+      globalFilter,
       pagination,
     },
-    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const nameAr = row.original.name.ar.toLowerCase();
+      const nameEn = row.original.name.en.toLowerCase();
+      const search = filterValue.toLowerCase();
+      return nameAr.includes(search) || nameEn.includes(search);
+    },
+    getRowId: (row) => row._id,
   });
 
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setData((prev) => {
+        const oldIndex = prev.findIndex((item) => item._id === active.id);
+        const newIndex = prev.findIndex((item) => item._id === over.id);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
+  }
+
+  const totalFiltered = table.getFilteredRowModel().rows.length;
+
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={onTabChange}
-      className="w-full flex-col justify-start gap-6"
-      dir="rtl"
-    >
-      <div className="flex items-center justify-between px-4 lg:px-6">
-        <Label htmlFor="view-selector" className="sr-only">
-          عرض
-        </Label>
-        <Select value={activeTab} onValueChange={onTabChange}>
-          <SelectTrigger
-            className="flex w-fit @4xl/main:hidden"
-            size="sm"
-            id="view-selector"
+    <div className="w-full flex-col justify-start gap-6" dir="rtl">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-4 px-4 lg:px-6">
+        <div className="flex items-center gap-3">
+          {/* Status filter */}
+          <Select
+            value={
+              (table.getColumn("isActive")?.getFilterValue() as string) || "all"
+            }
+            onValueChange={(value) => {
+              table
+                .getColumn("isActive")
+                ?.setFilterValue(value === "all" ? undefined : value);
+            }}
           >
-            <SelectValue placeholder="اختر عرض" />
-          </SelectTrigger>
-          <SelectContent dir="rtl">
-            <SelectGroup>
-              <SelectItem value="subscriptions">الاشتراكات الاخيرة</SelectItem>
-              <SelectItem value="orders">الطلبات الأخيرة</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+            <SelectTrigger className="w-30" size="sm">
+              <SelectValue placeholder="الحالة" />
+            </SelectTrigger>
+            <SelectContent dir="rtl">
+              <SelectGroup>
+                <SelectItem value="all">الكل</SelectItem>
+                <SelectItem value="active">نشطة</SelectItem>
+                <SelectItem value="inactive">غير نشطة</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
-        <TabsList className="hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
-          <TabsTrigger value="subscriptions">الاشتراكات الاخيرة</TabsTrigger>
-          <TabsTrigger value="orders">الطلبات الأخيرة</TabsTrigger>
-        </TabsList>
+          {/* Search box */}
+          <div className="relative flex-1">
+            <SearchIcon className="absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="البحث باسم الباقة"
+              value={globalFilter ?? ""}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="max-w-lg pr-9"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
+          {/* action link */}
+          <Link
+            to="/packages/create"
+            className={cn(buttonVariants({ variant: "default" }), "bg-primary")}
+          >
+            <PlusIcon />
+            إضافة باقة جديدة
+          </Link>
+
+          {/* Column visibility */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -167,23 +221,28 @@ export function DataTable<TData, TValue>({
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="sm" className="hidden lg:flex">
-            عرض الكل
-          </Button>
         </div>
       </div>
 
-      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
+      {/* Table */}
+      <div className="relative mt-4 flex flex-col gap-4 overflow-auto px-4 lg:px-6">
         <div className="overflow-hidden rounded-lg border bg-card">
-          <Table>
-            <TableHeader className="sticky top-0 z-10 bg-muted">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow
-                  key={headerGroup.id}
-                  className="border-b hover:bg-transparent"
-                >
-                  {headerGroup.headers.map((header) => {
-                    return (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+          >
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-muted">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow
+                    key={headerGroup.id}
+                    className="border-b hover:bg-transparent"
+                  >
+                    {/* Drag handle header */}
+                    <TableHead className="w-8 py-4 text-right font-medium" />
+                    {headerGroup.headers.map((header) => (
                       <TableHead
                         key={header.id}
                         className="py-4 text-right font-medium"
@@ -195,46 +254,49 @@ export function DataTable<TData, TValue>({
                               header.getContext()
                             )}
                       </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody className="**:data-[slot=table-cell]:first:w-8">
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className="border-b last:border-0"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="py-4 text-right">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
                     ))}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    لا توجد نتائج.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableHeader>
+              <TableBody>
+                <SortableContext
+                  items={data.map((d) => d._id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <DraggableRow key={row.id} row={row}>
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="py-4 text-right">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </td>
+                        ))}
+                      </DraggableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={packagesColumns.length + 1}
+                        className="h-24 text-center"
+                      >
+                        لا توجد باقات.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </SortableContext>
+              </TableBody>
+            </Table>
+          </DndContext>
         </div>
 
+        {/* Pagination */}
+        {/* Pagination */}
         <div className="flex items-center justify-between px-4 pb-4">
           <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-            اجمالي الصفوف ({table.getFilteredRowModel().rows.length})
+            اجمالي الباقات ({totalFiltered})
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
@@ -319,8 +381,6 @@ export function DataTable<TData, TValue>({
           </div>
         </div>
       </div>
-    </Tabs>
+    </div>
   );
 }
-
-// Chart boilerplates removed to clean up
