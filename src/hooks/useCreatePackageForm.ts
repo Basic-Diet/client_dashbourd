@@ -30,8 +30,8 @@ const useCreatePackageForm = () => {
       skipAllowanceCompensatedDays: 0,
       freezePolicy: {
         enabled: false,
-        maxDays: 0,
-        maxTimes: 0,
+        maxDays: 1,
+        maxTimes: 1,
       },
       gramsOptions: [{ ...DEFAULT_GRAM }],
     },

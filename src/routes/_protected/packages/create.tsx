@@ -38,6 +38,7 @@ function CreatePackagePage() {
   const { form, gramsFieldArray, addGram, removeGram, DEFAULT_MEAL } =
     useCreatePackageForm();
   const queryClient = useQueryClient();
+  const isActive = form.watch("isActive") ?? true;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const freezeEnabled = form.watch("freezePolicy.enabled");
@@ -69,7 +70,11 @@ function CreatePackagePage() {
         </div>
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-6"
+        noValidate
+      >
         {/* ─── Section 1: Basic Info ─── */}
         <Card>
           <CardHeader>
@@ -121,6 +126,7 @@ function CreatePackagePage() {
                 <Label className="text-sm font-medium">عدد الأيام</Label>
                 <Input
                   type="number"
+                  min="1"
                   placeholder="26"
                   {...form.register("daysCount")}
                   aria-invalid={!!form.formState.errors.daysCount}
@@ -151,9 +157,16 @@ function CreatePackagePage() {
                 <Label className="text-sm font-medium">ترتيب العرض</Label>
                 <Input
                   type="number"
+                  min="0"
                   placeholder="1"
                   {...form.register("sortOrder")}
+                  aria-invalid={!!form.formState.errors.sortOrder}
                 />
+                {form.formState.errors.sortOrder && (
+                  <p className="text-xs text-destructive">
+                    {form.formState.errors.sortOrder.message}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -165,11 +178,20 @@ function CreatePackagePage() {
                 </Label>
                 <Input
                   type="number"
+                  min="0"
                   placeholder="3"
                   {...form.register("skipAllowanceCompensatedDays")}
+                  aria-invalid={
+                    !!form.formState.errors.skipAllowanceCompensatedDays
+                  }
                 />
+                {form.formState.errors.skipAllowanceCompensatedDays && (
+                  <p className="text-xs text-destructive">
+                    {form.formState.errors.skipAllowanceCompensatedDays.message}
+                  </p>
+                )}
               </div>
-              <label className="flex items-center gap-3 pb-1 cursor-pointer sm:justify-end">
+              <label className="flex w-fit cursor-pointer items-center gap-3 justify-self-end">
                 <Controller
                   control={form.control}
                   name="isActive"
@@ -177,13 +199,15 @@ function CreatePackagePage() {
                     <Switch
                       type="button"
                       checked={field.value ?? true}
-                      className="data-[state=checked]:bg-green-500"
+                      className="cursor-pointer data-[state=checked]:bg-green-500"
                       onCheckedChange={field.onChange}
                     />
                   )}
                 />
                 <span className="text-sm font-bold">
-                  الباقة مفعّلة ونشطة للإشتراك
+                  {isActive
+                    ? "الباقة مفعّلة ونشطة للإشتراك"
+                    : "الباقة معطلة (غير متاحة للإشتراك)"}
                 </span>
               </label>
             </div>
@@ -200,7 +224,7 @@ function CreatePackagePage() {
                 </div>
                 سياسة التجميد
               </CardTitle>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex cursor-pointer items-center gap-2">
                 <span className="text-sm">
                   {freezeEnabled ? "مفعّلة" : "معطّلة"}
                 </span>
@@ -231,9 +255,16 @@ function CreatePackagePage() {
                   </Label>
                   <Input
                     type="number"
+                    min="1"
                     placeholder="31"
                     {...form.register("freezePolicy.maxDays")}
+                    aria-invalid={!!form.formState.errors.freezePolicy?.maxDays}
                   />
+                  {form.formState.errors.freezePolicy?.maxDays && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.freezePolicy.maxDays.message}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">
@@ -241,9 +272,16 @@ function CreatePackagePage() {
                   </Label>
                   <Input
                     type="number"
+                    min="1"
                     placeholder="1"
                     {...form.register("freezePolicy.maxTimes")}
+                    aria-invalid={!!form.formState.errors.freezePolicy?.maxTimes}
                   />
+                  {form.formState.errors.freezePolicy?.maxTimes && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.freezePolicy.maxTimes.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>

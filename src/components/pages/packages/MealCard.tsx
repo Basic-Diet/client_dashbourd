@@ -25,8 +25,10 @@ export function MealCard({
   const errors =
     form.formState.errors?.gramsOptions?.[gramIndex]?.mealsOptions?.[mealIndex];
 
+  const isActive = form.watch(`${prefix}.isActive`) ?? true;
+
   return (
-    <div className="relative rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border/80">
+    <div className="relative rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-border/80 hover:shadow-md">
       {/* Header */}
       <div className="mb-5 flex items-center justify-between border-b pb-3">
         <div className="flex items-center gap-2">
@@ -53,43 +55,54 @@ export function MealCard({
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         {/* Meals Per Day */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">عدد الوجبات يومياً</Label>
+          <Label className="text-xs text-muted-foreground">
+            عدد الوجبات يومياً
+          </Label>
           <Input
             type="number"
+            min="1"
             placeholder="1"
             {...form.register(`${prefix}.mealsPerDay`)}
             aria-invalid={!!errors?.mealsPerDay}
           />
           {errors?.mealsPerDay && (
-            <p className="text-xs text-destructive">{errors.mealsPerDay.message}</p>
+            <p className="text-xs text-destructive">
+              {errors.mealsPerDay.message}
+            </p>
           )}
         </div>
 
         {/* Price */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">السعر (هللة)</Label>
+          <Label className="text-xs text-muted-foreground">السعر</Label>
           <Input
             type="number"
+            min="1"
             placeholder="259900"
             {...form.register(`${prefix}.priceHalala`)}
             aria-invalid={!!errors?.priceHalala}
           />
           {errors?.priceHalala && (
-            <p className="text-xs text-destructive">{errors.priceHalala.message}</p>
+            <p className="text-xs text-destructive">
+              {errors.priceHalala.message}
+            </p>
           )}
         </div>
 
         {/* Compare At Price */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">سعر المقارنة (هللة)</Label>
+          <Label className="text-xs text-muted-foreground">سعر المقارنة</Label>
           <Input
             type="number"
+            min="0"
             placeholder="289900"
             {...form.register(`${prefix}.compareAtHalala`)}
             aria-invalid={!!errors?.compareAtHalala}
           />
           {errors?.compareAtHalala && (
-             <p className="text-xs text-destructive">{errors.compareAtHalala.message}</p>
+            <p className="text-xs text-destructive">
+              {errors.compareAtHalala.message}
+            </p>
           )}
         </div>
 
@@ -98,13 +111,20 @@ export function MealCard({
           <Label className="text-sm font-medium">ترتيب العرض</Label>
           <Input
             type="number"
+            min="0"
             placeholder="0"
             {...form.register(`${prefix}.sortOrder`)}
+            aria-invalid={!!errors?.sortOrder}
           />
+          {errors?.sortOrder && (
+            <p className="text-xs text-destructive">
+              {errors.sortOrder.message}
+            </p>
+          )}
         </div>
 
         {/* Active Toggle */}
-        <label className="flex items-center gap-2 pb-2 mt-4 cursor-pointer lg:mt-0 lg:justify-center">
+        <label className="mt-4 flex cursor-pointer items-center gap-2 pb-2 lg:mt-0 lg:justify-center">
           <Controller
             control={form.control}
             name={`${prefix}.isActive`}
@@ -116,8 +136,8 @@ export function MealCard({
               />
             )}
           />
-          <span className="text-sm text-muted-foreground">
-            مفعّلة
+          <span className="text-sm font-medium">
+            {isActive ? "الوجبة مفعّلة" : "الوجبة معطلة"}
           </span>
         </label>
       </div>

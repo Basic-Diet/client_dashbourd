@@ -44,6 +44,8 @@ export function GramCard({
 
   const errors = form.formState.errors?.gramsOptions?.[gramIndex];
 
+  const isActive = form.watch(`gramsOptions.${gramIndex}.isActive`) ?? true;
+
   const addMeal = () => {
     mealsFieldArray.append({
       ...defaultMeal,
@@ -58,9 +60,9 @@ export function GramCard({
   };
 
   return (
-    <Card className="overflow-hidden border-border/50 shadow-md transition-all hover:shadow-lg">
+    <Card className="overflow-hidden border-border/50 pt-0 shadow-md transition-all hover:shadow-lg">
       {/* Gram Header */}
-      <CardHeader className="border-b border-border/30 bg-linear-to-l from-primary/5 to-transparent">
+      <CardHeader className="border-b border-border/30 bg-linear-to-l from-primary/5 to-transparent pt-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -98,6 +100,7 @@ export function GramCard({
             <Label className="text-sm font-medium">عدد الجرامات</Label>
             <Input
               type="number"
+              min={1}
               placeholder="100"
               {...form.register(`gramsOptions.${gramIndex}.grams`)}
               aria-invalid={!!errors?.grams}
@@ -112,13 +115,20 @@ export function GramCard({
             <Label className="text-sm font-medium">ترتيب العرض</Label>
             <Input
               type="number"
+              min="0"
               placeholder="0"
               {...form.register(`gramsOptions.${gramIndex}.sortOrder`)}
+              aria-invalid={!!errors?.sortOrder}
             />
+            {errors?.sortOrder && (
+              <p className="text-xs text-destructive">
+                {errors.sortOrder.message}
+              </p>
+            )}
           </div>
 
           {/* Active Toggle */}
-          <label className="mt-6 flex items-center gap-3 pb-1 cursor-pointer sm:mt-0">
+          <label className="mt-6 flex cursor-pointer items-center gap-3 pb-1 sm:mt-0">
             <Controller
               control={form.control}
               name={`gramsOptions.${gramIndex}.isActive`}
@@ -131,7 +141,7 @@ export function GramCard({
               )}
             />
             <span className="text-sm font-medium">
-              خيار الجرام مفعّل
+              {isActive ? "خيار الجرام مفعّل" : "خيار الجرام معطل"}
             </span>
           </label>
         </div>

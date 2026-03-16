@@ -2,16 +2,23 @@ import { z } from "zod";
 
 const mealOptionSchema = z.object({
   mealsPerDay: z.coerce
-    .number({ message: "عدد الوجبات مطلوب" })
+    .number({ message: "يجب أن يكون عدد الوجبات رقماً" })
+    .int("يجب أن يكون عدد الوجبات رقماً صحيحاً")
     .min(1, "يجب أن يكون عدد الوجبات 1 على الأقل"),
-  sortOrder: z.coerce.number().min(0).default(0),
+  sortOrder: z.coerce
+    .number({ message: "ترتيب العرض يجب أن يكون رقماً" })
+    .int("ترتيب العرض يجب أن يكون رقماً صحيحاً")
+    .min(0, "ترتيب العرض لا يمكن أن يكون أقل من 0")
+    .default(0),
   isActive: z.boolean().default(true),
   priceHalala: z.coerce
-    .number({ message: "السعر مطلوب" })
+    .number({ message: "السعر يجب أن يكون رقماً" })
+    .int("السعر يجب أن يكون رقماً صحيحاً (بالهللة)")
     .min(1, "يجب أن يكون السعر أكبر من 0"),
   compareAtHalala: z.coerce
-    .number({ message: "سعر المقارنة يجب أن يكون رقم" })
-    .min(0)
+    .number({ message: "سعر المقارنة يجب أن يكون رقماً" })
+    .int("سعر المقارنة يجب أن يكون رقماً صحيحاً (بالهللة)")
+    .min(0, "سعر المقارنة لا يمكن أن يكون أقل من 0")
     .optional()
     .or(z.literal("")),
 }).refine(
@@ -29,9 +36,14 @@ const mealOptionSchema = z.object({
 
 const gramOptionSchema = z.object({
   grams: z.coerce
-    .number({ message: "عدد الجرامات مطلوب" })
+    .number({ message: "عدد الجرامات يجب أن يكون رقماً" })
+    .int("عدد الجرامات يجب أن يكون رقماً صحيحاً")
     .min(1, "يجب أن يكون عدد الجرامات أكبر من 0"),
-  sortOrder: z.coerce.number().min(0).default(0),
+  sortOrder: z.coerce
+    .number({ message: "ترتيب العرض يجب أن يكون رقماً" })
+    .int("ترتيب العرض يجب أن يكون رقماً صحيحاً")
+    .min(0, "ترتيب العرض لا يمكن أن يكون أقل من 0")
+    .default(0),
   isActive: z.boolean().default(true),
   mealsOptions: z
     .array(mealOptionSchema)
@@ -41,25 +53,42 @@ const gramOptionSchema = z.object({
 const createPackageSchema = z.object({
   name: z.object({
     ar: z
-      .string()
+      .string({ message: "اسم الباقة بالعربية مطلوب" })
       .min(1, "اسم الباقة بالعربية مطلوب")
       .trim(),
     en: z
-      .string()
+      .string({ message: "اسم الباقة بالإنجليزية مطلوب" })
       .min(1, "اسم الباقة بالإنجليزية مطلوب")
       .trim(),
   }),
   daysCount: z.coerce
-    .number({ message: "عدد الأيام مطلوب" })
+    .number({ message: "عدد الأيام يجب أن يكون رقماً" })
+    .int("عدد الأيام يجب أن يكون رقماً صحيحاً")
     .min(1, "يجب أن يكون عدد الأيام أكبر من 0"),
   currency: z.string().default("SAR"),
-  sortOrder: z.coerce.number().min(0).default(1),
+  sortOrder: z.coerce
+    .number({ message: "ترتيب العرض يجب أن يكون رقماً" })
+    .int("ترتيب العرض يجب أن يكون رقماً صحيحاً")
+    .min(0, "ترتيب العرض لا يمكن أن يكون أقل من 0")
+    .default(1),
   isActive: z.boolean().default(true),
-  skipAllowanceCompensatedDays: z.coerce.number().min(0).default(0),
+  skipAllowanceCompensatedDays: z.coerce
+    .number({ message: "أيام التعويض يجب أن تكون رقماً" })
+    .int("أيام التعويض يجب أن تكون رقماً صحيحاً")
+    .min(0, "أيام التعويض لا يمكن أن تكون أقل من 0")
+    .default(0),
   freezePolicy: z.object({
     enabled: z.boolean().default(false),
-    maxDays: z.coerce.number().min(0).optional().default(0),
-    maxTimes: z.coerce.number().min(0).optional().default(0),
+    maxDays: z.coerce
+      .number({ message: "الحد الأقصى للأيام يجب أن يكون رقماً" })
+      .int("الحد الأقصى للأيام يجب أن يكون رقماً صحيحاً")
+      .min(1, "الحد الأقصى للأيام يجب أن يكون 1 على الأقل")
+      .optional(),
+    maxTimes: z.coerce
+      .number({ message: "الحد الأقصى للمرات يجب أن يكون رقماً" })
+      .int("الحد الأقصى للمرات يجب أن يكون رقماً صحيحاً")
+      .min(1, "الحد الأقصى لعدد المرات يجب أن يكون 1 على الأقل")
+      .optional(),
   }),
   gramsOptions: z
     .array(gramOptionSchema)
