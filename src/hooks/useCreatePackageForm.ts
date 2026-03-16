@@ -8,7 +8,7 @@ export const DEFAULT_MEAL = {
   sortOrder: 0,
   isActive: true,
   priceHalala: 0,
-  compareAtHalala: 0,
+  compareAtHalala: undefined,
 };
 
 const DEFAULT_GRAM = {
@@ -18,23 +18,25 @@ const DEFAULT_GRAM = {
   mealsOptions: [{ ...DEFAULT_MEAL }],
 };
 
-const useCreatePackageForm = () => {
+const EMPTY_DEFAULTS: CreatePackageSchemaType = {
+  name: { ar: "", en: "" },
+  daysCount: 0,
+  currency: "SAR",
+  sortOrder: 1,
+  isActive: true,
+  skipAllowanceCompensatedDays: 0,
+  freezePolicy: {
+    enabled: false,
+    maxDays: 1,
+    maxTimes: 1,
+  },
+  gramsOptions: [{ ...DEFAULT_GRAM }],
+};
+
+const useCreatePackageForm = (initialData?: CreatePackageSchemaType) => {
   const form = useForm<CreatePackageSchemaType>({
     resolver: zodResolver(createPackageSchema) as unknown as Resolver<CreatePackageSchemaType>,
-    defaultValues: {
-      name: { ar: "", en: "" },
-      daysCount: 0,
-      currency: "SAR",
-      sortOrder: 1,
-      isActive: true,
-      skipAllowanceCompensatedDays: 0,
-      freezePolicy: {
-        enabled: false,
-        maxDays: 1,
-        maxTimes: 1,
-      },
-      gramsOptions: [{ ...DEFAULT_GRAM }],
-    },
+    defaultValues: initialData ?? EMPTY_DEFAULTS,
   });
 
   const gramsFieldArray = useFieldArray({

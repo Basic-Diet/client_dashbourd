@@ -1,9 +1,10 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Package } from "@/types/packageTypes";
 import { Badge } from "@/components/ui/badge";
-import { PencilIcon, CheckCircleIcon, XCircleIcon } from "lucide-react";
+import { PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Link } from "@tanstack/react-router";
+import { StatusBadge } from "./StatusBadge";
 
 export const packagesColumns: ColumnDef<Package>[] = [
   {
@@ -45,27 +46,7 @@ export const packagesColumns: ColumnDef<Package>[] = [
   {
     accessorKey: "isActive",
     header: "الحالة",
-    cell: ({ row }) => {
-      const isActive = row.original.isActive;
-      return (
-        <Badge
-          variant="outline"
-          className={cn(
-            "cursor-pointer",
-            isActive
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400"
-              : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
-          )}
-        >
-          {isActive ? (
-            <CheckCircleIcon className="ml-1 size-3.5" />
-          ) : (
-            <XCircleIcon className="ml-1 size-3.5" />
-          )}
-          {isActive ? "نشطة" : "غير نشطة"}
-        </Badge>
-      );
-    },
+    cell: ({ row }) => <StatusBadge pkg={row.original} />,
     filterFn: (row, _columnId, filterValue) => {
       if (filterValue === "all") return true;
       return filterValue === "active"
@@ -97,10 +78,10 @@ export const packagesColumns: ColumnDef<Package>[] = [
     header: "الإجراءات",
     cell: ({ row }) => (
       <Button variant="ghost" size="sm" asChild>
-        <a href={`/packages/${row.original._id}/update`}>
+        <Link to="/packages/$planId/update" params={{ planId: row.original._id }}>
           <PencilIcon className="ml-1 size-3.5" />
           تعديل
-        </a>
+        </Link>
       </Button>
     ),
     enableHiding: false,

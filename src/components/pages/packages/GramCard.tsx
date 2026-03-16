@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, UtensilsCrossed, Weight } from "lucide-react";
 import { Controller, useFieldArray } from "react-hook-form";
 import type useCreatePackageForm from "@/hooks/useCreatePackageForm";
+import type { MealOptionType } from "@/lib/validations/createPackageSchema";
 import { MealCard } from "./MealCard";
 
 type FormType = ReturnType<typeof useCreatePackageForm>["form"];
@@ -27,15 +28,7 @@ export function GramCard({
   form: FormType;
   onRemove: () => void;
   canRemove: boolean;
-  defaultMeal: typeof import("@/hooks/useCreatePackageForm").DEFAULT_MEAL extends never
-    ? never
-    : {
-        mealsPerDay: number;
-        sortOrder: number;
-        isActive: boolean;
-        priceHalala: number;
-        compareAtHalala: number;
-      };
+  defaultMeal: MealOptionType;
 }) {
   const mealsFieldArray = useFieldArray({
     control: form.control,

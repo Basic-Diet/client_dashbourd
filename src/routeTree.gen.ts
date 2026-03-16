@@ -15,6 +15,7 @@ import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dash
 import { Route as ProtectedPackagesIndexRouteImport } from './routes/_protected/packages/index'
 import { Route as ProtectedOrdersIndexRouteImport } from './routes/_protected/orders/index'
 import { Route as ProtectedPackagesCreateRouteImport } from './routes/_protected/packages/create'
+import { Route as ProtectedPackagesPlanIdUpdateRouteImport } from './routes/_protected/packages/$planId/update'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -45,6 +46,12 @@ const ProtectedPackagesCreateRoute = ProtectedPackagesCreateRouteImport.update({
   path: '/packages/create',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
+const ProtectedPackagesPlanIdUpdateRoute =
+  ProtectedPackagesPlanIdUpdateRouteImport.update({
+    id: '/packages/$planId/update',
+    path: '/packages/$planId/update',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -52,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/packages/create': typeof ProtectedPackagesCreateRoute
   '/orders/': typeof ProtectedOrdersIndexRoute
   '/packages/': typeof ProtectedPackagesIndexRoute
+  '/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -59,6 +67,7 @@ export interface FileRoutesByTo {
   '/packages/create': typeof ProtectedPackagesCreateRoute
   '/orders': typeof ProtectedOrdersIndexRoute
   '/packages': typeof ProtectedPackagesIndexRoute
+  '/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +77,25 @@ export interface FileRoutesById {
   '/_protected/packages/create': typeof ProtectedPackagesCreateRoute
   '/_protected/orders/': typeof ProtectedOrdersIndexRoute
   '/_protected/packages/': typeof ProtectedPackagesIndexRoute
+  '/_protected/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/packages/create' | '/orders/' | '/packages/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/packages/create'
+    | '/orders/'
+    | '/packages/'
+    | '/packages/$planId/update'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/packages/create' | '/orders' | '/packages'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/packages/create'
+    | '/orders'
+    | '/packages'
+    | '/packages/$planId/update'
   id:
     | '__root__'
     | '/'
@@ -82,6 +104,7 @@ export interface FileRouteTypes {
     | '/_protected/packages/create'
     | '/_protected/orders/'
     | '/_protected/packages/'
+    | '/_protected/packages/$planId/update'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -133,6 +156,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedPackagesCreateRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/packages/$planId/update': {
+      id: '/_protected/packages/$planId/update'
+      path: '/packages/$planId/update'
+      fullPath: '/packages/$planId/update'
+      preLoaderRoute: typeof ProtectedPackagesPlanIdUpdateRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
   }
 }
 
@@ -141,6 +171,7 @@ interface ProtectedRouteRouteChildren {
   ProtectedPackagesCreateRoute: typeof ProtectedPackagesCreateRoute
   ProtectedOrdersIndexRoute: typeof ProtectedOrdersIndexRoute
   ProtectedPackagesIndexRoute: typeof ProtectedPackagesIndexRoute
+  ProtectedPackagesPlanIdUpdateRoute: typeof ProtectedPackagesPlanIdUpdateRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
@@ -148,6 +179,7 @@ const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedPackagesCreateRoute: ProtectedPackagesCreateRoute,
   ProtectedOrdersIndexRoute: ProtectedOrdersIndexRoute,
   ProtectedPackagesIndexRoute: ProtectedPackagesIndexRoute,
+  ProtectedPackagesPlanIdUpdateRoute: ProtectedPackagesPlanIdUpdateRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
