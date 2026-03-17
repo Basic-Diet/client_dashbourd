@@ -2,7 +2,11 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import useCreatePackageForm from "@/hooks/useCreatePackageForm";
 import { submitUpdatePackageForm } from "@/utils/submitUpdatePackageForm";
 import type { CreatePackageSchemaType } from "@/lib/validations/createPackageSchema";
-import { useQueryClient, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import {
+  useQueryClient,
+  useSuspenseQuery,
+  queryOptions,
+} from "@tanstack/react-query";
 import { fetchGetPlanById } from "@/utils/fetchGetPlanById";
 import { Loader } from "@/components/global/loader";
 
@@ -11,9 +15,9 @@ import { Button } from "@/components/ui/button";
 
 import { Package, Save, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { BasicInfoSection } from "@/components/pages/packages/form/BasicInfoSection";
-import { FreezePolicySection } from "@/components/pages/packages/form/FreezePolicySection";
-import { GramOptionsSection } from "@/components/pages/packages/form/GramOptionsSection";
+import { BasicInfoSection } from "@/components/pages/packages/BasicInfoSection";
+import { FreezePolicySection } from "@/components/pages/packages/FreezePolicySection";
+import { GramOptionsSection } from "@/components/pages/packages/GramOptionsSection";
 
 const planQueryOptions = (planId: string) =>
   queryOptions({
@@ -90,9 +94,7 @@ function UpdatePackagePage() {
             <Package className="size-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              تعديل الباقة
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight">تعديل الباقة</h1>
             <p className="text-sm text-muted-foreground">
               قم بتعديل بيانات الباقة ثم اضغط على حفظ التعديلات
             </p>
@@ -106,9 +108,9 @@ function UpdatePackagePage() {
         noValidate
       >
         <BasicInfoSection form={form} />
-        
+
         <FreezePolicySection form={form} />
-        
+
         <GramOptionsSection
           form={form}
           gramsFieldArray={gramsFieldArray}

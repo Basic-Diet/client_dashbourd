@@ -8,9 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Package, Save, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { BasicInfoSection } from "@/components/pages/packages/form/BasicInfoSection";
-import { FreezePolicySection } from "@/components/pages/packages/form/FreezePolicySection";
-import { GramOptionsSection } from "@/components/pages/packages/form/GramOptionsSection";
+import { BasicInfoSection } from "@/components/pages/packages/BasicInfoSection";
+import { FreezePolicySection } from "@/components/pages/packages/FreezePolicySection";
+import { GramOptionsSection } from "@/components/pages/packages/GramOptionsSection";
 
 export const Route = createFileRoute("/_protected/packages/create")({
   component: CreatePackagePage,
@@ -57,9 +57,9 @@ function CreatePackagePage() {
         noValidate
       >
         <BasicInfoSection form={form} />
-        
+
         <FreezePolicySection form={form} />
-        
+
         <GramOptionsSection
           form={form}
           gramsFieldArray={gramsFieldArray}

@@ -1,12 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Plus, Weight } from "lucide-react";
 import type { UseFormReturn, UseFieldArrayReturn } from "react-hook-form";
-import type { CreatePackageSchemaType, MealOptionType } from "@/lib/validations/createPackageSchema";
-import { GramCard } from "../GramCard";
+import type {
+  CreatePackageSchemaType,
+  MealOptionType,
+} from "@/lib/validations/createPackageSchema";
+import { GramCard } from "./GramCard";
 
 interface GramOptionsSectionProps {
   form: UseFormReturn<CreatePackageSchemaType>;
-  gramsFieldArray: UseFieldArrayReturn<CreatePackageSchemaType, "gramsOptions", "id">;
+  gramsFieldArray: UseFieldArrayReturn<
+    CreatePackageSchemaType,
+    "gramsOptions",
+    "id"
+  >;
   addGram: () => void;
   removeGram: (index: number) => void;
   defaultMeal: MealOptionType;

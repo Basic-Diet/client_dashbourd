@@ -78,7 +78,7 @@ export function MealCard({
           <Input
             type="number"
             min="1"
-            placeholder="259900"
+            placeholder="100"
             {...form.register(`${prefix}.priceHalala`)}
             aria-invalid={!!errors?.priceHalala}
           />
@@ -95,7 +95,7 @@ export function MealCard({
           <Input
             type="number"
             min="0"
-            placeholder="289900"
+            placeholder="200"
             {...form.register(`${prefix}.compareAtHalala`)}
             aria-invalid={!!errors?.compareAtHalala}
           />
