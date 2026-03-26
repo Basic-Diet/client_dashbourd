@@ -1,9 +1,11 @@
-import { SearchIcon } from "lucide-react";
-
 import {
   LayoutDashboardIcon,
   Settings2Icon,
   CircleHelpIcon,
+  Users,
+  Boxes,
+  CalendarPlus,
+  Truck,
 } from "lucide-react";
 
 export const NavLinksData = {
@@ -16,17 +18,22 @@ export const NavLinksData = {
     {
       title: "الباقات",
       url: "/packages",
-      icon: <LayoutDashboardIcon />,
+      icon: <Boxes />,
+    },
+    {
+      title: "الاشتراكات",
+      url: "/subscriptions",
+      icon: <CalendarPlus />,
     },
     {
       title: "الطلبات",
       url: "/orders",
-      icon: <LayoutDashboardIcon />,
+      icon: <Truck />,
     },
     {
       title: "المستخدمين",
       url: "/users",
-      icon: <LayoutDashboardIcon />,
+      icon: <Users />,
     },
   ],
   navSecondary: [
@@ -39,11 +46,6 @@ export const NavLinksData = {
       title: "المساعدة",
       url: "#",
       icon: <CircleHelpIcon />,
-    },
-    {
-      title: "البحث",
-      url: "#",
-      icon: <SearchIcon />,
     },
   ],
 };
