@@ -110,7 +110,7 @@ export function SubscriptionsTable() {
             className={cn(buttonVariants({ variant: "default" }), "bg-primary")}
           >
             <PlusIcon />
-            إضافة اشترك جديد
+            إضافة اشتراك جديد
           </Link>
 
           {/* Column visibility */}

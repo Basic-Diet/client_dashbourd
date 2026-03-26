@@ -18,6 +18,7 @@ import { Route as ProtectedPackagesIndexRouteImport } from './routes/_protected/
 import { Route as ProtectedOrdersIndexRouteImport } from './routes/_protected/orders/index'
 import { Route as ProtectedSubscriptionsCreateRouteImport } from './routes/_protected/subscriptions/create'
 import { Route as ProtectedPackagesCreateRouteImport } from './routes/_protected/packages/create'
+import { Route as ProtectedSubscriptionsSubscriptionIdIndexRouteImport } from './routes/_protected/subscriptions/$subscriptionId/index'
 import { Route as ProtectedPackagesPlanIdUpdateRouteImport } from './routes/_protected/packages/$planId/update'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
@@ -66,6 +67,12 @@ const ProtectedPackagesCreateRoute = ProtectedPackagesCreateRouteImport.update({
   path: '/packages/create',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
+const ProtectedSubscriptionsSubscriptionIdIndexRoute =
+  ProtectedSubscriptionsSubscriptionIdIndexRouteImport.update({
+    id: '/subscriptions/$subscriptionId/',
+    path: '/subscriptions/$subscriptionId/',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 const ProtectedPackagesPlanIdUpdateRoute =
   ProtectedPackagesPlanIdUpdateRouteImport.update({
     id: '/packages/$planId/update',
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/subscriptions/': typeof ProtectedSubscriptionsIndexRoute
   '/users/': typeof ProtectedUsersIndexRoute
   '/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
+  '/subscriptions/$subscriptionId/': typeof ProtectedSubscriptionsSubscriptionIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +102,7 @@ export interface FileRoutesByTo {
   '/subscriptions': typeof ProtectedSubscriptionsIndexRoute
   '/users': typeof ProtectedUsersIndexRoute
   '/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
+  '/subscriptions/$subscriptionId': typeof ProtectedSubscriptionsSubscriptionIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +116,7 @@ export interface FileRoutesById {
   '/_protected/subscriptions/': typeof ProtectedSubscriptionsIndexRoute
   '/_protected/users/': typeof ProtectedUsersIndexRoute
   '/_protected/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
+  '/_protected/subscriptions/$subscriptionId/': typeof ProtectedSubscriptionsSubscriptionIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/subscriptions/'
     | '/users/'
     | '/packages/$planId/update'
+    | '/subscriptions/$subscriptionId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/subscriptions'
     | '/users'
     | '/packages/$planId/update'
+    | '/subscriptions/$subscriptionId'
   id:
     | '__root__'
     | '/'
@@ -143,6 +155,7 @@ export interface FileRouteTypes {
     | '/_protected/subscriptions/'
     | '/_protected/users/'
     | '/_protected/packages/$planId/update'
+    | '/_protected/subscriptions/$subscriptionId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -215,6 +228,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedPackagesCreateRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/subscriptions/$subscriptionId/': {
+      id: '/_protected/subscriptions/$subscriptionId/'
+      path: '/subscriptions/$subscriptionId'
+      fullPath: '/subscriptions/$subscriptionId/'
+      preLoaderRoute: typeof ProtectedSubscriptionsSubscriptionIdIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
     '/_protected/packages/$planId/update': {
       id: '/_protected/packages/$planId/update'
       path: '/packages/$planId/update'
@@ -234,6 +254,7 @@ interface ProtectedRouteRouteChildren {
   ProtectedSubscriptionsIndexRoute: typeof ProtectedSubscriptionsIndexRoute
   ProtectedUsersIndexRoute: typeof ProtectedUsersIndexRoute
   ProtectedPackagesPlanIdUpdateRoute: typeof ProtectedPackagesPlanIdUpdateRoute
+  ProtectedSubscriptionsSubscriptionIdIndexRoute: typeof ProtectedSubscriptionsSubscriptionIdIndexRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
@@ -245,6 +266,8 @@ const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedSubscriptionsIndexRoute: ProtectedSubscriptionsIndexRoute,
   ProtectedUsersIndexRoute: ProtectedUsersIndexRoute,
   ProtectedPackagesPlanIdUpdateRoute: ProtectedPackagesPlanIdUpdateRoute,
+  ProtectedSubscriptionsSubscriptionIdIndexRoute:
+    ProtectedSubscriptionsSubscriptionIdIndexRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(

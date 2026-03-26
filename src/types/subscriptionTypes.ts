@@ -147,3 +147,17 @@ export interface SubscriptionsListResponse {
   meta: SubscriptionsMeta;
   filters: SubscriptionFilters;
 }
+
+export interface SubscriptionDetailsResponse {
+  status: boolean;
+  data: Subscription;
+}
+
+export interface FreezeSubscriptionPayload {
+  startDate: string;
+  days: number;
+}
+
+export interface ExtendSubscriptionPayload {
+  days: number;
+}

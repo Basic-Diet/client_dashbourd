@@ -1,6 +1,9 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Subscription } from "@/types/subscriptionTypes";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Link } from "@tanstack/react-router";
+import { EyeIcon } from "lucide-react";
 
 export const subscriptionsColumns: ColumnDef<Subscription>[] = [
   {
@@ -88,5 +91,18 @@ export const subscriptionsColumns: ColumnDef<Subscription>[] = [
       const date = new Date(row.original.endDate);
       return <span className="text-muted-foreground">{date.toLocaleDateString('ar-EG')}</span>;
     },
+  },
+  {
+    id: "actions",
+    header: "الإجراءات",
+    cell: ({ row }) => (
+      <Button variant="ghost" size="sm" asChild>
+        <Link to="/subscriptions/$subscriptionId" params={{ subscriptionId: row.original._id }}>
+          <EyeIcon className="ml-1 size-4" />
+          عرض
+        </Link>
+      </Button>
+    ),
+    enableHiding: false,
   },
 ];

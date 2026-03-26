@@ -1,5 +1,14 @@
-import { fetchSubscriptionsSummary, fetchSubscriptionsList } from "@/utils/fetchSubscriptionsData";
-import { queryOptions, useQuery, keepPreviousData } from "@tanstack/react-query";
+import {
+  fetchSubscriptionsSummary,
+  fetchSubscriptionsList,
+  fetchSubscriptionDetails,
+  freezeSubscription,
+  unfreezeSubscription,
+  extendSubscription,
+  cancelSubscription,
+} from "@/utils/fetchSubscriptionsData";
+import { queryOptions, useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+
 
 export const subscriptionsSummaryQueryOptions = () =>
   queryOptions({
@@ -32,4 +41,59 @@ export const useSubscriptionsListQuery = (
   q: string = ""
 ) => {
   return useQuery(subscriptionsListQueryOptions(status, page, limit, q));
+};
+
+export const subscriptionDetailsQueryOptions = (id: string) =>
+  queryOptions({
+    queryKey: ["subscription-details", id],
+    queryFn: () => fetchSubscriptionDetails(id),
+    staleTime: 1000 * 60 * 5,
+  });
+
+export const useSubscriptionDetailsQuery = (id: string) => {
+  return useQuery(subscriptionDetailsQueryOptions(id));
+};
+
+export const useFreezeSubscriptionMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: freezeSubscription,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["subscription-details", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+    },
+  });
+};
+
+export const useUnfreezeSubscriptionMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: unfreezeSubscription,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["subscription-details", id] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+    },
+  });
+};
+
+export const useExtendSubscriptionMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: extendSubscription,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["subscription-details", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+    },
+  });
+};
+
+export const useCancelSubscriptionMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["subscription-details", id] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+    },
+  });
 };
