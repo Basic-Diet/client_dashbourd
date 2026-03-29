@@ -8,4 +8,5 @@ export const routeTranslations: Record<string, string> = {
   update: "تعديل",
   edit: "تعديل",
   details: "التفاصيل",
+  "create-subscription": "إنشاء اشتراك",
 };

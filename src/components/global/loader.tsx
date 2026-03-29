@@ -23,7 +23,7 @@ export function Loader({
 }: LoaderProps) {
   const content = (
     <div className="flex flex-col items-center justify-center gap-4">
-      <div className="relative">
+      <div className="relative z-50">
         <Loader2
           className={cn(
             "animate-spin text-primary",

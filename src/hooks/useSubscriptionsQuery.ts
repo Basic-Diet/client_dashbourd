@@ -6,6 +6,7 @@ import {
   unfreezeSubscription,
   extendSubscription,
   cancelSubscription,
+  createSubscription,
 } from "@/utils/fetchSubscriptionsData";
 import { queryOptions, useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 
@@ -94,6 +95,17 @@ export const useCancelSubscriptionMutation = () => {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["subscription-details", id] });
       queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+    },
+  });
+};
+
+export const useCreateSubscriptionMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createSubscription,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
     },
   });
 };

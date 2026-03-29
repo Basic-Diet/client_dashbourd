@@ -2,17 +2,10 @@ import * as React from "react";
 import {
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -24,27 +17,22 @@ import {
 import { PlusIcon, SearchIcon } from "lucide-react";
 import { DataTableViewOptions } from "@/components/ui/data-table-view-options";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { subscriptionsColumns } from "./subscriptions-columns";
-import { useSubscriptionsListQuery } from "@/hooks/useSubscriptionsQuery";
-import { useDebounce } from "@/hooks/useDebounce";
+import { usersColumns } from "./users-columns";
+import { useUsersListQuery } from "@/hooks/useUsersQuery";
 import { Link } from "@tanstack/react-router";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function SubscriptionsTable() {
-  const [statusFilter, setStatusFilter] = React.useState<string>("all");
+export function UsersTable() {
   const [globalFilter, setGlobalFilter] = React.useState("");
-  const debouncedSearch = useDebounce(globalFilter, 500);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const { data: response, isLoading } = useSubscriptionsListQuery(
-    statusFilter === "all" ? null : statusFilter,
+  const { data: response, isLoading } = useUsersListQuery(
     pagination.pageIndex + 1,
-    pagination.pageSize,
-    debouncedSearch
+    pagination.pageSize
   );
 
   const data = React.useMemo(() => response?.data || [], [response]);
@@ -53,13 +41,16 @@ export function SubscriptionsTable() {
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
-    columns: subscriptionsColumns,
+    columns: usersColumns,
     state: {
       pagination,
+      globalFilter,
     },
     pageCount: meta.totalPages,
     onPaginationChange: setPagination,
+    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     manualPagination: true,
   });
 
@@ -68,34 +59,11 @@ export function SubscriptionsTable() {
       {/* Toolbar */}
       <div className="flex flex-col gap-4 px-4 lg:px-6">
         <div className="flex items-center gap-3">
-          {/* Status filter */}
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => {
-              setStatusFilter(value);
-              setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-            }}
-          >
-            <SelectTrigger className="w-40" size="sm">
-              <SelectValue placeholder="الحالة" />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectGroup>
-                <SelectItem value="all">الكل</SelectItem>
-                <SelectItem value="active">نشط</SelectItem>
-                <SelectItem value="pending">قيد الانتظار</SelectItem>
-                <SelectItem value="expired">منتهي</SelectItem>
-                <SelectItem value="canceled">ملغى</SelectItem>
-                <SelectItem value="ended">انتهى</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-
           {/* Search box */}
           <div className="relative flex-1">
             <SearchIcon className="absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="البحث باسم المشترك"
+              placeholder="البحث باسم المستخدم"
               value={globalFilter}
               onChange={(e) => {
                 setGlobalFilter(e.target.value);
@@ -105,13 +73,13 @@ export function SubscriptionsTable() {
             />
           </div>
 
-          {/* action link */}
+          {/* Add user link */}
           <Link
-            to="/subscriptions/create"
+            to="/users/create"
             className={cn(buttonVariants({ variant: "default" }), "bg-primary")}
           >
             <PlusIcon />
-            إضافة اشتراك جديد
+            إضافة مستخدم جديد
           </Link>
 
           {/* Column visibility */}
@@ -149,7 +117,7 @@ export function SubscriptionsTable() {
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={subscriptionsColumns.length}
+                    colSpan={usersColumns.length}
                     className="h-24 text-center"
                   >
                     جاري التحميل...
@@ -171,10 +139,10 @@ export function SubscriptionsTable() {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={subscriptionsColumns.length}
+                    colSpan={usersColumns.length}
                     className="h-24 text-center"
                   >
-                    لا توجد اشتراكات.
+                    لا يوجد مستخدمين.
                   </TableCell>
                 </TableRow>
               )}
@@ -186,7 +154,7 @@ export function SubscriptionsTable() {
         <DataTablePagination
           table={table}
           totalItems={meta.total}
-          itemsLabel="الاشتراكات"
+          itemsLabel="مستخدمين"
         />
       </div>
     </div>

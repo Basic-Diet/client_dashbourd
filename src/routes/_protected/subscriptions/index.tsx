@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SectionCards } from "@/components/custom/section-cards";
 import { getSubscriptionsSectionCards } from "@/constants/SectionCardsData";
 import { createFileRoute } from "@tanstack/react-router";
@@ -10,8 +9,8 @@ import type { SubscriptionSummaryResponse } from "@/types/subscriptionTypes";
 
 export const Route = createFileRoute("/_protected/subscriptions/")({
   component: RouteComponent,
-  loader: ({ context: { queryClient } }: any) =>
-    queryClient.ensureQueryData(subscriptionsSummaryQueryOptions()),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(subscriptionsSummaryQueryOptions()),
   pendingComponent: () => (
     <Loader variant="full-screen" label="جاري تحميل الاشتراكات..." />
   ),

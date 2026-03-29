@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SectionCards } from "@/components/custom/section-cards";
 import { getPackagesSectionCards } from "@/constants/SectionCardsData";
 import { createFileRoute } from "@tanstack/react-router";
@@ -10,8 +9,8 @@ import type { PackagesResponse } from "@/types/packageTypes";
 
 export const Route = createFileRoute("/_protected/packages/")({
   component: RouteComponent,
-  loader: ({ context: { queryClient } }: any) =>
-    queryClient.ensureQueryData(packagesQueryOptions()),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(packagesQueryOptions()),
   pendingComponent: () => (
     <Loader variant="full-screen" label="جاري تحميل الباقات..." />
   ),

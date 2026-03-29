@@ -14,7 +14,7 @@ import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useExtendSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
-import { toast } from "sonner";
+import { ToastMessage } from "@/components/global/ToastMessage";
 
 const extendSchema = z.object({
   days: z.number().min(1, { message: "يجب أن يكون عدد الأيام 1 على الأقل" }),
@@ -28,8 +28,13 @@ interface ExtendModalProps {
   onClose: () => void;
 }
 
-export function ExtendModal({ subscriptionId, isOpen, onClose }: ExtendModalProps) {
-  const { mutateAsync: extendSubscription, isPending } = useExtendSubscriptionMutation();
+export function ExtendModal({
+  subscriptionId,
+  isOpen,
+  onClose,
+}: ExtendModalProps) {
+  const { mutateAsync: extendSubscription, isPending } =
+    useExtendSubscriptionMutation();
 
   const form = useForm<ExtendFormValues>({
     resolver: zodResolver(extendSchema),
@@ -41,12 +46,12 @@ export function ExtendModal({ subscriptionId, isOpen, onClose }: ExtendModalProp
   const onSubmit = async (data: ExtendFormValues) => {
     try {
       await extendSubscription({ id: subscriptionId, data });
-      toast.success("تم تمديد الاشتراك بنجاح");
+      ToastMessage("تم تمديد الاشتراك بنجاح", "success");
       onClose();
       form.reset();
     } catch (error) {
       console.error(error);
-      toast.error("حدث خطأ أثناء تمديد الاشتراك");
+      ToastMessage("حدث خطأ أثناء تمديد الاشتراك", "error");
     }
   };
 
@@ -62,13 +67,25 @@ export function ExtendModal({ subscriptionId, isOpen, onClose }: ExtendModalProp
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="days">عدد الأيام الإضافية</Label>
-            <Input id="days" type="number" min={1} {...form.register("days", { valueAsNumber: true })} />
+            <Input
+              id="days"
+              type="number"
+              min={1}
+              {...form.register("days", { valueAsNumber: true })}
+            />
             {form.formState.errors.days && (
-              <FieldError errors={[{ message: form.formState.errors.days.message }]} />
+              <FieldError
+                errors={[{ message: form.formState.errors.days.message }]}
+              />
             )}
           </div>
           <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isPending}
+            >
               إلغاء
             </Button>
             <Button type="submit" disabled={isPending}>

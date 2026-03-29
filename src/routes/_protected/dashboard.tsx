@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from "react";
 import { ChartAreaInteractive } from "@/components/chart-area-interactive";
 import { DataTable } from "@/components/pages/dashboard/data-table";
@@ -16,8 +15,8 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_protected/dashboard")({
   component: RouteComponent,
-  loader: ({ context: { queryClient } }: any) =>
-    queryClient.ensureQueryData(dashboardQueryOptions()),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(dashboardQueryOptions()),
   pendingComponent: () => (
     <Loader variant="full-screen" label="جاري تحميل البيانات..." />
   ),
@@ -53,8 +52,8 @@ function RouteComponent() {
         <ChartAreaInteractive />
       </div>
       <DataTable
-        columns={columns as any}
-        data={tableData as any}
+        columns={columns as unknown as React.ComponentProps<typeof DataTable>["columns"]}
+        data={tableData as unknown as React.ComponentProps<typeof DataTable>["data"]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />

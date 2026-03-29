@@ -85,6 +85,7 @@ export function PackagesTable({ data: initialData }: { data: Package[] }) {
     setData(initialData);
   }, [initialData]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns: packagesColumns,

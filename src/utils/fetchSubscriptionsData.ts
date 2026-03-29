@@ -84,3 +84,8 @@ export const cancelSubscription = async (id: string) => {
   const response = await api.post(`/api/dashboard/subscriptions/${id}/cancel`);
   return response.data;
 };
+
+export const createSubscription = async (data: Record<string, unknown>) => {
+  const response = await api.post("/api/dashboard/subscriptions", data);
+  return response.data;
+};

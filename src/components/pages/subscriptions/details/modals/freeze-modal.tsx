@@ -14,7 +14,7 @@ import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useFreezeSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
-import { toast } from "sonner";
+import { ToastMessage } from "@/components/global/ToastMessage";
 
 const freezeSchema = z.object({
   startDate: z.string().min(1, { message: "تاريخ البدء مطلوب" }),
@@ -29,8 +29,13 @@ interface FreezeModalProps {
   onClose: () => void;
 }
 
-export function FreezeModal({ subscriptionId, isOpen, onClose }: FreezeModalProps) {
-  const { mutateAsync: freezeSubscription, isPending } = useFreezeSubscriptionMutation();
+export function FreezeModal({
+  subscriptionId,
+  isOpen,
+  onClose,
+}: FreezeModalProps) {
+  const { mutateAsync: freezeSubscription, isPending } =
+    useFreezeSubscriptionMutation();
 
   const form = useForm<FreezeFormValues>({
     resolver: zodResolver(freezeSchema),
@@ -43,12 +48,12 @@ export function FreezeModal({ subscriptionId, isOpen, onClose }: FreezeModalProp
   const onSubmit = async (data: FreezeFormValues) => {
     try {
       await freezeSubscription({ id: subscriptionId, data });
-      toast.success("تم تجميد الاشتراك بنجاح");
+      ToastMessage("تم تجميد الاشتراك بنجاح", "success");
       onClose();
       form.reset();
     } catch (error) {
       console.error(error);
-      toast.error("حدث خطأ أثناء تجميد الاشتراك");
+      ToastMessage("حدث خطأ أثناء تجميد الاشتراك", "error");
     }
   };
 
@@ -58,7 +63,8 @@ export function FreezeModal({ subscriptionId, isOpen, onClose }: FreezeModalProp
         <DialogHeader>
           <DialogTitle>تجميد الاشتراك</DialogTitle>
           <DialogDescription>
-            حدد تاريخ بدء التجميد وعدد الأيام. سيتم تعليق الاشتراك وتمديد تاريخ الانتهاء تلقائياً.
+            حدد تاريخ بدء التجميد وعدد الأيام. سيتم تعليق الاشتراك وتمديد تاريخ
+            الانتهاء تلقائياً.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -66,18 +72,32 @@ export function FreezeModal({ subscriptionId, isOpen, onClose }: FreezeModalProp
             <Label htmlFor="startDate">تاريخ البدء</Label>
             <Input id="startDate" type="date" {...form.register("startDate")} />
             {form.formState.errors.startDate && (
-              <FieldError errors={[{ message: form.formState.errors.startDate.message }]} />
+              <FieldError
+                errors={[{ message: form.formState.errors.startDate.message }]}
+              />
             )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="days">عدد الأيام</Label>
-            <Input id="days" type="number" min={1} {...form.register("days", { valueAsNumber: true })} />
+            <Input
+              id="days"
+              type="number"
+              min={1}
+              {...form.register("days", { valueAsNumber: true })}
+            />
             {form.formState.errors.days && (
-              <FieldError errors={[{ message: form.formState.errors.days.message }]} />
+              <FieldError
+                errors={[{ message: form.formState.errors.days.message }]}
+              />
             )}
           </div>
           <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isPending}
+            >
               إلغاء
             </Button>
             <Button type="submit" disabled={isPending}>
