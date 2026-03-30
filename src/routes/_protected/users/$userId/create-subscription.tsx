@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CreateSubscriptionForm } from "@/components/pages/users/create-subscription-form";
+import { CreateSubscriptionFormContent } from "@/components/pages/subscriptions/create/CreateSubscriptionFormContent";
 import { Button } from "@/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
 import { userDetailsQueryOptions } from "@/hooks/useUsersQuery";
@@ -45,13 +45,13 @@ function CreateSubscriptionPage() {
             إنشاء اشتراك جديد
           </h1>
           <p className="text-muted-foreground">
-            إنشاء اشتراك جديد للمستخدم <span className="font-semibold text-foreground">{userName}</span>
+            إنشاء اشتراك جديد للمستخدم{" "}
+            <span className="font-semibold text-foreground">{userName}</span>
           </p>
         </div>
       </div>
 
-      <CreateSubscriptionForm userId={userId} />
+      <CreateSubscriptionFormContent userId={userId} />
     </div>
   );
 }
-

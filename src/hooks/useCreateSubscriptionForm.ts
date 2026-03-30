@@ -9,8 +9,8 @@ const useCreateSubscriptionForm = (userId: string) => {
     defaultValues: {
       userId,
       planId: "",
-      grams: 350,
-      mealsPerDay: 2,
+      grams: 0,
+      mealsPerDay: 0,
       startDate: "",
       premiumItems: [],
       addons: [],

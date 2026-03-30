@@ -65,8 +65,8 @@ function UpdatePackagePage() {
         mealsPerDay: meal.mealsPerDay,
         sortOrder: meal.sortOrder,
         isActive: meal.isActive,
-        priceHalala: meal.priceHalala,
-        compareAtHalala: meal.compareAtHalala ?? "",
+        priceSar: meal.priceHalala / 100,
+        compareAtSar: meal.compareAtHalala ? meal.compareAtHalala / 100 : "",
       })),
     })),
   };

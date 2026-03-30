@@ -7,10 +7,21 @@ export const usersQueryOptions = (page: number, limit: number) =>
     queryFn: () => fetchUsersList({ page, limit }),
   });
 
+export const allUsersQueryOptions = () =>
+  queryOptions({
+    queryKey: ["users", "all"],
+    queryFn: () => fetchUsersList({ page: 1, limit: 200 }),
+    staleTime: 1000 * 60 * 5,
+  });
+
 export const useUsersListQuery = (page: number, limit: number) => {
   return useQuery({
     ...usersQueryOptions(page, limit),
   });
+};
+
+export const useAllUsersQuery = () => {
+  return useQuery(allUsersQueryOptions());
 };
 
 export const userDetailsQueryOptions = (userId: string) =>

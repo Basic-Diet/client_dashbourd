@@ -72,36 +72,40 @@ export function MealCard({
           )}
         </div>
 
-        {/* Price */}
+        {/* Price (SAR) */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">السعر</Label>
+          <Label className="text-xs text-muted-foreground">السعر (ريال)</Label>
           <Input
             type="number"
-            min="1"
+            min="0.01"
+            step="0.01"
             placeholder="100"
-            {...form.register(`${prefix}.priceHalala`)}
-            aria-invalid={!!errors?.priceHalala}
+            {...form.register(`${prefix}.priceSar`)}
+            aria-invalid={!!errors?.priceSar}
           />
-          {errors?.priceHalala && (
+          {errors?.priceSar && (
             <p className="text-xs text-destructive">
-              {errors.priceHalala.message}
+              {errors.priceSar.message}
             </p>
           )}
         </div>
 
-        {/* Compare At Price */}
+        {/* Compare At Price (SAR) */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">سعر المقارنة</Label>
+          <Label className="text-xs text-muted-foreground">
+            سعر المقارنة (ريال)
+          </Label>
           <Input
             type="number"
             min="0"
+            step="0.01"
             placeholder="200"
-            {...form.register(`${prefix}.compareAtHalala`)}
-            aria-invalid={!!errors?.compareAtHalala}
+            {...form.register(`${prefix}.compareAtSar`)}
+            aria-invalid={!!errors?.compareAtSar}
           />
-          {errors?.compareAtHalala && (
+          {errors?.compareAtSar && (
             <p className="text-xs text-destructive">
-              {errors.compareAtHalala.message}
+              {errors.compareAtSar.message}
             </p>
           )}
         </div>

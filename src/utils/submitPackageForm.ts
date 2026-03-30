@@ -21,21 +21,24 @@ export const submitPackageForm = async (
       gramsOptions: data.gramsOptions.map((gram, gi) => ({
         ...gram,
         sortOrder: gi,
-        mealsOptions: gram.mealsOptions.map((meal, mi) => ({
-          ...meal,
-          sortOrder: mi,
-          compareAtHalala:
-            meal.compareAtHalala === "" || meal.compareAtHalala === undefined
-              ? undefined
-              : Number(meal.compareAtHalala),
-          priceHalala: Number(meal.priceHalala),
-          mealsPerDay: Number(meal.mealsPerDay),
-        })),
+        mealsOptions: gram.mealsOptions.map((meal, mi) => {
+          const { priceSar, compareAtSar, ...rest } = meal;
+          return {
+            ...rest,
+            sortOrder: mi,
+            priceHalala: Math.round(Number(priceSar) * 100),
+            compareAtHalala:
+              compareAtSar === "" || compareAtSar === undefined
+                ? undefined
+                : Math.round(Number(compareAtSar) * 100),
+            mealsPerDay: Number(meal.mealsPerDay),
+          };
+        }),
       })),
       freezePolicy: data.freezePolicy,
     };
 
-    await fetchCreatePackage(payload as CreatePackageSchemaType);
+    await fetchCreatePackage(payload as unknown as CreatePackageSchemaType);
     ToastMessage("تم إنشاء الباقة بنجاح! 🎉", "success");
     await queryClient.invalidateQueries(packagesQueryOptions());
     routerNavigate({ to: "/packages" });

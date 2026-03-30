@@ -7,8 +7,8 @@ export const DEFAULT_MEAL = {
   mealsPerDay: 1,
   sortOrder: 0,
   isActive: true,
-  priceHalala: 0,
-  compareAtHalala: undefined,
+  priceSar: 0,
+  compareAtSar: undefined,
 };
 
 const DEFAULT_GRAM = {
