@@ -5,7 +5,7 @@ import {
   Users,
   Boxes,
   CalendarPlus,
-  Truck,
+  // Truck,
   UtensilsCrossed,
   PlusSquare,
 } from "lucide-react";
