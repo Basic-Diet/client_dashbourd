@@ -7,6 +7,7 @@ const SUPERADMIN_ROUTES = [
   "/subscriptions",
   "/packages",
   "/users",
+  "/premium-meals",
 ];
 
 const KITCHEN_ROUTES = ["/orders"];

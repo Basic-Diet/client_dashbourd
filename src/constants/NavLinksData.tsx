@@ -6,6 +6,7 @@ import {
   Boxes,
   CalendarPlus,
   Truck,
+  UtensilsCrossed,
 } from "lucide-react";
 
 export const NavLinksData = {
@@ -14,6 +15,11 @@ export const NavLinksData = {
       title: "لوحة التحكم",
       url: "/dashboard",
       icon: <LayoutDashboardIcon />,
+    },
+    {
+      title: "الوجبات المميزة",
+      url: "/premium-meals",
+      icon: <UtensilsCrossed />,
     },
     {
       title: "الباقات",
