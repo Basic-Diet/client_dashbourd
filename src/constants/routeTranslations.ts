@@ -4,6 +4,7 @@ export const routeTranslations: Record<string, string> = {
   orders: "الطلبات",
   subscriptions: "الاشتراكات",
   users: "المستخدمين",
+  addons: "الإضافات",
   create: "إضافة جديد",
   update: "تعديل",
   edit: "تعديل",

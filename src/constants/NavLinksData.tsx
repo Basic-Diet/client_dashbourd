@@ -7,6 +7,7 @@ import {
   CalendarPlus,
   Truck,
   UtensilsCrossed,
+  PlusSquare,
 } from "lucide-react";
 
 export const NavLinksData = {
@@ -22,6 +23,11 @@ export const NavLinksData = {
       icon: <UtensilsCrossed />,
     },
     {
+      title: "الإضافات",
+      url: "/addons",
+      icon: <PlusSquare />,
+    },
+    {
       title: "الباقات",
       url: "/packages",
       icon: <Boxes />,
@@ -31,11 +37,11 @@ export const NavLinksData = {
       url: "/subscriptions",
       icon: <CalendarPlus />,
     },
-    {
-      title: "الطلبات",
-      url: "/orders",
-      icon: <Truck />,
-    },
+    // {
+    //   title: "الطلبات",
+    //   url: "/orders",
+    //   icon: <Truck />,
+    // },
     {
       title: "المستخدمين",
       url: "/users",

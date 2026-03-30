@@ -17,15 +17,18 @@ import { Route as ProtectedSubscriptionsIndexRouteImport } from './routes/_prote
 import { Route as ProtectedPremiumMealsIndexRouteImport } from './routes/_protected/premium-meals/index'
 import { Route as ProtectedPackagesIndexRouteImport } from './routes/_protected/packages/index'
 import { Route as ProtectedOrdersIndexRouteImport } from './routes/_protected/orders/index'
+import { Route as ProtectedAddonsIndexRouteImport } from './routes/_protected/addons/index'
 import { Route as ProtectedUsersCreateRouteImport } from './routes/_protected/users/create'
 import { Route as ProtectedSubscriptionsCreateRouteImport } from './routes/_protected/subscriptions/create'
 import { Route as ProtectedPremiumMealsCreateRouteImport } from './routes/_protected/premium-meals/create'
 import { Route as ProtectedPackagesCreateRouteImport } from './routes/_protected/packages/create'
+import { Route as ProtectedAddonsCreateRouteImport } from './routes/_protected/addons/create'
 import { Route as ProtectedUsersUserIdIndexRouteImport } from './routes/_protected/users/$userId/index'
 import { Route as ProtectedSubscriptionsSubscriptionIdIndexRouteImport } from './routes/_protected/subscriptions/$subscriptionId/index'
 import { Route as ProtectedUsersUserIdCreateSubscriptionRouteImport } from './routes/_protected/users/$userId/create-subscription'
 import { Route as ProtectedPremiumMealsMealIdUpdateRouteImport } from './routes/_protected/premium-meals/$mealId/update'
 import { Route as ProtectedPackagesPlanIdUpdateRouteImport } from './routes/_protected/packages/$planId/update'
+import { Route as ProtectedAddonsAddonIdUpdateRouteImport } from './routes/_protected/addons/$addonId/update'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -68,6 +71,11 @@ const ProtectedOrdersIndexRoute = ProtectedOrdersIndexRouteImport.update({
   path: '/orders/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
+const ProtectedAddonsIndexRoute = ProtectedAddonsIndexRouteImport.update({
+  id: '/addons/',
+  path: '/addons/',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
 const ProtectedUsersCreateRoute = ProtectedUsersCreateRouteImport.update({
   id: '/users/create',
   path: '/users/create',
@@ -88,6 +96,11 @@ const ProtectedPremiumMealsCreateRoute =
 const ProtectedPackagesCreateRoute = ProtectedPackagesCreateRouteImport.update({
   id: '/packages/create',
   path: '/packages/create',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
+const ProtectedAddonsCreateRoute = ProtectedAddonsCreateRouteImport.update({
+  id: '/addons/create',
+  path: '/addons/create',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const ProtectedUsersUserIdIndexRoute =
@@ -120,19 +133,28 @@ const ProtectedPackagesPlanIdUpdateRoute =
     path: '/packages/$planId/update',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
+const ProtectedAddonsAddonIdUpdateRoute =
+  ProtectedAddonsAddonIdUpdateRouteImport.update({
+    id: '/addons/$addonId/update',
+    path: '/addons/$addonId/update',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/addons/create': typeof ProtectedAddonsCreateRoute
   '/packages/create': typeof ProtectedPackagesCreateRoute
   '/premium-meals/create': typeof ProtectedPremiumMealsCreateRoute
   '/subscriptions/create': typeof ProtectedSubscriptionsCreateRoute
   '/users/create': typeof ProtectedUsersCreateRoute
+  '/addons/': typeof ProtectedAddonsIndexRoute
   '/orders/': typeof ProtectedOrdersIndexRoute
   '/packages/': typeof ProtectedPackagesIndexRoute
   '/premium-meals/': typeof ProtectedPremiumMealsIndexRoute
   '/subscriptions/': typeof ProtectedSubscriptionsIndexRoute
   '/users/': typeof ProtectedUsersIndexRoute
+  '/addons/$addonId/update': typeof ProtectedAddonsAddonIdUpdateRoute
   '/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
   '/premium-meals/$mealId/update': typeof ProtectedPremiumMealsMealIdUpdateRoute
   '/users/$userId/create-subscription': typeof ProtectedUsersUserIdCreateSubscriptionRoute
@@ -142,15 +164,18 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/addons/create': typeof ProtectedAddonsCreateRoute
   '/packages/create': typeof ProtectedPackagesCreateRoute
   '/premium-meals/create': typeof ProtectedPremiumMealsCreateRoute
   '/subscriptions/create': typeof ProtectedSubscriptionsCreateRoute
   '/users/create': typeof ProtectedUsersCreateRoute
+  '/addons': typeof ProtectedAddonsIndexRoute
   '/orders': typeof ProtectedOrdersIndexRoute
   '/packages': typeof ProtectedPackagesIndexRoute
   '/premium-meals': typeof ProtectedPremiumMealsIndexRoute
   '/subscriptions': typeof ProtectedSubscriptionsIndexRoute
   '/users': typeof ProtectedUsersIndexRoute
+  '/addons/$addonId/update': typeof ProtectedAddonsAddonIdUpdateRoute
   '/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
   '/premium-meals/$mealId/update': typeof ProtectedPremiumMealsMealIdUpdateRoute
   '/users/$userId/create-subscription': typeof ProtectedUsersUserIdCreateSubscriptionRoute
@@ -162,15 +187,18 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/_protected/dashboard': typeof ProtectedDashboardRoute
+  '/_protected/addons/create': typeof ProtectedAddonsCreateRoute
   '/_protected/packages/create': typeof ProtectedPackagesCreateRoute
   '/_protected/premium-meals/create': typeof ProtectedPremiumMealsCreateRoute
   '/_protected/subscriptions/create': typeof ProtectedSubscriptionsCreateRoute
   '/_protected/users/create': typeof ProtectedUsersCreateRoute
+  '/_protected/addons/': typeof ProtectedAddonsIndexRoute
   '/_protected/orders/': typeof ProtectedOrdersIndexRoute
   '/_protected/packages/': typeof ProtectedPackagesIndexRoute
   '/_protected/premium-meals/': typeof ProtectedPremiumMealsIndexRoute
   '/_protected/subscriptions/': typeof ProtectedSubscriptionsIndexRoute
   '/_protected/users/': typeof ProtectedUsersIndexRoute
+  '/_protected/addons/$addonId/update': typeof ProtectedAddonsAddonIdUpdateRoute
   '/_protected/packages/$planId/update': typeof ProtectedPackagesPlanIdUpdateRoute
   '/_protected/premium-meals/$mealId/update': typeof ProtectedPremiumMealsMealIdUpdateRoute
   '/_protected/users/$userId/create-subscription': typeof ProtectedUsersUserIdCreateSubscriptionRoute
@@ -182,15 +210,18 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/addons/create'
     | '/packages/create'
     | '/premium-meals/create'
     | '/subscriptions/create'
     | '/users/create'
+    | '/addons/'
     | '/orders/'
     | '/packages/'
     | '/premium-meals/'
     | '/subscriptions/'
     | '/users/'
+    | '/addons/$addonId/update'
     | '/packages/$planId/update'
     | '/premium-meals/$mealId/update'
     | '/users/$userId/create-subscription'
@@ -200,15 +231,18 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/addons/create'
     | '/packages/create'
     | '/premium-meals/create'
     | '/subscriptions/create'
     | '/users/create'
+    | '/addons'
     | '/orders'
     | '/packages'
     | '/premium-meals'
     | '/subscriptions'
     | '/users'
+    | '/addons/$addonId/update'
     | '/packages/$planId/update'
     | '/premium-meals/$mealId/update'
     | '/users/$userId/create-subscription'
@@ -219,15 +253,18 @@ export interface FileRouteTypes {
     | '/'
     | '/_protected'
     | '/_protected/dashboard'
+    | '/_protected/addons/create'
     | '/_protected/packages/create'
     | '/_protected/premium-meals/create'
     | '/_protected/subscriptions/create'
     | '/_protected/users/create'
+    | '/_protected/addons/'
     | '/_protected/orders/'
     | '/_protected/packages/'
     | '/_protected/premium-meals/'
     | '/_protected/subscriptions/'
     | '/_protected/users/'
+    | '/_protected/addons/$addonId/update'
     | '/_protected/packages/$planId/update'
     | '/_protected/premium-meals/$mealId/update'
     | '/_protected/users/$userId/create-subscription'
@@ -298,6 +335,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOrdersIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/addons/': {
+      id: '/_protected/addons/'
+      path: '/addons'
+      fullPath: '/addons/'
+      preLoaderRoute: typeof ProtectedAddonsIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
     '/_protected/users/create': {
       id: '/_protected/users/create'
       path: '/users/create'
@@ -324,6 +368,13 @@ declare module '@tanstack/react-router' {
       path: '/packages/create'
       fullPath: '/packages/create'
       preLoaderRoute: typeof ProtectedPackagesCreateRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/addons/create': {
+      id: '/_protected/addons/create'
+      path: '/addons/create'
+      fullPath: '/addons/create'
+      preLoaderRoute: typeof ProtectedAddonsCreateRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
     '/_protected/users/$userId/': {
@@ -361,20 +412,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedPackagesPlanIdUpdateRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/addons/$addonId/update': {
+      id: '/_protected/addons/$addonId/update'
+      path: '/addons/$addonId/update'
+      fullPath: '/addons/$addonId/update'
+      preLoaderRoute: typeof ProtectedAddonsAddonIdUpdateRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
   }
 }
 
 interface ProtectedRouteRouteChildren {
   ProtectedDashboardRoute: typeof ProtectedDashboardRoute
+  ProtectedAddonsCreateRoute: typeof ProtectedAddonsCreateRoute
   ProtectedPackagesCreateRoute: typeof ProtectedPackagesCreateRoute
   ProtectedPremiumMealsCreateRoute: typeof ProtectedPremiumMealsCreateRoute
   ProtectedSubscriptionsCreateRoute: typeof ProtectedSubscriptionsCreateRoute
   ProtectedUsersCreateRoute: typeof ProtectedUsersCreateRoute
+  ProtectedAddonsIndexRoute: typeof ProtectedAddonsIndexRoute
   ProtectedOrdersIndexRoute: typeof ProtectedOrdersIndexRoute
   ProtectedPackagesIndexRoute: typeof ProtectedPackagesIndexRoute
   ProtectedPremiumMealsIndexRoute: typeof ProtectedPremiumMealsIndexRoute
   ProtectedSubscriptionsIndexRoute: typeof ProtectedSubscriptionsIndexRoute
   ProtectedUsersIndexRoute: typeof ProtectedUsersIndexRoute
+  ProtectedAddonsAddonIdUpdateRoute: typeof ProtectedAddonsAddonIdUpdateRoute
   ProtectedPackagesPlanIdUpdateRoute: typeof ProtectedPackagesPlanIdUpdateRoute
   ProtectedPremiumMealsMealIdUpdateRoute: typeof ProtectedPremiumMealsMealIdUpdateRoute
   ProtectedUsersUserIdCreateSubscriptionRoute: typeof ProtectedUsersUserIdCreateSubscriptionRoute
@@ -384,15 +445,18 @@ interface ProtectedRouteRouteChildren {
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedDashboardRoute: ProtectedDashboardRoute,
+  ProtectedAddonsCreateRoute: ProtectedAddonsCreateRoute,
   ProtectedPackagesCreateRoute: ProtectedPackagesCreateRoute,
   ProtectedPremiumMealsCreateRoute: ProtectedPremiumMealsCreateRoute,
   ProtectedSubscriptionsCreateRoute: ProtectedSubscriptionsCreateRoute,
   ProtectedUsersCreateRoute: ProtectedUsersCreateRoute,
+  ProtectedAddonsIndexRoute: ProtectedAddonsIndexRoute,
   ProtectedOrdersIndexRoute: ProtectedOrdersIndexRoute,
   ProtectedPackagesIndexRoute: ProtectedPackagesIndexRoute,
   ProtectedPremiumMealsIndexRoute: ProtectedPremiumMealsIndexRoute,
   ProtectedSubscriptionsIndexRoute: ProtectedSubscriptionsIndexRoute,
   ProtectedUsersIndexRoute: ProtectedUsersIndexRoute,
+  ProtectedAddonsAddonIdUpdateRoute: ProtectedAddonsAddonIdUpdateRoute,
   ProtectedPackagesPlanIdUpdateRoute: ProtectedPackagesPlanIdUpdateRoute,
   ProtectedPremiumMealsMealIdUpdateRoute:
     ProtectedPremiumMealsMealIdUpdateRoute,
