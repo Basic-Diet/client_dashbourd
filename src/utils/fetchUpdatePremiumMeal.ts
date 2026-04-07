@@ -1,6 +1,4 @@
 import api from "@/lib/apis";
-
-
 export const fetchUpdatePremiumMeal = async (
   id: string,
   data: FormData

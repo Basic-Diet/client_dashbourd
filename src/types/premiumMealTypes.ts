@@ -9,10 +9,8 @@ export interface PremiumMeal {
     en: string;
   };
   extraFeeHalala: number;
-  calories: number;
-  category: string;
   currency: string;
-  imageUrl: string;
+  image: string;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
@@ -38,12 +36,9 @@ export interface CreatePremiumMealPayload {
     ar: string;
     en: string;
   };
-  imageUrl?: string;
-  imageFile?: File;
+  image?: string | File;
   currency: string;
   extraFeeHalala: number;
-  calories: number;
-  category: string;
   isActive: boolean;
   sortOrder: number;
 }

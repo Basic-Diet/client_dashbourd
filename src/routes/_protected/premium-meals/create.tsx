@@ -60,7 +60,8 @@ function CreatePremiumMealPage() {
           <Card className="border-primary/30 bg-card/95 shadow-2xl ring-1 shadow-primary/10 ring-primary/10 backdrop-blur-md transition-all hover:border-primary/50">
             <CardContent className="flex items-center justify-between p-4 sm:px-6">
               <p className="hidden text-sm font-medium text-muted-foreground sm:block">
-                تأكد من مراجعة جميع البيانات والخيارات الخاصة بالوجبة قبل النقر على الإضافة
+                تأكد من مراجعة جميع البيانات والخيارات الخاصة بالوجبة قبل النقر
+                على الإضافة
               </p>
               <Button
                 type="submit"

@@ -1,6 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PremiumMeal } from "@/types/premiumMealTypes";
-import { Badge } from "@/components/ui/badge";
 import { PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -18,12 +17,12 @@ export const premiumMealsColumns: ColumnDef<PremiumMeal>[] = [
     size: 50,
   },
   {
-    accessorKey: "imageUrl",
+    accessorKey: "image",
     header: "الصورة",
     cell: ({ row }) => (
       <div className="flex h-12 w-16 overflow-hidden rounded-md border bg-muted">
         <img
-          src={row.original.imageUrl}
+          src={row.original.image || undefined}
           alt={row.original.name.ar}
           className="h-full w-full object-cover"
         />
@@ -37,14 +36,14 @@ export const premiumMealsColumns: ColumnDef<PremiumMeal>[] = [
     cell: ({ row }) => (
       <div className="flex flex-col gap-1">
         <span className="font-semibold">{row.original.name.ar}</span>
-        <span className="text-xs text-muted-foreground line-clamp-1 max-w-50">
+        <span className="line-clamp-1 max-w-50 text-xs text-muted-foreground">
           {row.original.description.ar}
         </span>
       </div>
     ),
     filterFn: (row, _columnId, filterValue) => {
-      const nameAr = row.original.name.ar.toLowerCase();
-      const nameEn = row.original.name.en.toLowerCase();
+      const nameAr = (row.original.name.ar || "").toLowerCase();
+      const nameEn = (row.original.name.en || "").toLowerCase();
       const search = filterValue.toLowerCase();
       return nameAr.includes(search) || nameEn.includes(search);
     },
@@ -55,43 +54,22 @@ export const premiumMealsColumns: ColumnDef<PremiumMeal>[] = [
     cell: ({ row }) => (
       <div className="flex flex-col gap-1">
         <span className="font-semibold">{row.original.name.en}</span>
-        <span className="text-xs text-muted-foreground line-clamp-1 max-w-50">
+        <span className="line-clamp-1 max-w-50 text-xs text-muted-foreground">
           {row.original.description.en}
         </span>
       </div>
     ),
   },
   {
-    accessorKey: "category",
-    header: "التصنيف",
-    cell: ({ row }) => (
-      <Badge variant="secondary" className="font-medium capitalize">
-        {row.original.category}
-      </Badge>
-    ),
-    filterFn: (row, _columnId, filterValue) => {
-      if (filterValue === "all") return true;
-      return row.original.category.toLowerCase() === filterValue.toLowerCase();
-    },
-  },
-  {
-    accessorKey: "calories",
-    header: "السعرات",
-    cell: ({ row }) => (
-       <div className="flex flex-col text-sm">
-         <span className="font-medium">{row.original.calories} Kcal</span>
-       </div>
-    ),
-  },
-  {
     accessorKey: "extraFeeHalala",
     header: "إضافة (ريال)",
     cell: ({ row }) => (
-       <div className="flex flex-col text-sm">
-         <span className="font-semibold text-primary">
-           +{(row.original.extraFeeHalala / 100).toFixed(2)} {row.original.currency}
-         </span>
-       </div>
+      <div className="flex flex-col text-sm">
+        <span className="font-semibold text-primary">
+          +{(row.original.extraFeeHalala / 100).toFixed(2)}{" "}
+          {row.original.currency}
+        </span>
+      </div>
     ),
   },
   {
@@ -116,14 +94,20 @@ export const premiumMealsColumns: ColumnDef<PremiumMeal>[] = [
     id: "actions",
     header: "الإجراءات",
     cell: ({ row }) => (
-      <div className="flex gap-2 items-center justify-end">
+      <div className="flex items-center justify-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/premium-meals/$mealId/update" params={{ mealId: row.original._id }}>
+          <Link
+            to="/premium-meals/$mealId/update"
+            params={{ mealId: row.original._id }}
+          >
             <PencilIcon className="ml-1 size-3.5" />
             تعديل
           </Link>
         </Button>
-        <DeleteMealDialog mealId={row.original._id} mealName={row.original.name.ar} />
+        <DeleteMealDialog
+          mealId={row.original._id}
+          mealName={row.original.name.ar}
+        />
       </div>
     ),
     enableHiding: false,

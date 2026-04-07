@@ -7,11 +7,10 @@ import type { PremiumMeal } from "@/types/premiumMealTypes";
 const EMPTY_DEFAULTS: PremiumMealSchemaType = {
   name: { ar: "", en: "" },
   description: { ar: "", en: "" },
-  imageUrl: "",
+  image: "",
+  imageFile: undefined,
   currency: "SAR",
   extraFeeSar: 0,
-  calories: 0,
-  category: "",
   isActive: true,
   sortOrder: 0,
 };
@@ -21,11 +20,10 @@ const useCreatePremiumMealForm = (initialData?: PremiumMeal) => {
     ? {
         name: initialData.name,
         description: initialData.description,
-        imageUrl: initialData.imageUrl,
+        image: initialData.image,
+        imageFile: undefined,
         currency: initialData.currency,
         extraFeeSar: initialData.extraFeeHalala / 100,
-        calories: initialData.calories,
-        category: initialData.category,
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       }

@@ -24,15 +24,13 @@ export const submitUpdatePremiumMealForm = async (
     formData.append("description[en]", data.description.en);
     formData.append("currency", data.currency);
     formData.append("extraFeeHalala", Math.round(Number(data.extraFeeSar) * 100).toString());
-    formData.append("calories", data.calories.toString());
-    formData.append("category", data.category);
     formData.append("isActive", String(data.isActive));
     formData.append("sortOrder", data.sortOrder.toString());
 
     if (data.imageFile) {
       formData.append("image", data.imageFile);
-    } else if (data.imageUrl) {
-      formData.append("imageUrl", data.imageUrl);
+    } else if (data.image) {
+      formData.append("image", data.image);
     }
 
     await fetchUpdatePremiumMeal(mealId, formData);

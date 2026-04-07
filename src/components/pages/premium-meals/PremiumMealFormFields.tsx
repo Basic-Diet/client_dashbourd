@@ -97,18 +97,18 @@ export function PremiumMealFormFields({ form }: PremiumMealFormFieldsProps) {
           </div>
         </div>
 
-        {/* Image & Category */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Image */}
+        <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1.5 flex flex-col justify-end">
             <Label className="text-sm font-medium">صورة الوجبة (Image)</Label>
             <div className="flex items-center gap-3">
-              {(form.watch("imageFile") || form.watch("imageUrl")) && (
+              {(form.watch("imageFile") || form.watch("image")) && (
                 <div className="relative shrink-0 overflow-hidden rounded-md border bg-muted size-10">
                   <img
                     src={
                       form.watch("imageFile")
                         ? URL.createObjectURL(form.watch("imageFile") as unknown as File)
-                        : form.watch("imageUrl")!
+                        : form.watch("image")
                     }
                     alt="Preview"
                     className="size-full object-cover"
@@ -137,43 +137,14 @@ export function PremiumMealFormFields({ form }: PremiumMealFormFieldsProps) {
                 {form.formState.errors.imageFile.message}
               </p>
             )}
-            {!form.watch("imageFile") && !form.watch("imageUrl") && form.formState.errors.imageUrl && (
+            {!form.watch("imageFile") && !form.watch("image") && form.formState.errors.image && (
               <p className="text-xs text-destructive">يرجى رفع صورة للوجبة</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">التصنيف (Category)</Label>
-            <Input
-              dir="ltr"
-              placeholder="e.g. seafood, beef, chicken"
-              {...form.register("category")}
-              aria-invalid={!!form.formState.errors.category}
-            />
-            {form.formState.errors.category && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.category.message}
-              </p>
             )}
           </div>
         </div>
 
-        {/* Pricing, Calories, Sorting */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">السعرات الحرارية</Label>
-            <Input
-              type="number"
-              min="1"
-              placeholder="500"
-              {...form.register("calories")}
-              aria-invalid={!!form.formState.errors.calories}
-            />
-            {form.formState.errors.calories && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.calories.message}
-              </p>
-            )}
-          </div>
+        {/* Pricing & Sorting */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">الرسوم الإضافية (ريال)</Label>
             <Input
