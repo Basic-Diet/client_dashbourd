@@ -5,6 +5,7 @@ export const routeTranslations: Record<string, string> = {
   subscriptions: "الاشتراكات",
   users: "المستخدمين",
   addons: "الإضافات",
+  "premium-meals": "الوجبات المميزة",
   create: "إضافة جديد",
   update: "تعديل",
   edit: "تعديل",

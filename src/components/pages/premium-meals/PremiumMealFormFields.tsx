@@ -146,7 +146,7 @@ export function PremiumMealFormFields({ form }: PremiumMealFormFieldsProps) {
         {/* Pricing & Sorting */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">الرسوم الإضافية (ريال)</Label>
+            <Label className="text-sm font-medium">الرسوم الإضافية</Label>
             <Input
               type="number"
               step="0.01"

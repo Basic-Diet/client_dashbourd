@@ -22,7 +22,7 @@ export const premiumMealsColumns: ColumnDef<PremiumMeal>[] = [
     cell: ({ row }) => (
       <div className="flex h-12 w-16 overflow-hidden rounded-md border bg-muted">
         <img
-          src={row.original.image || undefined}
+          src={row.original.imageUrl || row.original.image || undefined}
           alt={row.original.name.ar}
           className="h-full w-full object-cover"
         />

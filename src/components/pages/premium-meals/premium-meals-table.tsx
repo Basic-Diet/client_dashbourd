@@ -50,11 +50,10 @@ import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
 export function PremiumMealsTable({
-  data: initialData,
+  data,
 }: {
   data: PremiumMeal[];
 }) {
-  const [data, setData] = React.useState(initialData);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -64,10 +63,6 @@ export function PremiumMealsTable({
     pageIndex: 0,
     pageSize: 10,
   });
-
-  React.useEffect(() => {
-    setData(initialData);
-  }, [initialData]);
 
   const table = useReactTable({
     data,

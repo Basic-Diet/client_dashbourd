@@ -28,7 +28,10 @@ export interface Package {
   daysCount: number;
   currency: string;
   gramsOptions: GramsOption[];
-  skipAllowanceCompensatedDays: number;
+  skipPolicy: {
+    enabled: boolean;
+    maxDays: number;
+  };
   freezePolicy: FreezePolicy;
   isActive: boolean;
   sortOrder: number;

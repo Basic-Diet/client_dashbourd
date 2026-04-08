@@ -8,13 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Package } from "lucide-react";
 import { Controller } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
@@ -71,7 +65,7 @@ export function BasicInfoSection({ form }: BasicInfoSectionProps) {
         </div>
 
         {/* Days, Currency, Sort Order */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">عدد الأيام</Label>
             <Input
@@ -86,21 +80,6 @@ export function BasicInfoSection({ form }: BasicInfoSectionProps) {
                 {form.formState.errors.daysCount.message}
               </p>
             )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">العملة</Label>
-            <Select
-              value={form.watch("currency")}
-              onValueChange={(val) => form.setValue("currency", val)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="اختر العملة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SAR">ريال سعودي (SAR)</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-1.5">
@@ -122,21 +101,44 @@ export function BasicInfoSection({ form }: BasicInfoSectionProps) {
 
         {/* Active & Skip Compensated */}
         <div className="mt-2 grid grid-cols-1 gap-5 border-t border-border/40 pt-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">
-              أيام التعويض المتاحة للتخطي
-            </Label>
-            <Input
-              type="number"
-              min="0"
-              placeholder="3"
-              {...form.register("skipAllowanceCompensatedDays")}
-              aria-invalid={!!form.formState.errors.skipAllowanceCompensatedDays}
-            />
-            {form.formState.errors.skipAllowanceCompensatedDays && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.skipAllowanceCompensatedDays.message}
-              </p>
+          <div className="space-y-3 rounded-lg border p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-base font-semibold text-primary">
+                  تفعيل سياسة التخطي
+                </Label>
+              </div>
+              <Controller
+                control={form.control}
+                name="skipPolicy.enabled"
+                render={({ field }) => (
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="data-[state=checked]:bg-green-500"
+                  />
+                )}
+              />
+            </div>
+
+            {form.watch("skipPolicy.enabled") && (
+              <div className="space-y-1.5 pt-2">
+                <Label className="text-sm font-medium">
+                  الحد الأقصى لأيام التخطي
+                </Label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="3"
+                  {...form.register("skipPolicy.maxDays")}
+                  aria-invalid={!!form.formState.errors.skipPolicy?.maxDays}
+                />
+                {form.formState.errors.skipPolicy?.maxDays && (
+                  <p className="text-xs text-destructive">
+                    {form.formState.errors.skipPolicy.maxDays.message}
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <label className="flex w-fit cursor-pointer items-center gap-3 justify-self-end">

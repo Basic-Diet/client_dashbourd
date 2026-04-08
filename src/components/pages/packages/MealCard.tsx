@@ -72,9 +72,9 @@ export function MealCard({
           )}
         </div>
 
-        {/* Price (SAR) */}
+        {/* Price */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">السعر (ريال)</Label>
+          <Label className="text-xs text-muted-foreground">السعر</Label>
           <Input
             type="number"
             min="0.01"
@@ -90,10 +90,10 @@ export function MealCard({
           )}
         </div>
 
-        {/* Compare At Price (SAR) */}
+        {/* Compare At Price */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
-            سعر المقارنة (ريال)
+            سعر المقارنة
           </Label>
           <Input
             type="number"

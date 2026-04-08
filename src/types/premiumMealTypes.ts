@@ -11,6 +11,7 @@ export interface PremiumMeal {
   extraFeeHalala: number;
   currency: string;
   image: string;
+  imageUrl?: string;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;

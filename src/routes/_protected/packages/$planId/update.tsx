@@ -51,7 +51,10 @@ function UpdatePackagePage() {
     currency: planData.currency || "SAR",
     sortOrder: planData.sortOrder,
     isActive: planData.isActive,
-    skipAllowanceCompensatedDays: planData.skipAllowanceCompensatedDays || 0,
+    skipPolicy: {
+      enabled: planData.skipPolicy?.enabled ?? false,
+      maxDays: planData.skipPolicy?.maxDays ?? 3,
+    },
     freezePolicy: {
       enabled: planData.freezePolicy?.enabled ?? false,
       maxDays: planData.freezePolicy?.maxDays ?? 1,

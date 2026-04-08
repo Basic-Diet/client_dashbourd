@@ -72,17 +72,20 @@ const createPackageSchema = z.object({
     .min(0, "ترتيب العرض لا يمكن أن يكون أقل من 0")
     .default(1),
   isActive: z.boolean().default(true),
-  skipAllowanceCompensatedDays: z.coerce
-    .number({ message: "أيام التعويض يجب أن تكون رقماً" })
-    .int("أيام التعويض يجب أن تكون رقماً صحيحاً")
-    .min(0, "أيام التعويض لا يمكن أن تكون أقل من 0")
-    .default(0),
+  skipPolicy: z.object({
+    enabled: z.boolean().default(false),
+    maxDays: z.coerce
+      .number({ message: "الحد الأقصى للتخطي يجب أن يكون رقماً" })
+      .int("الحد الأقصى للتخطي يجب أن يكون رقماً صحيحاً")
+      .min(1, "الحد الأقصى للتخطي يجب أن يكون 1 على الأقل")
+      .optional(),
+  }),
   freezePolicy: z.object({
     enabled: z.boolean().default(false),
     maxDays: z.coerce
-      .number({ message: "الحد الأقصى للأيام يجب أن يكون رقماً" })
-      .int("الحد الأقصى للأيام يجب أن يكون رقماً صحيحاً")
-      .min(1, "الحد الأقصى للأيام يجب أن يكون 1 على الأقل")
+      .number({ message: "الحد الأقصى لتجميد الأيام يجب أن يكون رقماً" })
+      .int("الحد الأقصى لتجميد الأيام يجب أن يكون رقماً صحيحاً")
+      .min(1, "الحد الأقصى لتجميد الأيام يجب أن يكون 1 على الأقل")
       .optional(),
     maxTimes: z.coerce
       .number({ message: "الحد الأقصى للمرات يجب أن يكون رقماً" })
