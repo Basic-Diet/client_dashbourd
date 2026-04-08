@@ -24,7 +24,10 @@ const EMPTY_DEFAULTS: CreatePackageSchemaType = {
   currency: "SAR",
   sortOrder: 1,
   isActive: true,
-  skipAllowanceCompensatedDays: 0,
+  skipPolicy: {
+    enabled: false,
+    maxDays: 1,
+  },
   freezePolicy: {
     enabled: false,
     maxDays: 1,
@@ -35,7 +38,9 @@ const EMPTY_DEFAULTS: CreatePackageSchemaType = {
 
 const useCreatePackageForm = (initialData?: CreatePackageSchemaType) => {
   const form = useForm<CreatePackageSchemaType>({
-    resolver: zodResolver(createPackageSchema) as unknown as Resolver<CreatePackageSchemaType>,
+    resolver: zodResolver(
+      createPackageSchema
+    ) as unknown as Resolver<CreatePackageSchemaType>,
     defaultValues: initialData ?? EMPTY_DEFAULTS,
   });
 
