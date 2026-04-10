@@ -9,6 +9,8 @@ const SUPERADMIN_ROUTES = [
   "/users",
   "/premium-meals",
   "/addons",
+  "/meals",
+  "/categories",
 ];
 
 const KITCHEN_ROUTES = ["/orders"];

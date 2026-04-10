@@ -8,6 +8,8 @@ import {
   // Truck,
   UtensilsCrossed,
   PlusSquare,
+  Utensils,
+  FolderOpen,
 } from "lucide-react";
 
 export const NavLinksData = {
@@ -16,6 +18,16 @@ export const NavLinksData = {
       title: "لوحة التحكم",
       url: "/dashboard",
       icon: <LayoutDashboardIcon />,
+    },
+    {
+      title: "الوجبات",
+      url: "/meals",
+      icon: <Utensils />,
+    },
+    {
+      title: "تصنيفات الوجبات",
+      url: "/categories",
+      icon: <FolderOpen />,
     },
     {
       title: "الوجبات المميزة",
