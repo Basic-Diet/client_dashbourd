@@ -1,17 +1,26 @@
 import {
   AlertTriangle,
   CheckCircle2,
+  Package,
   Pencil,
   ShieldAlert,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { mealBuilderIssueCode, mealBuilderIssueText } from "./mealBuilderIssueText";
 import type { MealBuilderVisualCard as VisualCard } from "./mealBuilderVisualModel";
 
 type VisualItem = VisualCard["items"][number];
+
+const VISIBLE_ITEM_LIMIT = 6;
 
 export function MealBuilderVisualCard({
   card,
@@ -28,133 +37,198 @@ export function MealBuilderVisualCard({
     ...card.warnings,
     ...card.backendIssues.filter((issue) => issue.level !== "error"),
   ];
-  const unavailableCount = card.items.filter((item) => !item.available).length;
-  const unpublishedCount = card.items.filter((item) => !item.published).length;
-  const previewItems = card.items.slice(0, 5);
-  const remainingCount = Math.max(card.items.length - previewItems.length, 0);
-  const metadata = cardMetadata(card, unavailableCount, unpublishedCount);
+  const visibleItems = card.items.slice(0, VISIBLE_ITEM_LIMIT);
+  const hiddenItems = card.items.slice(VISIBLE_ITEM_LIMIT);
+  const ruleLabels = card.rules
+    .filter((rule) => !rule.includes("=") && !rule.includes("requiresBuilder"))
+    .slice(0, 3);
 
   return (
-    <Card className="border-border/80 shadow-none transition-colors hover:border-primary/35">
-      <CardHeader className="gap-3 pb-3">
-        <div className="flex items-start justify-between gap-3">
+    <Card className="border-border/80 shadow-none transition-colors hover:border-primary/30">
+      <CardHeader className="gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="h-6 min-w-6 justify-center px-1.5">
+              <Badge variant="outline" className="font-mono">
                 {card.sortOrder}
               </Badge>
-              <CardTitle className="truncate text-base leading-6">
-                {card.labelAr || card.labelEn}
-              </CardTitle>
+              <CardTitle className="text-base">{card.labelAr}</CardTitle>
+              {card.labelEn ? (
+                <CardDescription>{card.labelEn}</CardDescription>
+              ) : null}
               <CardState card={card} />
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>
-                {card.items.length
-                  ? `${card.items.length} عناصر مختارة`
-                  : "لا توجد عناصر"}
-              </span>
-              {unavailableCount ? <span>يوجد غير متاح</span> : null}
-              {unpublishedCount ? <span>يوجد غير منشور</span> : null}
+              <span>{card.items.length} عناصر مختارة</span>
+              <ProblemCount card={card} />
             </div>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-            <Pencil className="size-4" />
-            <span className="sr-only">تعديل</span>
+          <Button type="button" variant="outline" onClick={onEdit}>
+            <Pencil data-icon="inline-start" />
+            تعديل البطاقة
           </Button>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3 pt-0">
-        {metadata.length ? (
-          <div className="flex flex-wrap gap-1.5">
-            {metadata.map((label) => (
-              <Badge key={label} variant="secondary" className="font-normal">
-                {label}
+
+        {ruleLabels.length ? (
+          <div className="flex flex-wrap gap-2">
+            {ruleLabels.map((rule) => (
+              <Badge key={rule} variant="secondary" className="font-normal">
+                {rule}
               </Badge>
             ))}
           </div>
         ) : null}
+      </CardHeader>
 
-        {card.items.length ? (
-          <div className="flex flex-wrap gap-1.5">
-            {previewItems.map((item) => (
-              <ItemChip key={`${item.kind}:${item.id}`} cardKey={card.key} item={item} />
-            ))}
-            {remainingCount ? (
-              <Badge variant="secondary">+{remainingCount} أكثر</Badge>
-            ) : null}
-          </div>
-        ) : (
-          <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-            استخدم تعديل لاختيار العناصر.
-          </div>
-        )}
-
+      <CardContent className="space-y-4">
         {blockingIssues.length ? (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-            <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-            <span>{mealBuilderIssueText(blockingIssues[0])}</span>
+          <div className="space-y-2">
+            {blockingIssues.slice(0, 2).map((issue, index) => (
+              <div
+                key={`${mealBuilderIssueCode(issue) || "error"}-${index}`}
+                className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+              >
+                <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                <span>{mealBuilderIssueText(issue)}</span>
+              </div>
+            ))}
           </div>
         ) : null}
 
         {reviewIssues.length ? (
-          <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+          <details className="rounded-lg border bg-muted/20 p-3 text-sm">
             <summary className="cursor-pointer text-muted-foreground">
-              مراجعة اختيارية
+              تفاصيل المراجعة
             </summary>
-            <div className="mt-2 space-y-1.5">
-              {reviewIssues.slice(0, 3).map((issue, index) => (
-                <CardIssue
+            <div className="mt-3 grid gap-2">
+              {reviewIssues.slice(0, 4).map((issue, index) => (
+                <div
                   key={`${mealBuilderIssueCode(issue) || "issue"}-${index}`}
-                  issue={issue}
-                />
+                  className="flex gap-2 text-amber-700"
+                >
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <span>{mealBuilderIssueText(issue)}</span>
+                </div>
               ))}
-              {reviewIssues.length > 3 ? (
-                <p className="text-muted-foreground">
-                  +{reviewIssues.length - 3} ملاحظات أخرى داخل المراجعة
+              {reviewIssues.length > 4 ? (
+                <p className="text-xs text-muted-foreground">
+                  +{reviewIssues.length - 4} ملاحظات أخرى
                 </p>
               ) : null}
             </div>
           </details>
         ) : null}
+
+        {card.items.length ? (
+          <div className="grid gap-2">
+            {visibleItems.map((item) => (
+              <MealBuilderItemRow
+                key={`${item.kind}:${item.id}`}
+                cardKey={card.key}
+                item={item}
+              />
+            ))}
+            {hiddenItems.length ? (
+              <details className="rounded-lg border bg-muted/10 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+                  عرض {hiddenItems.length} عناصر إضافية
+                </summary>
+                <div className="mt-3 grid gap-2">
+                  {hiddenItems.map((item) => (
+                    <MealBuilderItemRow
+                      key={`${item.kind}:${item.id}`}
+                      cardKey={card.key}
+                      item={item}
+                    />
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            لا توجد عناصر كتالوج ظاهرة داخل هذه البطاقة الآن.
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function ItemChip({
+function MealBuilderItemRow({
   cardKey,
   item,
 }: {
   cardKey: string;
   item: VisualItem;
 }) {
-  const needsAttention =
-    !item.linked ||
-    !item.available ||
-    !item.published ||
-    !item.subscriptionEnabled ||
-    !item.catalogItemAvailable ||
-    item.errors.length > 0 ||
-    item.warnings.length > 0;
+  const itemIssues = [...item.errors, ...item.warnings];
 
   return (
-    <Badge
-      variant={needsAttention ? "secondary" : "outline"}
-      className="max-w-full gap-1 truncate"
-    >
-      <span className="truncate">{item.name}</span>
-      {isPremiumVisualItem(cardKey, item.key) ? <span>بريميوم</span> : null}
-    </Badge>
+    <div className="flex flex-col gap-3 rounded-lg border bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Package className="size-4 text-muted-foreground" />
+          <span className="font-medium">{item.name}</span>
+          {isPremiumVisualItem(cardKey, item.key) ? (
+            <Badge variant="secondary">بريميوم</Badge>
+          ) : null}
+          {item.kind === "product" && item.treatAsFullMeal ? (
+            <Badge variant="secondary">وجبة كاملة</Badge>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">
+            {item.kind === "product" ? "منتج" : "خيار"}
+          </Badge>
+          {item.selected ? <Badge variant="default">مختار</Badge> : null}
+          {item.eligible ? <Badge variant="secondary">مؤهل</Badge> : null}
+          <Badge variant={item.available ? "outline" : "destructive"}>
+            {item.available ? "متاح" : "غير متاح"}
+          </Badge>
+          <Badge variant={item.published ? "outline" : "secondary"}>
+            {item.published ? "منشور" : "غير منشور"}
+          </Badge>
+          <Badge variant={item.subscriptionEnabled ? "outline" : "destructive"}>
+            {item.subscriptionEnabled ? "للاشتراك" : "ليس للاشتراك"}
+          </Badge>
+          {!item.linked ? <Badge variant="destructive">غير مرتبط</Badge> : null}
+          {!item.catalogItemAvailable ? (
+            <Badge variant="destructive">غير متاح في كتالوج العميل</Badge>
+          ) : null}
+        </div>
+
+        {itemIssues.length ? (
+          <div className="space-y-1 pt-1">
+            {itemIssues.slice(0, 2).map((issue, index) => (
+              <p
+                key={`${mealBuilderIssueCode(issue) || "item-issue"}-${index}`}
+                className="text-xs text-muted-foreground"
+              >
+                {mealBuilderIssueText(issue)}
+              </p>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
-function CardIssue({ issue }: { issue: unknown }) {
+function ProblemCount({ card }: { card: VisualCard }) {
+  const unavailable = card.items.filter((item) => !item.available).length;
+  const unpublished = card.items.filter((item) => !item.published).length;
+  const notForSubscription = card.items.filter(
+    (item) => !item.subscriptionEnabled
+  ).length;
+
   return (
-    <div className="flex gap-2 text-amber-700">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-      <span>{mealBuilderIssueText(issue)}</span>
-    </div>
+    <>
+      {unavailable ? <span>{unavailable} غير متاح</span> : null}
+      {unpublished ? <span>{unpublished} غير منشور</span> : null}
+      {notForSubscription ? <span>{notForSubscription} ليس للاشتراك</span> : null}
+    </>
   );
 }
 
@@ -163,7 +237,11 @@ function CardState({ card }: { card: VisualCard }) {
     card.errors.length ||
     card.backendIssues.some((issue) => issue.level === "error");
   const hasItemProblem = card.items.some(
-    (item) => !item.available || !item.published || !item.catalogItemAvailable
+    (item) =>
+      !item.available ||
+      !item.published ||
+      !item.catalogItemAvailable ||
+      !item.subscriptionEnabled
   );
 
   if (hasBlockingIssue || hasItemProblem) {
@@ -188,27 +266,6 @@ function CardState({ card }: { card: VisualCard }) {
       جاهز
     </Badge>
   );
-}
-
-function cardMetadata(
-  card: VisualCard,
-  unavailableCount: number,
-  unpublishedCount: number
-) {
-  const labels = new Set<string>();
-  if (card.items.some((item) => "required" in item && item.required)) {
-    labels.add("إجباري");
-  }
-  if (card.items.some((item) => item.kind === "product" && item.treatAsFullMeal)) {
-    labels.add("وجبة كاملة");
-  }
-  card.rules
-    .filter((rule) => !rule.includes("=") && !rule.includes("requiresBuilder"))
-    .slice(0, 2)
-    .forEach((rule) => labels.add(rule));
-  if (unavailableCount) labels.add(`${unavailableCount} غير متاح`);
-  if (unpublishedCount) labels.add(`${unpublishedCount} غير منشور`);
-  return [...labels].slice(0, 4);
 }
 
 function isPremiumVisualItem(cardKey: string, itemKey: string) {

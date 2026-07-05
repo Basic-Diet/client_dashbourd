@@ -283,15 +283,15 @@ function MealBuilderWorkspace({
   return (
     <>
       <div className="space-y-4">
-        <Card className="sticky top-3 z-20 border-border/80 bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="sticky top-2 z-20 border-border/80 bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <CardContent className="flex flex-col gap-3 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-base">بطاقات اختيار الوجبة</CardTitle>
+                <CardTitle className="text-base">بطاقات منشئ الوجبات</CardTitle>
                 {dirty ? <Badge variant="secondary">تغييرات غير محفوظة</Badge> : null}
               </div>
               <p className="text-sm text-muted-foreground">
-                عدل البطاقات التي يراها العميل. التفاصيل الكاملة داخل زر التعديل.
+                راجع العناصر الظاهرة للعميل وعدّل البطاقة عند الحاجة.
               </p>
             </div>
             <DraftActions
@@ -321,7 +321,7 @@ function MealBuilderWorkspace({
               </div>
             ) : null}
 
-            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid gap-4">
               {visualCards.map((card) => (
                 <MealBuilderVisualCard
                   key={card.key}
