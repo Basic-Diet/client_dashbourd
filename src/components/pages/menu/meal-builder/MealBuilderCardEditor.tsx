@@ -101,7 +101,7 @@ export function MealBuilderCardEditor({
         dir="rtl"
       >
         <DialogHeader className="border-b px-5 py-4 sm:px-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between w-[95%]">
             <div className="space-y-1">
               <DialogTitle>تعديل بطاقة {liveCard.labelAr}</DialogTitle>
               <DialogDescription>
