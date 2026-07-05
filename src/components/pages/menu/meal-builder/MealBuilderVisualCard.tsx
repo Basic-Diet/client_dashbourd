@@ -1,4 +1,10 @@
-import { AlertTriangle, CheckCircle2, Package, Pencil, ShieldAlert } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Package,
+  Pencil,
+  ShieldAlert,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,9 +15,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MenuKeyBadge } from "@/components/pages/menu/MenuTabScaffold";
 import { IssueRow } from "./MealBuilderBadges";
 import type { MealBuilderVisualCard as VisualCard } from "./mealBuilderVisualModel";
+
+type VisualItem = VisualCard["items"][number];
 
 export function MealBuilderVisualCard({
   card,
@@ -20,39 +27,33 @@ export function MealBuilderVisualCard({
   card: VisualCard;
   onEdit: () => void;
 }) {
+  const visibleIssues = [...card.errors, ...card.warnings];
+
   return (
     <Card className="border-border/80 shadow-none">
       <CardHeader className="gap-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="font-mono">
-                {card.sortOrder}
-              </Badge>
+              <Badge variant="outline">{card.sortOrder}</Badge>
               <CardTitle className="text-base">{card.labelAr}</CardTitle>
-              <CardDescription>{card.labelEn}</CardDescription>
+              <CardState card={card} />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <MenuKeyBadge value={card.key} />
-              {card.sourceKinds.map((kind) => (
-                <Badge key={kind} variant="secondary">
-                  {sourceKindLabel(kind)}
-                </Badge>
-              ))}
-            </div>
+            <CardDescription>
+              {card.items.length
+                ? `${card.items.length} عنصر ظاهر للعميل`
+                : "لا توجد عناصر ظاهرة الآن"}
+            </CardDescription>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <CardState card={card} />
-            <Button type="button" variant="outline" onClick={onEdit}>
-              <Pencil data-icon="inline-start" />
-              تعديل البطاقة
-            </Button>
-          </div>
+          <Button type="button" variant="outline" onClick={onEdit}>
+            <Pencil data-icon="inline-start" />
+            تعديل
+          </Button>
         </div>
         {card.rules.length ? (
           <div className="flex flex-wrap gap-2">
-            {card.rules.map((rule) => (
-              <Badge key={rule} variant="outline">
+            {card.rules.slice(0, 4).map((rule) => (
+              <Badge key={rule} variant="secondary">
                 {rule}
               </Badge>
             ))}
@@ -60,110 +61,125 @@ export function MealBuilderVisualCard({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
-        {card.errors.map((error) => (
-          <div
-            key={error}
-            className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-          >
-            <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-            <span>{error}</span>
-          </div>
+        {visibleIssues.map((issue) => (
+          <CardIssue key={issue} message={issue} warning={card.warnings.includes(issue)} />
         ))}
 
-        {card.warnings.map((warning) => (
-          <div
-            key={warning}
-            className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-          >
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>{warning}</span>
-          </div>
-        ))}
-
-        {card.backendIssues.map((issue, index) => (
+        {card.backendIssues.slice(0, 4).map((issue, index) => (
           <IssueRow key={`${issue.code ?? "issue"}-${index}`} issue={issue} />
         ))}
 
         {card.items.length ? (
           <div className="grid gap-2">
             {card.items.map((item) => (
-              <div
+              <MealBuilderItemRow
                 key={`${item.kind}:${item.id}`}
-                className="flex flex-col gap-2 rounded-lg border bg-background p-3 sm:flex-row sm:items-start sm:justify-between"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Package className="size-4 text-muted-foreground" />
-                    <span className="font-medium">{item.name}</span>
-                    <MenuKeyBadge value={item.key} />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">
-                      {item.kind === "product" ? "منتج" : "خيار"}
-                    </Badge>
-                    {item.selected ? <Badge variant="default">مختار</Badge> : null}
-                    {item.eligible ? <Badge variant="secondary">مؤهل</Badge> : null}
-                    <Badge variant={item.linked ? "outline" : "destructive"}>
-                      {item.linked ? "مرتبط" : "غير مرتبط"}
-                    </Badge>
-                    <Badge variant={item.available ? "outline" : "destructive"}>
-                      {item.available ? "متاح" : "غير متاح"}
-                    </Badge>
-                    <Badge variant={item.published ? "outline" : "secondary"}>
-                      {item.published ? "منشور" : "غير منشور"}
-                    </Badge>
-                    <Badge variant={item.subscriptionEnabled ? "outline" : "destructive"}>
-                      {item.subscriptionEnabled ? "للاشتراك" : "ليس للاشتراك"}
-                    </Badge>
-                    <Badge variant={item.catalogItemAvailable ? "outline" : "destructive"}>
-                      {item.catalogItemAvailable ? "CatalogItem متاح" : "CatalogItem غير متاح"}
-                    </Badge>
-                    <Badge variant="outline">{sourceKindLabel(item.sourceSectionType)}</Badge>
-                    {item.kind === "product" ? (
-                      <>
-                        <Badge variant="outline">
-                          selectionType={item.selectionType}
-                        </Badge>
-                        <Badge variant="outline">
-                          requiresBuilder={String(item.requiresBuilder)}
-                        </Badge>
-                        <Badge variant="outline">
-                          treatAsFullMeal={String(item.treatAsFullMeal)}
-                        </Badge>
-                      </>
-                    ) : null}
-                    {isPremiumVisualItem(card.key, item.key) ? (
-                      <>
-                        <Badge variant="secondary">مميز</Badge>
-                        <Badge variant="outline">يستخدم تسعير الباكند</Badge>
-                      </>
-                    ) : null}
-                    {item.reasonCodes.slice(0, 4).map((code) => (
-                      <Badge key={code} variant="outline">
-                        {reasonCodeLabel(code)}
-                      </Badge>
-                    ))}
-                  </div>
-                  {item.errors.length || item.warnings.length ? (
-                    <div className="space-y-1 pt-1">
-                      {[...item.errors, ...item.warnings].slice(0, 3).map((issue, index) => (
-                        <p key={`${issue.code ?? "issue"}-${index}`} className="text-xs text-muted-foreground">
-                          {reasonCodeLabel(String(issue.code ?? "")) || issue.message}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+                cardKey={card.key}
+                item={item}
+              />
             ))}
           </div>
         ) : (
           <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-            لا توجد عناصر كتالوج ظاهرة داخل هذه البطاقة الآن.
+            اضغط تعديل لاختيار العناصر التي ستظهر في هذه البطاقة.
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function MealBuilderItemRow({
+  cardKey,
+  item,
+}: {
+  cardKey: string;
+  item: VisualItem;
+}) {
+  const needsAttention =
+    !item.linked ||
+    !item.available ||
+    !item.published ||
+    !item.subscriptionEnabled ||
+    !item.catalogItemAvailable ||
+    item.errors.length > 0 ||
+    item.warnings.length > 0;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Package className="size-4 text-muted-foreground" />
+          <span className="font-medium">{item.name}</span>
+          <Badge variant="outline">
+            {item.kind === "product" ? "منتج" : "خيار"}
+          </Badge>
+          {item.selected ? <Badge variant="default">مختار</Badge> : null}
+          {item.kind === "product" && item.treatAsFullMeal ? (
+            <Badge variant="secondary">وجبة كاملة</Badge>
+          ) : null}
+          {isPremiumVisualItem(cardKey, item.key) ? (
+            <Badge variant="secondary">مميز</Badge>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {needsAttention ? (
+            <>
+              {!item.linked ? <Badge variant="destructive">غير مرتبط</Badge> : null}
+              {!item.available ? <Badge variant="destructive">غير متاح</Badge> : null}
+              {!item.published ? <Badge variant="secondary">غير منشور</Badge> : null}
+              {!item.subscriptionEnabled ? (
+                <Badge variant="destructive">ليس للاشتراك</Badge>
+              ) : null}
+              {!item.catalogItemAvailable ? (
+                <Badge variant="destructive">غير متاح في الكتالوج</Badge>
+              ) : null}
+              {item.kind === "product" && item.requiresBuilder ? (
+                <Badge variant="outline">يحتاج تخصيص</Badge>
+              ) : null}
+            </>
+          ) : (
+            <Badge variant="outline">جاهز</Badge>
+          )}
+        </div>
+
+        {item.errors.length || item.warnings.length ? (
+          <div className="space-y-1 pt-1">
+            {[...item.errors, ...item.warnings].slice(0, 3).map((issue, index) => (
+              <p
+                key={`${issue.code ?? "issue"}-${index}`}
+                className="text-xs text-muted-foreground"
+              >
+                {reasonCodeLabel(String(issue.code ?? "")) || issue.message}
+              </p>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CardIssue({
+  message,
+  warning,
+}: {
+  message: string;
+  warning: boolean;
+}) {
+  const Icon = warning ? AlertTriangle : ShieldAlert;
+  return (
+    <div
+      className={
+        warning
+          ? "flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          : "flex gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+      }
+    >
+      <Icon className="mt-0.5 size-4 shrink-0" />
+      <span>{message}</span>
+    </div>
   );
 }
 
@@ -190,13 +206,6 @@ function CardState({ card }: { card: VisualCard }) {
       جاهز
     </Badge>
   );
-}
-
-function sourceKindLabel(kind: string) {
-  if (kind === "option_group") return "مجموعة خيارات";
-  if (kind === "product_category") return "تصنيف منتجات";
-  if (kind === "product_list") return "قائمة منتجات";
-  return kind;
 }
 
 function isPremiumVisualItem(cardKey: string, itemKey: string) {
