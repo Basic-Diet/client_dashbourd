@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   CheckCircle2,
   Plus,
   RefreshCw,
@@ -62,7 +63,6 @@ import { MealBuilderCardEditor } from "./MealBuilderCardEditor";
 import { MealBuilderStatusCards } from "./MealBuilderStatusCards";
 import { MealBuilderSectionEditor } from "./MealBuilderSectionEditor";
 import { MealBuilderVisualCard } from "./MealBuilderVisualCard";
-import { ValidationPanel } from "./MealBuilderPanels";
 import { orderSections, toBackendSections } from "./mealBuilderUtils";
 import { buildMealBuilderVisualCards } from "./mealBuilderVisualModel";
 
@@ -281,17 +281,17 @@ function MealBuilderWorkspace({
 
   return (
     <>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Card className="border-border/80 shadow-none">
-          <CardHeader className="gap-4 border-b">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-1">
-                <CardTitle>بطاقات اختيار الوجبة</CardTitle>
-                <CardDescription>
-                  اضغط تعديل على أي بطاقة لتغيير العناصر التي تظهر للعميل.
-                </CardDescription>
+      <div className="space-y-4">
+        <Card className="sticky top-3 z-20 border-border/80 bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-base">بطاقات اختيار الوجبة</CardTitle>
+                {dirty ? <Badge variant="secondary">تغييرات غير محفوظة</Badge> : null}
               </div>
-              {dirty ? <Badge variant="secondary">تغييرات غير محفوظة</Badge> : null}
+              <p className="text-sm text-muted-foreground">
+                عدل البطاقات التي يراها العميل. التفاصيل الكاملة داخل زر التعديل.
+              </p>
             </div>
             <DraftActions
               dirty={dirty}
@@ -307,7 +307,12 @@ function MealBuilderWorkspace({
               }
               onPublish={() => setPublishOpen(true)}
             />
-          </CardHeader>
+          </CardContent>
+        </Card>
+
+        <ValidationSummary validation={reviewValidation} dirty={dirty} />
+
+        <Card className="border-border/80 shadow-none">
           <CardContent className="space-y-4 pt-5">
             {loading ? (
               <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
@@ -315,13 +320,15 @@ function MealBuilderWorkspace({
               </div>
             ) : null}
 
-            {visualCards.map((card) => (
-              <MealBuilderVisualCard
-                key={card.key}
-                card={card}
-                onEdit={() => setCardEditorKey(card.key)}
-              />
-            ))}
+            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {visualCards.map((card) => (
+                <MealBuilderVisualCard
+                  key={card.key}
+                  card={card}
+                  onEdit={() => setCardEditorKey(card.key)}
+                />
+              ))}
+            </div>
 
             <AdvancedBuilderTools
               onAddOptionGroup={() =>
@@ -341,11 +348,6 @@ function MealBuilderWorkspace({
             />
           </CardContent>
         </Card>
-
-        <aside className="space-y-5">
-          <PublishReadinessCard dirty={dirty} hasErrors={hasErrors} />
-          <ValidationPanel title="مراجعة قبل النشر" validation={reviewValidation} />
-        </aside>
       </div>
 
       {editor ? (
@@ -460,6 +462,60 @@ function DraftActions({
   );
 }
 
+function ValidationSummary({
+  validation,
+  dirty,
+}: {
+  validation: MealBuilderValidation | null;
+  dirty: boolean;
+}) {
+  const errors = validation?.errors ?? [];
+  const warnings = validation?.warnings ?? [];
+  const issueCount = errors.length + warnings.length;
+  const previewMessages = [...errors, ...warnings].slice(0, 2);
+
+  if (!validation && !dirty) {
+    return null;
+  }
+
+  return (
+    <Card className="border-border/80 shadow-none">
+      <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {errors.length ? (
+            <Badge variant="destructive">
+              <ShieldAlert data-icon="inline-start" />
+              {errors.length} أخطاء
+            </Badge>
+          ) : null}
+          {warnings.length ? (
+            <Badge variant="secondary">
+              <AlertTriangle data-icon="inline-start" />
+              {warnings.length} تحذيرات
+            </Badge>
+          ) : null}
+          {!issueCount && validation ? (
+            <Badge variant="default">
+              <CheckCircle2 data-icon="inline-start" />
+              جاهز
+            </Badge>
+          ) : null}
+          {dirty ? <Badge variant="outline">يحتاج حفظ</Badge> : null}
+        </div>
+        <div className="min-w-0 flex-1 text-sm text-muted-foreground lg:text-end">
+          {issueCount ? (
+            <p className="truncate">{previewMessages.join(" • ")}</p>
+          ) : validation ? (
+            <p>لا توجد مشاكل في آخر مراجعة.</p>
+          ) : (
+            <p>راجع البطاقات قبل النشر.</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AdvancedBuilderTools({
   onAddOptionGroup,
   onAddProductCategory,
@@ -514,51 +570,6 @@ function AdvancedBuilderTools({
         </div>
       </div>
     </details>
-  );
-}
-
-function PublishReadinessCard({
-  dirty,
-  hasErrors,
-}: {
-  dirty: boolean;
-  hasErrors: boolean;
-}) {
-  const ready = !dirty && !hasErrors;
-  return (
-    <Card className="border-border/80 shadow-none">
-      <CardHeader className="gap-2">
-        <CardTitle className="text-base">حالة النشر</CardTitle>
-        <CardDescription>
-          {ready
-            ? "جاهز للنشر بعد المراجعة النهائية."
-            : "اكمل المطلوب بالأسفل قبل النشر."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {ready ? (
-          <Badge variant="default">
-            <CheckCircle2 data-icon="inline-start" />
-            جاهز
-          </Badge>
-        ) : (
-          <div className="space-y-2 text-sm text-muted-foreground">
-            {dirty ? (
-              <p className="flex gap-2">
-                <Save className="mt-0.5 size-4 shrink-0" />
-                توجد تغييرات تحتاج حفظ.
-              </p>
-            ) : null}
-            {hasErrors ? (
-              <p className="flex gap-2">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-                توجد أخطاء تحتاج مراجعة.
-              </p>
-            ) : null}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
