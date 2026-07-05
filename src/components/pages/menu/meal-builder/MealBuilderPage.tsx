@@ -311,6 +311,23 @@ function MealBuilderWorkspace({
           </CardContent>
         </Card>
 
+        <AdvancedBuilderTools
+          onAddOptionGroup={() =>
+            setEditor({ type: "option_group", index: null })
+          }
+          onAddProductCategory={() =>
+            setEditor({ type: "product_category", index: null })
+          }
+          onAddProductList={() =>
+            setEditor({ type: "product_list", index: null })
+          }
+          notes={notes}
+          onNotesChange={(nextNotes) => {
+            setNotes(nextNotes);
+            setDirty(true);
+          }}
+        />
+
         <ValidationSummary validation={reviewValidation} dirty={dirty} />
 
         <Card className="border-border/80 shadow-none">
@@ -330,23 +347,6 @@ function MealBuilderWorkspace({
                 />
               ))}
             </div>
-
-            <AdvancedBuilderTools
-              onAddOptionGroup={() =>
-                setEditor({ type: "option_group", index: null })
-              }
-              onAddProductCategory={() =>
-                setEditor({ type: "product_category", index: null })
-              }
-              onAddProductList={() =>
-                setEditor({ type: "product_list", index: null })
-              }
-              notes={notes}
-              onNotesChange={(nextNotes) => {
-                setNotes(nextNotes);
-                setDirty(true);
-              }}
-            />
           </CardContent>
         </Card>
       </div>
@@ -537,11 +537,11 @@ function AdvancedBuilderTools({
   onNotesChange: (notes: string) => void;
 }) {
   return (
-    <details className="rounded-lg border bg-muted/10 p-4">
-      <summary className="cursor-pointer text-sm font-medium">
-        أدوات متقدمة
+    <details className="rounded-lg border bg-background p-3 shadow-none">
+      <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+        أدوات متقدمة وملاحظات النشر
       </summary>
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
             استخدم هذه الأدوات فقط عند إضافة نوع جديد من الأقسام.
@@ -570,6 +570,7 @@ function AdvancedBuilderTools({
         <div className="space-y-2">
           <Label>ملاحظات النشر</Label>
           <Textarea
+            className="min-h-20"
             value={notes}
             onChange={(event) => onNotesChange(event.target.value)}
             placeholder="ملاحظة داخلية اختيارية"
