@@ -97,7 +97,7 @@ export function MealBuilderCardEditor({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
-        className="grid max-h-[90dvh] w-[calc(100%-1rem)] max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[78dvh]"
+        className="grid max-h-[88dvh] w-[calc(100%-1rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
         dir="rtl"
       >
         <DialogHeader className="border-b px-5 py-4 sm:px-6">
@@ -112,8 +112,8 @@ export function MealBuilderCardEditor({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
-          <section className="rounded-lg border bg-muted/10 p-3">
+        <div className="min-h-0 overflow-y-auto px-5 py-4 sm:px-6 lg:grid lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-4 lg:overflow-hidden">
+          <section className="space-y-3 rounded-lg border bg-muted/10 p-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <SwitchLine
                 label="ظاهر"
@@ -134,103 +134,104 @@ export function MealBuilderCardEditor({
                 onChange={(multiSelect) => patchPrimary({ multiSelect })}
               />
             </div>
-          </section>
 
-          <section className="grid gap-4 rounded-lg border p-3 lg:grid-cols-2">
-            <TextField
-              label="عنوان القسم بالعربي"
-              value={
-                primarySection?.titleOverride.ar ??
-                VISUAL_SECTION_LABELS[liveCard.key]?.ar ??
-                ""
-              }
-              onChange={(value) =>
-                patchPrimary({
-                  titleOverride: {
-                    ar: value,
-                    en: primarySection?.titleOverride.en ?? "",
-                  },
-                })
-              }
-              disabled={!primarySection}
-            />
-            <TextField
-              label="عنوان القسم بالإنجليزي"
-              value={
-                primarySection?.titleOverride.en ??
-                VISUAL_SECTION_LABELS[liveCard.key]?.en ??
-                ""
-              }
-              onChange={(value) =>
-                patchPrimary({
-                  titleOverride: {
-                    ar: primarySection?.titleOverride.ar ?? "",
-                    en: value,
-                  },
-                })
-              }
-              disabled={!primarySection}
-            />
-            <NumberField
-              label="الحد الأدنى"
-              value={primarySection?.minSelections ?? 0}
-              disabled={!primarySection}
-              onChange={(value) =>
-                patchPrimary({ minSelections: value === "" ? 0 : value })
-              }
-            />
-            <NumberField
-              label="الحد الأقصى"
-              value={primarySection?.maxSelections ?? ""}
-              disabled={!primarySection}
-              onChange={(value) =>
-                patchPrimary({ maxSelections: value === "" ? null : value })
-              }
-            />
-          </section>
-
-          <section className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <Label>العناصر المختارة</Label>
-              <span className="text-xs text-muted-foreground">
-                استخدم الأسهم لتغيير الترتيب
-              </span>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <TextField
+                label="عنوان القسم بالعربي"
+                value={
+                  primarySection?.titleOverride.ar ??
+                  VISUAL_SECTION_LABELS[liveCard.key]?.ar ??
+                  ""
+                }
+                onChange={(value) =>
+                  patchPrimary({
+                    titleOverride: {
+                      ar: value,
+                      en: primarySection?.titleOverride.en ?? "",
+                    },
+                  })
+                }
+                disabled={!primarySection}
+              />
+              <TextField
+                label="عنوان القسم بالإنجليزي"
+                value={
+                  primarySection?.titleOverride.en ??
+                  VISUAL_SECTION_LABELS[liveCard.key]?.en ??
+                  ""
+                }
+                onChange={(value) =>
+                  patchPrimary({
+                    titleOverride: {
+                      ar: primarySection?.titleOverride.ar ?? "",
+                      en: value,
+                    },
+                  })
+                }
+                disabled={!primarySection}
+              />
+              <NumberField
+                label="الحد الأدنى"
+                value={primarySection?.minSelections ?? 0}
+                disabled={!primarySection}
+                onChange={(value) =>
+                  patchPrimary({ minSelections: value === "" ? 0 : value })
+                }
+              />
+              <NumberField
+                label="الحد الأقصى"
+                value={primarySection?.maxSelections ?? ""}
+                disabled={!primarySection}
+                onChange={(value) =>
+                  patchPrimary({ maxSelections: value === "" ? null : value })
+                }
+              />
             </div>
-            <div className="max-h-[min(13rem,28dvh)] divide-y overflow-auto rounded-lg border">
-              {liveCard.items.length ? (
-                liveCard.items.map((item, index) => (
-                  <SelectedItemRow
-                    key={`${item.kind}:${item.id}`}
-                    item={item}
-                    first={index === 0}
-                    last={index === liveCard.items.length - 1}
-                    onMove={(direction) =>
-                      setDraftSections((current) =>
-                        moveItem(
-                          current,
-                          liveCard.items,
-                          item,
-                          direction,
-                          catalog
+          </section>
+
+          <div className="mt-4 grid min-h-0 gap-4 lg:mt-0 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <section className="grid min-h-0 gap-2 rounded-lg border p-3 lg:grid-rows-[auto_minmax(0,1fr)]">
+              <div className="flex items-center justify-between gap-3">
+                <Label>العناصر المختارة</Label>
+                <span className="text-xs text-muted-foreground">
+                  استخدم الأسهم لتغيير الترتيب
+                </span>
+              </div>
+              <div className="divide-y rounded-lg border lg:min-h-0 lg:overflow-auto">
+                {liveCard.items.length ? (
+                  liveCard.items.map((item, index) => (
+                    <SelectedItemRow
+                      key={`${item.kind}:${item.id}`}
+                      item={item}
+                      first={index === 0}
+                      last={index === liveCard.items.length - 1}
+                      onMove={(direction) =>
+                        setDraftSections((current) =>
+                          moveItem(
+                            current,
+                            liveCard.items,
+                            item,
+                            direction,
+                            catalog
+                          )
                         )
-                      )
-                    }
-                    onRemove={() =>
-                      setDraftSections((current) =>
-                        removeItem(current, item, catalog)
-                      )
-                    }
-                  />
-                ))
-              ) : (
-                <p className="p-4 text-sm text-muted-foreground">
-                  لا توجد عناصر مختارة داخل هذه البطاقة.
-                </p>
-              )}
-            </div>
-          </section>
+                      }
+                      onRemove={() =>
+                        setDraftSections((current) =>
+                          removeItem(current, item, catalog)
+                        )
+                      }
+                    />
+                  ))
+                ) : (
+                  <p className="p-4 text-sm text-muted-foreground">
+                    لا توجد عناصر مختارة داخل هذه البطاقة.
+                  </p>
+                )}
+              </div>
+            </section>
 
-          <section className="space-y-3 rounded-lg border p-3">
+          <section className="grid min-h-0 gap-3 rounded-lg border p-3 lg:grid-rows-[auto_auto_minmax(0,1fr)]">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="min-w-0 flex-1 space-y-1.5">
                 <Label>إضافة عناصر من الكتالوج</Label>
@@ -274,7 +275,7 @@ export function MealBuilderCardEditor({
               </div>
             </details>
 
-            <div className="max-h-[min(16rem,34dvh)] overflow-auto rounded-lg border">
+            <div className="rounded-lg border lg:min-h-0 lg:overflow-auto">
               {pickerQuery.isLoading ? (
                 <p className="p-4 text-sm text-muted-foreground">
                   جاري تحميل العناصر المناسبة لهذه البطاقة...
@@ -320,6 +321,7 @@ export function MealBuilderCardEditor({
               )}
             </div>
           </section>
+          </div>
         </div>
 
         <DialogFooter className="flex-col-reverse gap-2 border-t bg-background px-5 py-3 sm:flex-row sm:justify-start sm:px-6">
