@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -29,6 +30,7 @@ export function MealBuilderVisualCard({
   card: VisualCard;
   onEdit: () => void;
 }) {
+  const [showAllItems, setShowAllItems] = useState(false);
   const blockingIssues = [
     ...card.errors,
     ...card.backendIssues.filter((issue) => issue.level === "error"),
@@ -37,16 +39,16 @@ export function MealBuilderVisualCard({
     ...card.warnings,
     ...card.backendIssues.filter((issue) => issue.level !== "error"),
   ];
-  const visibleItems = card.items.slice(0, VISIBLE_ITEM_LIMIT);
   const hiddenItems = card.items.slice(VISIBLE_ITEM_LIMIT);
+  const shownItems = showAllItems ? card.items : card.items.slice(0, VISIBLE_ITEM_LIMIT);
   const ruleLabels = card.rules
     .filter((rule) => !rule.includes("=") && !rule.includes("requiresBuilder"))
     .slice(0, 3);
 
   return (
-    <Card className="border-border/80 shadow-none transition-colors hover:border-primary/30">
+    <Card className="h-full border-border/80 shadow-none transition-colors hover:border-primary/30">
       <CardHeader className="gap-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="font-mono">
@@ -63,7 +65,12 @@ export function MealBuilderVisualCard({
               <ProblemCount card={card} />
             </div>
           </div>
-          <Button type="button" variant="outline" onClick={onEdit}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full shrink-0 justify-center sm:w-auto"
+            onClick={onEdit}
+          >
             <Pencil data-icon="inline-start" />
             تعديل البطاقة
           </Button>
@@ -121,7 +128,7 @@ export function MealBuilderVisualCard({
 
         {card.items.length ? (
           <div className="grid gap-2">
-            {visibleItems.map((item) => (
+            {shownItems.map((item) => (
               <MealBuilderItemRow
                 key={`${item.kind}:${item.id}`}
                 cardKey={card.key}
@@ -129,20 +136,19 @@ export function MealBuilderVisualCard({
               />
             ))}
             {hiddenItems.length ? (
-              <details className="rounded-lg border bg-muted/10 p-3">
-                <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
-                  عرض {hiddenItems.length} عناصر إضافية
-                </summary>
-                <div className="mt-3 grid gap-2">
-                  {hiddenItems.map((item) => (
-                    <MealBuilderItemRow
-                      key={`${item.kind}:${item.id}`}
-                      cardKey={card.key}
-                      item={item}
-                    />
-                  ))}
-                </div>
-              </details>
+              <div className="flex justify-start pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs text-muted-foreground"
+                  onClick={() => setShowAllItems((current) => !current)}
+                >
+                  {showAllItems
+                    ? "إخفاء العناصر"
+                    : `+${hiddenItems.length} عناصر أخرى`}
+                </Button>
+              </div>
             ) : null}
           </div>
         ) : (

@@ -321,7 +321,7 @@ function MealBuilderWorkspace({
               </div>
             ) : null}
 
-            <div className="grid gap-4">
+            <div className="grid gap-4 xl:grid-cols-2">
               {visualCards.map((card) => (
                 <MealBuilderVisualCard
                   key={card.key}
