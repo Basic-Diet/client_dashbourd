@@ -106,7 +106,7 @@ export function MealBuilderSectionEditor({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
-        className="grid max-h-[92dvh] w-[calc(100%-1rem)] max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[82dvh]"
+        className="grid max-h-[90dvh] w-[calc(100%-1rem)] max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[78dvh]"
         dir="rtl"
       >
         <DialogHeader className="border-b px-5 py-4 sm:px-6">
@@ -300,11 +300,20 @@ export function MealBuilderSectionEditor({
           ) : null}
         </div>
 
-        <DialogFooter className="border-t bg-background px-5 py-3 sm:justify-start sm:px-6">
-          <Button type="button" onClick={() => onSave(section)}>
+        <DialogFooter className="flex-col-reverse gap-2 border-t bg-background px-5 py-3 sm:flex-row sm:justify-start sm:px-6">
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            onClick={() => onSave(section)}
+          >
             حفظ القسم
           </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={onClose}
+          >
             إلغاء
           </Button>
         </DialogFooter>

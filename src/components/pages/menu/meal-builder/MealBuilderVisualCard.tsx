@@ -21,7 +21,7 @@ import type { MealBuilderVisualCard as VisualCard } from "./mealBuilderVisualMod
 
 type VisualItem = VisualCard["items"][number];
 
-const VISIBLE_ITEM_LIMIT = 6;
+const VISIBLE_ITEM_LIMIT = 5;
 
 export function MealBuilderVisualCard({
   card,
@@ -38,16 +38,18 @@ export function MealBuilderVisualCard({
   const reviewIssues = [
     ...card.warnings,
     ...card.backendIssues.filter((issue) => issue.level !== "error"),
-  ];
+  ].filter(isActionableIssue);
   const hiddenItems = card.items.slice(VISIBLE_ITEM_LIMIT);
-  const shownItems = showAllItems ? card.items : card.items.slice(0, VISIBLE_ITEM_LIMIT);
+  const shownItems = showAllItems
+    ? card.items
+    : card.items.slice(0, VISIBLE_ITEM_LIMIT);
   const ruleLabels = card.rules
     .filter((rule) => !rule.includes("=") && !rule.includes("requiresBuilder"))
     .slice(0, 3);
 
   return (
     <Card className="h-full border-border/80 shadow-none transition-colors hover:border-primary/30">
-      <CardHeader className="gap-3">
+      <CardHeader className="gap-3 border-b pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -59,6 +61,11 @@ export function MealBuilderVisualCard({
                 <CardDescription>{card.labelEn}</CardDescription>
               ) : null}
               <CardState card={card} />
+              {reviewIssues.length ? (
+                <Badge variant="secondary" className="font-normal">
+                  مراجعة اختيارية
+                </Badge>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{card.items.length} عناصر مختارة</span>
@@ -77,7 +84,7 @@ export function MealBuilderVisualCard({
         </div>
 
         {ruleLabels.length ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {ruleLabels.map((rule) => (
               <Badge key={rule} variant="secondary" className="font-normal">
                 {rule}
@@ -87,23 +94,16 @@ export function MealBuilderVisualCard({
         ) : null}
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 pt-4">
         {blockingIssues.length ? (
-          <div className="space-y-2">
-            {blockingIssues.slice(0, 2).map((issue, index) => (
-              <div
-                key={`${mealBuilderIssueCode(issue) || "error"}-${index}`}
-                className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-              >
-                <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-                <span>{mealBuilderIssueText(issue)}</span>
-              </div>
-            ))}
+          <div className="flex gap-2 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+            <span>{mealBuilderIssueText(blockingIssues[0])}</span>
           </div>
         ) : null}
 
         {reviewIssues.length ? (
-          <details className="rounded-lg border bg-muted/20 p-3 text-sm">
+          <details className="rounded-md bg-muted/30 px-3 py-2 text-sm">
             <summary className="cursor-pointer text-muted-foreground">
               تفاصيل المراجعة
             </summary>
@@ -136,7 +136,7 @@ export function MealBuilderVisualCard({
               />
             ))}
             {hiddenItems.length ? (
-              <div className="flex justify-start pt-1">
+              <div className="flex justify-start">
                 <Button
                   type="button"
                   variant="ghost"
@@ -171,7 +171,7 @@ function MealBuilderItemRow({
   const itemIssues = [...item.errors, ...item.warnings];
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="rounded-lg border bg-background p-3">
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <Package className="size-4 text-muted-foreground" />
@@ -189,16 +189,12 @@ function MealBuilderItemRow({
             {item.kind === "product" ? "منتج" : "خيار"}
           </Badge>
           {item.selected ? <Badge variant="default">مختار</Badge> : null}
-          {item.eligible ? <Badge variant="secondary">مؤهل</Badge> : null}
-          <Badge variant={item.available ? "outline" : "destructive"}>
-            {item.available ? "متاح" : "غير متاح"}
-          </Badge>
-          <Badge variant={item.published ? "outline" : "secondary"}>
-            {item.published ? "منشور" : "غير منشور"}
-          </Badge>
-          <Badge variant={item.subscriptionEnabled ? "outline" : "destructive"}>
-            {item.subscriptionEnabled ? "للاشتراك" : "ليس للاشتراك"}
-          </Badge>
+          {isReadyItem(item) ? <Badge variant="outline">جاهز</Badge> : null}
+          {!item.available ? <Badge variant="destructive">غير متاح</Badge> : null}
+          {!item.published ? <Badge variant="secondary">غير منشور</Badge> : null}
+          {!item.subscriptionEnabled ? (
+            <Badge variant="destructive">ليس للاشتراك</Badge>
+          ) : null}
           {!item.linked ? <Badge variant="destructive">غير مرتبط</Badge> : null}
           {!item.catalogItemAvailable ? (
             <Badge variant="destructive">غير متاح في كتالوج العميل</Badge>
@@ -222,6 +218,16 @@ function MealBuilderItemRow({
   );
 }
 
+function isReadyItem(item: VisualItem) {
+  return (
+    item.available &&
+    item.published &&
+    item.subscriptionEnabled &&
+    item.linked &&
+    item.catalogItemAvailable
+  );
+}
+
 function ProblemCount({ card }: { card: VisualCard }) {
   const unavailable = card.items.filter((item) => !item.available).length;
   const unpublished = card.items.filter((item) => !item.published).length;
@@ -235,6 +241,14 @@ function ProblemCount({ card }: { card: VisualCard }) {
       {unpublished ? <span>{unpublished} غير منشور</span> : null}
       {notForSubscription ? <span>{notForSubscription} ليس للاشتراك</span> : null}
     </>
+  );
+}
+
+function isActionableIssue(issue: unknown) {
+  const code = mealBuilderIssueCode(issue);
+  if (!code) return typeof issue === "string";
+  return /UNAVAILABLE|UNPUBLISHED|MISSING|NOT_LINKED|NOT_INCLUDED|PRICE/.test(
+    code
   );
 }
 
