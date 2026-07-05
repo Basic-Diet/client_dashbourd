@@ -106,7 +106,7 @@ export function MealBuilderSectionEditor({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
-        className="grid max-h-[85dvh] w-[calc(100%-1.5rem)] max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[min(680px,calc(100dvh-4rem))] lg:max-h-[min(720px,calc(100dvh-5rem))]"
+        className="grid max-h-[92dvh] w-[calc(100%-1rem)] max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[82dvh]"
         dir="rtl"
       >
         <DialogHeader className="border-b px-5 py-4 sm:px-6">
@@ -114,12 +114,11 @@ export function MealBuilderSectionEditor({
             {initial ? "تعديل" : "إضافة"} {SECTION_LABELS[type]}
           </DialogTitle>
           <DialogDescription>
-            اختر من بيانات الكتالوج الموجودة. تعديل المنتجات أو الخيارات يتم من
-            صفحات الكتالوج الأصلية.
+            اختر من بيانات الكتالوج الموجودة واضبط ما يظهر للعميل.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
+        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
           <div className="grid gap-4 lg:grid-cols-2">
             <Field
               label="العنوان بالعربي"
@@ -237,7 +236,7 @@ export function MealBuilderSectionEditor({
             />
             {type !== "option_group" ? (
               <SwitchLine
-                label="Full meal"
+                label="وجبة كاملة"
                 checked={sectionTreatsAsFullMeal(section)}
                 onChange={(treatAsFullMeal) =>
                   patch({
@@ -301,7 +300,7 @@ export function MealBuilderSectionEditor({
           ) : null}
         </div>
 
-        <DialogFooter className="border-t bg-background px-5 py-4 sm:justify-start sm:px-6">
+        <DialogFooter className="border-t bg-background px-5 py-3 sm:justify-start sm:px-6">
           <Button type="button" onClick={() => onSave(section)}>
             حفظ القسم
           </Button>
@@ -330,7 +329,7 @@ function Picker<T extends MenuProduct | MenuOption>({
   return (
     <div className="space-y-2">
       <Label>{title}</Label>
-      <div className="max-h-[min(18rem,38dvh)] overflow-auto rounded-lg border">
+      <div className="max-h-[min(16rem,34dvh)] overflow-auto rounded-lg border">
         {items.length ? (
           <div className="divide-y">
             {items.map((item) => (
@@ -344,7 +343,7 @@ function Picker<T extends MenuProduct | MenuOption>({
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{nameOf(item)}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {item.key} · {availableLabel(item)}
+                    {availableLabel(item)}
                   </span>
                 </span>
                 <PremiumBadge

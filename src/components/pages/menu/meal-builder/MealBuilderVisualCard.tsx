@@ -8,6 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { mealBuilderIssueCode, mealBuilderIssueText } from "./mealBuilderIssueText";
 import type { MealBuilderVisualCard as VisualCard } from "./mealBuilderVisualModel";
 
 type VisualItem = VisualCard["items"][number];
@@ -19,10 +20,19 @@ export function MealBuilderVisualCard({
   card: VisualCard;
   onEdit: () => void;
 }) {
-  const visibleIssues = [...card.errors, ...card.warnings];
-  const issueCount = visibleIssues.length + card.backendIssues.length;
-  const previewItems = card.items.slice(0, 3);
+  const blockingIssues = [
+    ...card.errors,
+    ...card.backendIssues.filter((issue) => issue.level === "error"),
+  ];
+  const reviewIssues = [
+    ...card.warnings,
+    ...card.backendIssues.filter((issue) => issue.level !== "error"),
+  ];
+  const unavailableCount = card.items.filter((item) => !item.available).length;
+  const unpublishedCount = card.items.filter((item) => !item.published).length;
+  const previewItems = card.items.slice(0, 5);
   const remainingCount = Math.max(card.items.length - previewItems.length, 0);
+  const metadata = cardMetadata(card, unavailableCount, unpublishedCount);
 
   return (
     <Card className="border-border/80 shadow-none transition-colors hover:border-primary/35">
@@ -44,7 +54,8 @@ export function MealBuilderVisualCard({
                   ? `${card.items.length} عناصر مختارة`
                   : "لا توجد عناصر"}
               </span>
-              {issueCount ? <span>{issueCount} ملاحظات</span> : null}
+              {unavailableCount ? <span>يوجد غير متاح</span> : null}
+              {unpublishedCount ? <span>يوجد غير منشور</span> : null}
             </div>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={onEdit}>
@@ -54,12 +65,24 @@ export function MealBuilderVisualCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
+        {metadata.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {metadata.map((label) => (
+              <Badge key={label} variant="secondary" className="font-normal">
+                {label}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+
         {card.items.length ? (
           <div className="flex flex-wrap gap-1.5">
             {previewItems.map((item) => (
               <ItemChip key={`${item.kind}:${item.id}`} cardKey={card.key} item={item} />
             ))}
-            {remainingCount ? <Badge variant="secondary">+{remainingCount}</Badge> : null}
+            {remainingCount ? (
+              <Badge variant="secondary">+{remainingCount} أكثر</Badge>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
@@ -67,29 +90,30 @@ export function MealBuilderVisualCard({
           </div>
         )}
 
-        {issueCount ? (
+        {blockingIssues.length ? (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+            <span>{mealBuilderIssueText(blockingIssues[0])}</span>
+          </div>
+        ) : null}
+
+        {reviewIssues.length ? (
           <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
             <summary className="cursor-pointer text-muted-foreground">
-              مراجعة {issueCount} ملاحظات
+              مراجعة اختيارية
             </summary>
             <div className="mt-2 space-y-1.5">
-              {visibleIssues.slice(0, 3).map((issue) => (
+              {reviewIssues.slice(0, 3).map((issue, index) => (
                 <CardIssue
-                  key={issue}
-                  message={issue}
-                  warning={card.warnings.includes(issue)}
+                  key={`${mealBuilderIssueCode(issue) || "issue"}-${index}`}
+                  issue={issue}
                 />
               ))}
-              {card.backendIssues.slice(0, 3).map((issue, index) => (
-                <p
-                  key={`${issue.code ?? "issue"}-${index}`}
-                  className="text-muted-foreground"
-                >
-                  {reasonCodeLabel(String(issue.code ?? "")) ||
-                    issue.message ||
-                    "تحتاج مراجعة"}
+              {reviewIssues.length > 3 ? (
+                <p className="text-muted-foreground">
+                  +{reviewIssues.length - 3} ملاحظات أخرى داخل المراجعة
                 </p>
-              ))}
+              ) : null}
             </div>
           </details>
         ) : null}
@@ -125,40 +149,36 @@ function ItemChip({
   );
 }
 
-function CardIssue({
-  message,
-  warning,
-}: {
-  message: string;
-  warning: boolean;
-}) {
-  const Icon = warning ? AlertTriangle : ShieldAlert;
+function CardIssue({ issue }: { issue: unknown }) {
   return (
-    <div
-      className={
-        warning ? "flex gap-2 text-amber-700" : "flex gap-2 text-destructive"
-      }
-    >
-      <Icon className="mt-0.5 size-4 shrink-0" />
-      <span>{message}</span>
+    <div className="flex gap-2 text-amber-700">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+      <span>{mealBuilderIssueText(issue)}</span>
     </div>
   );
 }
 
 function CardState({ card }: { card: VisualCard }) {
-  if (card.errors.length || card.backendIssues.length) {
+  const hasBlockingIssue =
+    card.errors.length ||
+    card.backendIssues.some((issue) => issue.level === "error");
+  const hasItemProblem = card.items.some(
+    (item) => !item.available || !item.published || !item.catalogItemAvailable
+  );
+
+  if (hasBlockingIssue || hasItemProblem) {
     return (
       <Badge variant="destructive">
         <ShieldAlert data-icon="inline-start" />
-        مراجعة
+        مراجعة مطلوبة
       </Badge>
     );
   }
-  if (card.warnings.length) {
+  if (card.warnings.length || card.backendIssues.length) {
     return (
       <Badge variant="secondary">
         <AlertTriangle data-icon="inline-start" />
-        تحذير
+        يحتاج مراجعة
       </Badge>
     );
   }
@@ -170,6 +190,27 @@ function CardState({ card }: { card: VisualCard }) {
   );
 }
 
+function cardMetadata(
+  card: VisualCard,
+  unavailableCount: number,
+  unpublishedCount: number
+) {
+  const labels = new Set<string>();
+  if (card.items.some((item) => "required" in item && item.required)) {
+    labels.add("إجباري");
+  }
+  if (card.items.some((item) => item.kind === "product" && item.treatAsFullMeal)) {
+    labels.add("وجبة كاملة");
+  }
+  card.rules
+    .filter((rule) => !rule.includes("=") && !rule.includes("requiresBuilder"))
+    .slice(0, 2)
+    .forEach((rule) => labels.add(rule));
+  if (unavailableCount) labels.add(`${unavailableCount} غير متاح`);
+  if (unpublishedCount) labels.add(`${unpublishedCount} غير منشور`);
+  return [...labels].slice(0, 4);
+}
+
 function isPremiumVisualItem(cardKey: string, itemKey: string) {
   return (
     cardKey === "premium" ||
@@ -178,23 +219,4 @@ function isPremiumVisualItem(cardKey: string, itemKey: string) {
     itemKey === "salmon" ||
     itemKey === "premium_large_salad"
   );
-}
-
-function reasonCodeLabel(code: string) {
-  const labels: Record<string, string> = {
-    SELECTED: "مختار",
-    ELIGIBLE: "متاح",
-    NOT_LINKED_TO_PRODUCT_GROUP: "غير مرتبط بمجموعة منتجات",
-    PRODUCT_GROUP_RELATION_MISSING: "رابط مجموعة المنتجات غير موجود",
-    PRODUCT_OPTION_RELATION_UNAVAILABLE: "رابط الخيار غير متاح",
-    OPTION_UNPUBLISHED: "الخيار غير منشور",
-    OPTION_UNAVAILABLE: "الخيار غير متاح",
-    PRODUCT_UNPUBLISHED: "المنتج غير منشور",
-    PRODUCT_UNAVAILABLE: "المنتج غير متاح",
-    WRONG_VISUAL_FAMILY: "العنصر في مجموعة عرض غير مناسبة",
-    PREMIUM_REQUIRED_KEY: "عنصر بريميوم مطلوب",
-    PREMIUM_LARGE_SALAD_MISSING: "سلطة بريميوم كبيرة غير موجودة",
-    CATALOG_ITEM_UNAVAILABLE: "غير متاح في كتالوج العميل",
-  };
-  return labels[code] ?? code;
 }

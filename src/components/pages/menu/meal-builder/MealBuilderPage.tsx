@@ -63,6 +63,7 @@ import { MealBuilderCardEditor } from "./MealBuilderCardEditor";
 import { MealBuilderStatusCards } from "./MealBuilderStatusCards";
 import { MealBuilderSectionEditor } from "./MealBuilderSectionEditor";
 import { MealBuilderVisualCard } from "./MealBuilderVisualCard";
+import { mealBuilderIssueText } from "./mealBuilderIssueText";
 import { orderSections, toBackendSections } from "./mealBuilderUtils";
 import { buildMealBuilderVisualCards } from "./mealBuilderVisualModel";
 
@@ -472,7 +473,9 @@ function ValidationSummary({
   const errors = validation?.errors ?? [];
   const warnings = validation?.warnings ?? [];
   const issueCount = errors.length + warnings.length;
-  const previewMessages = [...errors, ...warnings].slice(0, 2);
+  const previewMessages = [...errors, ...warnings]
+    .map(mealBuilderIssueText)
+    .slice(0, 2);
 
   if (!validation && !dirty) {
     return null;
@@ -491,7 +494,7 @@ function ValidationSummary({
           {warnings.length ? (
             <Badge variant="secondary">
               <AlertTriangle data-icon="inline-start" />
-              {warnings.length} تحذيرات
+              تنبيهات للمراجعة
             </Badge>
           ) : null}
           {!issueCount && validation ? (
@@ -503,8 +506,12 @@ function ValidationSummary({
           {dirty ? <Badge variant="outline">يحتاج حفظ</Badge> : null}
         </div>
         <div className="min-w-0 flex-1 text-sm text-muted-foreground lg:text-end">
-          {issueCount ? (
+          {errors.length ? (
             <p className="truncate">{previewMessages.join(" • ")}</p>
+          ) : warnings.length ? (
+            <p className="truncate">
+              لا توجد أخطاء مانعة. راجع التنبيهات الاختيارية قبل النشر.
+            </p>
           ) : validation ? (
             <p>لا توجد مشاكل في آخر مراجعة.</p>
           ) : (

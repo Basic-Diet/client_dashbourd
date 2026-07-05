@@ -22,7 +22,6 @@ import type {
   MenuProduct,
 } from "@/types/menuTypes";
 import type { MealBuilderSection } from "@/types/mealBuilderTypes";
-import { MenuKeyBadge } from "@/components/pages/menu/MenuTabScaffold";
 import { VISUAL_SECTION_LABELS } from "./mealBuilderConstants";
 import {
   emptySection,
@@ -98,24 +97,46 @@ export function MealBuilderCardEditor({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
-        className="grid max-h-[85dvh] w-[calc(100%-1.5rem)] max-w-4xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[min(720px,calc(100dvh-4rem))] lg:max-h-[min(760px,calc(100dvh-5rem))]"
+        className="grid max-h-[92dvh] w-[calc(100%-1rem)] max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[82dvh]"
         dir="rtl"
       >
         <DialogHeader className="border-b px-5 py-4 sm:px-6">
-          <DialogTitle>تعديل بطاقة {liveCard.labelAr}</DialogTitle>
-          <DialogDescription>
-            يتم تعديل بيانات المسودة الحقيقية فقط، ثم يرسل زر الحفظ نفس شكل
-            الباكند.
-          </DialogDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <DialogTitle>تعديل بطاقة {liveCard.labelAr}</DialogTitle>
+              <DialogDescription>
+                اختر العناصر التي تظهر للعميل ورتبها داخل هذه البطاقة.
+              </DialogDescription>
+            </div>
+            <Badge variant="secondary">{liveCard.items.length} عناصر</Badge>
+          </div>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ReadonlyField label="المفتاح" value={liveCard.key} />
-            <ReadonlyField
-              label="الترتيب المرئي"
-              value={String(liveCard.sortOrder)}
-            />
+        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+          <section className="rounded-lg border bg-muted/10 p-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SwitchLine
+                label="ظاهر"
+                checked={primarySection?.visible ?? true}
+                disabled={!primarySection}
+                onChange={(visible) => patchPrimary({ visible })}
+              />
+              <SwitchLine
+                label="إجباري"
+                checked={primarySection?.required ?? false}
+                disabled={!primarySection}
+                onChange={(required) => patchPrimary({ required })}
+              />
+              <SwitchLine
+                label="اختيار متعدد"
+                checked={primarySection?.multiSelect ?? false}
+                disabled={!primarySection}
+                onChange={(multiSelect) => patchPrimary({ multiSelect })}
+              />
+            </div>
+          </section>
+
+          <section className="grid gap-4 rounded-lg border p-3 lg:grid-cols-2">
             <TextField
               label="عنوان القسم بالعربي"
               value={
@@ -166,32 +187,16 @@ export function MealBuilderCardEditor({
                 patchPrimary({ maxSelections: value === "" ? null : value })
               }
             />
-          </div>
+          </section>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SwitchLine
-              label="ظاهر"
-              checked={primarySection?.visible ?? true}
-              disabled={!primarySection}
-              onChange={(visible) => patchPrimary({ visible })}
-            />
-            <SwitchLine
-              label="إجباري"
-              checked={primarySection?.required ?? false}
-              disabled={!primarySection}
-              onChange={(required) => patchPrimary({ required })}
-            />
-            <SwitchLine
-              label="اختيار متعدد"
-              checked={primarySection?.multiSelect ?? false}
-              disabled={!primarySection}
-              onChange={(multiSelect) => patchPrimary({ multiSelect })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>العناصر المختارة</Label>
-            <div className="max-h-[min(18rem,34dvh)] divide-y overflow-auto rounded-lg border">
+          <section className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label>العناصر المختارة</Label>
+              <span className="text-xs text-muted-foreground">
+                استخدم الأسهم لتغيير الترتيب
+              </span>
+            </div>
+            <div className="max-h-[min(13rem,28dvh)] divide-y overflow-auto rounded-lg border">
               {liveCard.items.length ? (
                 liveCard.items.map((item, index) => (
                   <SelectedItemRow
@@ -223,9 +228,9 @@ export function MealBuilderCardEditor({
                 </p>
               )}
             </div>
-          </div>
+          </section>
 
-          <div className="space-y-3 rounded-lg border p-4">
+          <section className="space-y-3 rounded-lg border p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="min-w-0 flex-1 space-y-1.5">
                 <Label>إضافة عناصر من الكتالوج</Label>
@@ -251,30 +256,25 @@ export function MealBuilderCardEditor({
               </Button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <SwitchLine
-                label="إظهار غير المتاح"
-                checked={includeUnavailable}
-                onChange={setIncludeUnavailable}
-              />
-              <SwitchLine
-                label="إظهار غير المرتبط"
-                checked={includeNotLinked}
-                onChange={setIncludeNotLinked}
-              />
-            </div>
-
-            {picker?.rules ? (
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(picker.rules).map(([key, value]) => (
-                  <Badge key={key} variant="outline">
-                    {key}={String(value)}
-                  </Badge>
-                ))}
+            <details className="rounded-md border bg-muted/10 px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium">
+                خيارات بحث متقدمة
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <SwitchLine
+                  label="إظهار غير المتاح"
+                  checked={includeUnavailable}
+                  onChange={setIncludeUnavailable}
+                />
+                <SwitchLine
+                  label="إظهار غير المرتبط"
+                  checked={includeNotLinked}
+                  onChange={setIncludeNotLinked}
+                />
               </div>
-            ) : null}
+            </details>
 
-            <div className="max-h-[min(20rem,38dvh)] overflow-auto rounded-lg border">
+            <div className="max-h-[min(16rem,34dvh)] overflow-auto rounded-lg border">
               {pickerQuery.isLoading ? (
                 <p className="p-4 text-sm text-muted-foreground">
                   جاري تحميل العناصر المناسبة لهذه البطاقة...
@@ -301,7 +301,7 @@ export function MealBuilderCardEditor({
                           {hydratedItemName(item)}
                         </span>
                         <span className="block text-xs text-muted-foreground">
-                          {item.key} · {pickerStateLabel(item.state)}
+                          {pickerStateLabel(item.state)}
                         </span>
                         <span className="mt-2 flex flex-wrap gap-1">
                           <ItemStateBadges item={item} />
@@ -319,10 +319,10 @@ export function MealBuilderCardEditor({
                 </p>
               )}
             </div>
-          </div>
+          </section>
         </div>
 
-        <DialogFooter className="border-t bg-background px-5 py-4 sm:justify-start sm:px-6">
+        <DialogFooter className="border-t bg-background px-5 py-3 sm:justify-start sm:px-6">
           <Button type="button" onClick={() => onSave(draftSections)}>
             حفظ تغييرات البطاقة
           </Button>
@@ -353,16 +353,12 @@ function SelectedItemRow({
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{item.name}</span>
-          <MenuKeyBadge value={item.key} />
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
             {item.kind === "product" ? "منتج" : "خيار"}
           </Badge>
           <VisualItemStateBadges item={item} />
-          {item.kind === "product" ? (
-            <Badge variant="outline">selectionType={item.selectionType}</Badge>
-          ) : null}
         </div>
       </div>
       <div className="flex gap-2">
@@ -721,11 +717,6 @@ function ItemStateBadges({ item }: { item: MealBuilderHydratedItem }) {
         {item.published ? "منشور" : "غير منشور"}
       </Badge>
       {item.required ? <Badge variant="secondary">مطلوب</Badge> : null}
-      {(item.reasonCodes ?? []).slice(0, 4).map((code) => (
-        <Badge key={code} variant="outline">
-          {reasonCodeLabel(code)}
-        </Badge>
-      ))}
     </>
   );
 }
@@ -743,25 +734,6 @@ function VisualItemStateBadges({ item }: { item: MealBuilderVisualItem }) {
       </Badge>
     </>
   );
-}
-
-function reasonCodeLabel(code: string) {
-  const labels: Record<string, string> = {
-    SELECTED: "مختار",
-    ELIGIBLE: "مؤهل",
-    NOT_LINKED_TO_PRODUCT_GROUP: "غير مرتبط بالمنتج/المجموعة",
-    PRODUCT_GROUP_RELATION_MISSING: "علاقة المجموعة مفقودة",
-    PRODUCT_OPTION_RELATION_UNAVAILABLE: "علاقة الخيار غير متاحة",
-    OPTION_UNPUBLISHED: "الخيار غير منشور",
-    OPTION_UNAVAILABLE: "الخيار غير متاح",
-    PRODUCT_UNPUBLISHED: "المنتج غير منشور",
-    PRODUCT_UNAVAILABLE: "المنتج غير متاح",
-    WRONG_VISUAL_FAMILY: "تصنيف غير صحيح",
-    PREMIUM_REQUIRED_KEY: "بريميوم مطلوب",
-    PREMIUM_LARGE_SALAD_MISSING: "سلطة بريميوم مفقودة",
-    CATALOG_ITEM_UNAVAILABLE: "غير متاح في الكتالوج العام",
-  };
-  return labels[code] ?? code;
 }
 
 function TextField({
@@ -783,15 +755,6 @@ function TextField({
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
-    </div>
-  );
-}
-
-function ReadonlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input value={value} readOnly />
     </div>
   );
 }

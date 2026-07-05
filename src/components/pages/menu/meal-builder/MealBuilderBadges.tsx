@@ -3,7 +3,7 @@ import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { MenuOption, MenuProduct } from "@/types/menuTypes";
 import type { MealBuilderCheck, MealBuilderValidation } from "@/types/mealBuilderTypes";
-import { ERROR_COPY } from "./mealBuilderConstants";
+import { mealBuilderIssueCode, mealBuilderIssueText } from "./mealBuilderIssueText";
 
 export function StatusBadge({ validation }: { validation: MealBuilderValidation }) {
   const error = validation.status === "error" || validation.errors.length > 0;
@@ -16,13 +16,17 @@ export function StatusBadge({ validation }: { validation: MealBuilderValidation 
 }
 
 export function IssueRow({ issue }: { issue: MealBuilderCheck }) {
-  const code = String(issue.code ?? "UNKNOWN_BACKEND_ERROR");
+  const code = mealBuilderIssueCode(issue);
   return (
     <div className="flex gap-2 rounded-md border p-2 text-sm">
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
       <div className="min-w-0">
-        <p className="font-medium">{ERROR_COPY[code] || issue.message || code}</p>
-        <p className="break-all font-mono text-xs text-muted-foreground">{code}</p>
+        <p className="font-medium">{mealBuilderIssueText(issue)}</p>
+        {code ? (
+          <p className="break-all font-mono text-xs text-muted-foreground">
+            {code}
+          </p>
+        ) : null}
       </div>
     </div>
   );
