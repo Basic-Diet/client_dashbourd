@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { Input } from "@/components/ui/input";
@@ -24,15 +23,25 @@ import { buttonVariants } from "@/components/custom/button-variants";
 import { cn } from "@/lib/utils";
 
 export function UsersTable() {
-  const [globalFilter, setGlobalFilter] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const { data: response, isLoading } = useUsersListQuery(
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  const { data: response, isLoading, isFetching } = useUsersListQuery(
     pagination.pageIndex + 1,
-    pagination.pageSize
+    pagination.pageSize,
+    debouncedSearch
   );
 
   const data = response?.data || [];
@@ -43,13 +52,10 @@ export function UsersTable() {
     columns: usersColumns,
     state: {
       pagination,
-      globalFilter,
     },
     pageCount: meta.totalPages,
     onPaginationChange: setPagination,
-    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     manualPagination: true,
   });
 
@@ -62,14 +68,17 @@ export function UsersTable() {
           <div className="relative flex-1">
             <SearchIcon className="absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="البحث باسم المستخدم"
-              value={globalFilter}
+              placeholder="البحث في كل المستخدمين بالاسم أو الهاتف"
+              value={search}
               onChange={(e) => {
-                setGlobalFilter(e.target.value);
+                setSearch(e.target.value);
                 setPagination((prev) => ({ ...prev, pageIndex: 0 }));
               }}
               className="max-w-lg pr-9"
             />
+            {isFetching && debouncedSearch ? (
+              <p className="mt-1 text-xs text-muted-foreground">جاري البحث...</p>
+            ) : null}
           </div>
 
           {/* Add user link */}
