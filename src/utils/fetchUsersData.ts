@@ -5,18 +5,20 @@ import type { CreateUserSchemaType } from "@/lib/validations/createUserSchema";
 export const fetchUsersList = async ({
   page = 1,
   limit = 20,
+  q,
 }: {
   page?: number;
   limit?: number;
+  q?: string;
 } = {}): Promise<PaginatedUsersResponse> => {
   try {
     const params = new URLSearchParams();
     if (page) params.append("page", page.toString());
     if (limit) params.append("limit", limit.toString());
+    const query = q?.trim();
+    if (query) params.append("q", query);
 
-    const response = await api.get(
-      `/api/dashboard/users?${params.toString()}`
-    );
+    const response = await api.get("/api/dashboard/users?" + params.toString());
     return response.data;
   } catch (error) {
     console.error("Error fetching users list:", error);
