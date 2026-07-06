@@ -6,10 +6,10 @@ import {
   updateUser,
 } from "@/utils/fetchUsersData";
 
-export const usersQueryOptions = (page: number, limit: number) =>
+export const usersQueryOptions = (page: number, limit: number, search = "") =>
   queryOptions({
-    queryKey: ["users", page, limit],
-    queryFn: () => fetchUsersList({ page, limit }),
+    queryKey: ["users", page, limit, search],
+    queryFn: () => fetchUsersList({ page, limit, q: search }),
   });
 
 export const allUsersQueryOptions = () =>
@@ -19,9 +19,9 @@ export const allUsersQueryOptions = () =>
     staleTime: 1000 * 60 * 5,
   });
 
-export const useUsersListQuery = (page: number, limit: number) => {
+export const useUsersListQuery = (page: number, limit: number, search = "") => {
   return useQuery({
-    ...usersQueryOptions(page, limit),
+    ...usersQueryOptions(page, limit, search),
   });
 };
 
