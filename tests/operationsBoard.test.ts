@@ -6,6 +6,7 @@ import {
   getEndpointForAction,
   getItemsByStatuses,
   getPickupItems,
+  getPreparationItems,
   getSafeOperationsTab,
   getScreensForRole,
 } from "../src/lib/operationsBoard";
@@ -47,7 +48,8 @@ assert.equal(getSafeOperationsTab(undefined, ["courier"]), "courier");
 assert.equal(getSafeOperationsTab(undefined, []), "kitchen");
 
 const items = [
-  makeItem({ entityId: "ready-pickup", status: "ready", mode: "pickup" }),
+  makeItem({ entityId: "confirmed-pickup", status: "confirmed", mode: "pickup" }),
+  makeItem({ entityId: "ready-pickup", status: "ready_for_pickup", mode: "pickup" }),
   makeItem({
     entityId: "delivery-order",
     status: "out_for_delivery",
@@ -58,13 +60,19 @@ const items = [
     source: "subscription_pickup_request",
     entityType: "subscription_pickup_request",
     type: "subscription_pickup_request",
+    status: "ready_for_pickup",
     mode: "pickup",
   }),
 ];
 
 assert.deepEqual(
-  getItemsByStatuses(items, ["ready"]).map((item) => item.entityId),
+  getItemsByStatuses(items, ["ready_for_pickup"]).map((item) => item.entityId),
   ["ready-pickup", "subscription-pickup-request"]
+);
+
+assert.deepEqual(
+  getPreparationItems(items).map((item) => item.entityId),
+  ["confirmed-pickup"]
 );
 
 assert.deepEqual(
@@ -83,7 +91,7 @@ assert.equal(
 );
 
 assert.deepEqual(
-  buildOperationsActionPayload(items[0], "fulfill", undefined, "note", "1111"),
+  buildOperationsActionPayload(items[1], "fulfill", undefined, "note", "1111"),
   {
     entityId: "ready-pickup",
     entityType: "order",

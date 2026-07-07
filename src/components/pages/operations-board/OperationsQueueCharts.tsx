@@ -24,8 +24,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { getOperationsOrderTypeLabel } from "@/lib/operationsBoard";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
-import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
 
 const chartConfig = {
   count: {
@@ -55,9 +55,7 @@ function getStatusLabel(item: UnifiedQueueItem) {
 }
 
 function getSourceLabel(item: UnifiedQueueItem) {
-  if (isPickupRequest(item)) return "استلام فرع";
-  if (isOneTimeOrder(item)) return "طلب فردي";
-  return "اشتراك يومي";
+  return getOperationsOrderTypeLabel(item);
 }
 
 function aggregateByLabel<T>(

@@ -18,7 +18,6 @@ assert.deepEqual(cashierUrls, [
   "/dashboard",
   "/payments",
   "/subscriptions",
-  "/one-time-orders",
   "/users",
 ]);
 
@@ -31,9 +30,10 @@ const kitchenUrls = filterNavItemsForRole(
   "kitchen"
 ).map((item) => item.url);
 
-assert.deepEqual(kitchenUrls, ["/one-time-orders", "/operations"]);
+assert.deepEqual(kitchenUrls, ["/operations"]);
 assert.equal(kitchenUrls.includes("/menu"), false);
 assert.equal(kitchenUrls.includes("/manual-deduction"), false);
+assert.equal(kitchenUrls.includes("/one-time-orders"), false);
 
 assert.deepEqual(navMainUrlsForRole("courier"), ["/delivery"]);
 assert.equal(navMainUrlsForRole("courier").includes("/operations"), false);
@@ -46,7 +46,6 @@ assert.deepEqual(navMainUrlsForRole("admin"), [
   "/addons",
   "/packages",
   "/subscriptions",
-  "/one-time-orders",
   "/operations",
   "/manual-deduction",
   "/menu",

@@ -193,12 +193,46 @@ export function getItemsByStatuses(
   return items.filter((item) => statuses.includes(item.status));
 }
 
+const PREPARATION_STATUSES = new Set([
+  "open",
+  "locked",
+  "confirmed",
+  "pending_payment",
+  "preparing",
+  "in_preparation",
+]);
+
+function hasPreparationAction(item: UnifiedQueueItem): boolean {
+  const actionIds = [
+    ...(item.allowedActions || []),
+    ...(item.actions?.allowed || []),
+  ].map((action) => action.id);
+
+  return actionIds.some((id) =>
+    ["prepare", "start_preparation", "ready_for_pickup"].includes(id)
+  );
+}
+
+export function isPreparationQueueItem(item: UnifiedQueueItem): boolean {
+  if (item.source === "subscription_pickup_request") return false;
+  if (PREPARATION_STATUSES.has(item.status)) return true;
+  if (item.actions?.canPrepare || item.actions?.canReadyForPickup) return true;
+  return hasPreparationAction(item);
+}
+
+export function getPreparationItems(
+  items: UnifiedQueueItem[] = []
+): UnifiedQueueItem[] {
+  return items.filter(isPreparationQueueItem);
+}
+
 export function getPickupItems(
   items: UnifiedQueueItem[] = []
 ): UnifiedQueueItem[] {
   return items.filter(
     (item) =>
-      item.mode === "pickup" || (item.source === "one_time_order" && !item.mode)
+      !isPreparationQueueItem(item) &&
+      (item.source === "subscription_pickup_request" || item.mode === "pickup")
   );
 }
 
@@ -207,8 +241,23 @@ export function getCourierItems(
 ): UnifiedQueueItem[] {
   return items.filter(
     (item) =>
-      item.mode === "delivery" && item.source !== "subscription_pickup_request"
+      !isPreparationQueueItem(item) &&
+      item.mode === "delivery" &&
+      item.source !== "subscription_pickup_request"
   );
+}
+
+export function getOperationsOrderTypeLabel(item: UnifiedQueueItem): string {
+  if (item.source === "one_time_order" || item.entityType === "order") {
+    return "طلب فردي";
+  }
+  if (
+    item.source === "subscription_pickup_request" ||
+    item.entityType === "subscription_pickup_request"
+  ) {
+    return "استلام اشتراك";
+  }
+  return "اشتراك";
 }
 
 function normalizeAllowedActions(raw: unknown): UnifiedQueueItem["allowedActions"] {

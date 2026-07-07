@@ -12,7 +12,6 @@ import { UserRoles, type UserRole } from "../src/types/auth";
 
 const adminProtectedRoutes = [
   "/dashboard",
-  "/one-time-orders",
   "/operations",
   "/subscriptions",
   "/packages",
@@ -39,7 +38,6 @@ assert.deepEqual(ADMIN_ROUTES, adminProtectedRoutes);
 
 assert.deepEqual(CASHIER_ROUTES, [
   "/dashboard",
-  "/one-time-orders",
   "/subscriptions",
   "/payments",
   "/users",
@@ -51,9 +49,10 @@ assert.equal(CASHIER_ROUTES.includes("/pickup-board"), false);
 assert.equal(CASHIER_ROUTES.includes("/menu"), false);
 assert.equal(CASHIER_ROUTES.includes("/packages"), false);
 
-assert.deepEqual(KITCHEN_ROUTES, ["/operations", "/one-time-orders", "/profile"]);
+assert.deepEqual(KITCHEN_ROUTES, ["/operations", "/profile"]);
 assert.equal(KITCHEN_ROUTES.includes("/menu"), false);
 assert.equal(KITCHEN_ROUTES.includes("/manual-deduction"), false);
+assert.equal(KITCHEN_ROUTES.includes("/one-time-orders"), false);
 
 assert.deepEqual(COURIER_ROUTES, ["/delivery", "/profile"]);
 assert.equal(COURIER_ROUTES.includes("/operations"), false);
@@ -70,7 +69,7 @@ assert.deepEqual(ROLE_DEFAULTS, {
 assert.equal(canRoleAccessRoute(UserRoles.ADMIN, "/subscriptions/create"), true);
 assert.equal(canRoleAccessRoute(UserRoles.SUPERADMIN, "/users/user-1"), true);
 assert.equal(canRoleAccessRoute(UserRoles.KITCHEN, "/operations"), true);
-assert.equal(canRoleAccessRoute(UserRoles.KITCHEN, "/one-time-orders/order-1"), true);
+assert.equal(canRoleAccessRoute(UserRoles.KITCHEN, "/one-time-orders/order-1"), false);
 assert.equal(canRoleAccessRoute(UserRoles.KITCHEN, "/delivery"), false);
 assert.equal(canRoleAccessRoute(UserRoles.COURIER, "/delivery"), true);
 assert.equal(canRoleAccessRoute(UserRoles.COURIER, "/operations"), false);

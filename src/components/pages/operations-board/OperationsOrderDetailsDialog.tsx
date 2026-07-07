@@ -18,8 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getOperationsOrderTypeLabel } from "@/lib/operationsBoard";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
-import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
 
 interface OperationsOrderDetailsDialogProps {
   item: UnifiedQueueItem | null;
@@ -81,9 +81,7 @@ function text(value: unknown, fallback = ""): string {
 }
 
 function sourceLabel(item: UnifiedQueueItem) {
-  if (isPickupRequest(item)) return "استلام من الفرع";
-  if (isOneTimeOrder(item)) return "طلب فردي";
-  return "اشتراك يومي";
+  return getOperationsOrderTypeLabel(item);
 }
 
 function modeLabel(mode: string) {

@@ -7,6 +7,7 @@ import {
   getCourierItems,
   getEndpointForAction,
   getPickupItems,
+  getPreparationItems,
   getScreensForRole,
   OPERATIONS_SCREENS,
   type OperationsScreen,
@@ -60,13 +61,9 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
           ? await fetchDashboardOpsSearch(search)
           : await fetchDashboardOpsList(params.date || "");
       const items = response.data?.items ?? [];
+      const kitchenItems = getPreparationItems(items);
       const pickupItems = getPickupItems(items);
       const courierItems = getCourierItems(items);
-      const pickupIds = new Set(pickupItems.map((item) => item.id));
-      const courierIds = new Set(courierItems.map((item) => item.id));
-      const kitchenItems = items.filter(
-        (item) => !pickupIds.has(item.id) && !courierIds.has(item.id)
-      );
 
       return [
         { screen: "kitchen" as const, items: newestFirst(kitchenItems) },

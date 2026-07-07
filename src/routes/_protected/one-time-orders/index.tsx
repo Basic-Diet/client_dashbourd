@@ -1,6 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { OneTimeOrderList } from "@/components/pages/one-time-orders/OneTimeOrderList";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_protected/one-time-orders/")({
-  component: OneTimeOrderList,
+  beforeLoad: () => {
+    throw redirect({ to: "/operations", search: { tab: "kitchen" } });
+  },
+  component: () => null,
 });

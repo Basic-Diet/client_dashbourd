@@ -27,6 +27,10 @@ export const authMiddleware = (
   // Unknown role → kick to login
   if (!allowedRoutes || !defaultRoute) throw redirect({ to: "/" });
 
+  if (pathName === "/one-time-orders" || pathName.startsWith("/one-time-orders/")) {
+    throw redirect({ to: "/operations", search: { tab: "kitchen" } });
+  }
+
   // Logged-in user on auth route → send back or to default
   if (isAuthRoute) {
     const returnTo = searchParams.redirect ?? defaultRoute;

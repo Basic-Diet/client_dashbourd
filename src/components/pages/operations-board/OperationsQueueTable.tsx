@@ -38,9 +38,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { safeText } from "@/lib/operationsBoard";
+import { getOperationsOrderTypeLabel, safeText } from "@/lib/operationsBoard";
 import type { QueueAction, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
-import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
 import { OperationsOrderDetailsDialog } from "./OperationsOrderDetailsDialog";
 
 interface OperationsQueueTableProps {
@@ -104,9 +103,7 @@ function getActionVariant(color: string) {
 }
 
 function getSourceLabel(item: UnifiedQueueItem) {
-  if (isPickupRequest(item)) return "طلب استلام اشتراك";
-  if (isOneTimeOrder(item)) return "طلب فردي";
-  return "اشتراك يومي";
+  return getOperationsOrderTypeLabel(item);
 }
 
 function getModeLabel(mode: string) {
@@ -574,7 +571,7 @@ export function OperationsQueueTable({
     }),
     columnHelper.display({
       id: "type",
-      header: "النوع",
+      header: "نوع الطلب",
       enableHiding: true,
       cell: ({ row }) => (
         <Badge variant="secondary" className="rounded-md">
