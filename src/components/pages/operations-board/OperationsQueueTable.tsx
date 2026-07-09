@@ -59,6 +59,8 @@ type VisibleAction = QueueAction & {
   requiresReason: boolean;
 };
 
+type RawRecord = Record<string, unknown>;
+
 type PrepLine = {
   id: string;
   name: string;
@@ -67,6 +69,11 @@ type PrepLine = {
   badges: string[];
   notes?: string | null;
   kind: "meal" | "addon" | "item" | "summary";
+};
+
+type OrderDetails = {
+  meals: PrepLine[];
+  addons: PrepLine[];
 };
 
 const PAGE_SIZE_OPTIONS = [9, 18, 36, 72];
@@ -82,6 +89,66 @@ const actionIcons: Record<string, ReactNode> = {
   no_show: <XCircle className="ml-1.5 h-3.5 w-3.5" />,
   reopen: <RotateCcw className="ml-1.5 h-3.5 w-3.5" />,
 };
+
+function asRecord(value: unknown): RawRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as RawRecord)
+    : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function compactParts(parts: Array<string | null | undefined>) {
+  return parts.filter((part): part is string => Boolean(part && part.trim()));
+}
+
+function uniqueParts(parts: Array<string | null | undefined>) {
+  return Array.from(new Set(compactParts(parts)));
+}
+
+function localizedText(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "number") return String(value);
+
+  const record = asRecord(value);
+  if (!record) return null;
+
+  return (
+    asString(record.ar) ||
+    asString(record.en) ||
+    asString(record.displayName) ||
+    asString(record.name) ||
+    localizedText(record.nameI18n) ||
+    localizedText(record.name) ||
+    asString(record.key) ||
+    null
+  );
+}
+
+function recordText(record: RawRecord | null, keys: string[]): string | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const direct = asString(record[key]);
+    if (direct) return direct;
+    const localized = localizedText(record[key]);
+    if (localized) return localized;
+  }
+  return null;
+}
+
+function entityName(value: unknown) {
+  return localizedText(value) || safeText(value, "");
+}
 
 function getStatusClasses(status: string) {
   if (["fulfilled", "ready_for_pickup", "ready"].includes(status)) {
@@ -133,25 +200,38 @@ function getDisplayQuantity(entry: unknown) {
   return Number(item.quantity || item.qty || 1);
 }
 
-function compactParts(parts: Array<string | null | undefined>) {
-  return parts.filter((part): part is string => Boolean(part && part.trim()));
-}
-
-function entityName(value: unknown) {
-  return safeText(value, "");
-}
-
-function entityList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(entityName).filter(Boolean);
-}
-
 function gramsText(entity: unknown, label: string) {
-  if (!entity || typeof entity !== "object") return null;
-  const record = entity as { grams?: number | null; displayName?: string; name?: unknown };
-  const name = entityName(record.displayName || record.name || entity);
-  const grams = record.grams ? `${record.grams}g` : null;
-  return compactParts([name, grams]).join(" ") || label;
+  const record = asRecord(entity);
+  if (!record) return null;
+  const name = entityName(record.displayName || record.name || record.nameI18n || entity);
+  const grams = asNumber(record.grams);
+  return compactParts([name, grams ? `${grams}g` : null]).join(" ") || label;
+}
+
+function legacyNameWithGrams(
+  record: RawRecord,
+  nameKeys: string[],
+  gramsKeys: string[] = ["grams"]
+) {
+  const name = recordText(record, nameKeys);
+  const grams = gramsKeys.map((key) => asNumber(record[key])).find(Boolean);
+  return compactParts([name, grams ? `${grams}g` : null]).join(" ");
+}
+
+function legacyCollectionDetail(
+  value: unknown,
+  label: string,
+  nameKeys: string[] = ["nameI18n", "name", "displayName"],
+  gramsKeys: string[] = ["grams"]
+) {
+  const items = asArray(value)
+    .map((entry) => {
+      const record = asRecord(entry);
+      return record ? legacyNameWithGrams(record, nameKeys, gramsKeys) : entityName(entry);
+    })
+    .filter(Boolean);
+
+  return items.length ? `${label}: ${items.join(" + ")}` : null;
 }
 
 function getMealDetail(
@@ -165,15 +245,18 @@ function getMealDetail(
       meal.protein?.displayName,
     `وجبة ${index + 1}`
   );
-  const carbs = entityList(meal.carbs).join(" + ");
-  const sauces = entityList(meal.sauce).join(" + ");
-  const sides = entityList(meal.sides).join(" + ");
-  const options = entityList(meal.options).join(" + ");
-  const detailParts = compactParts([
+  const carbs = asArray(meal.carbs)
+    .map((carb) => gramsText(carb, "كارب"))
+    .filter(Boolean)
+    .join(" + ");
+  const sauces = asArray(meal.sauce).map(entityName).filter(Boolean).join(" + ");
+  const sides = asArray(meal.sides).map(entityName).filter(Boolean).join(" + ");
+  const options = asArray(meal.options).map(entityName).filter(Boolean).join(" + ");
+  const detailParts = uniqueParts([
     meal.display?.preparationTextAr,
     meal.display?.subtitleAr,
     meal.mealTypeLabel?.ar,
-    meal.protein ? gramsText(meal.protein, "بروتين") : null,
+    meal.protein ? `بروتين: ${gramsText(meal.protein, "بروتين")}` : null,
     carbs ? `كارب: ${carbs}` : null,
     meal.salad ? `سلطة: ${entityName(meal.salad)}` : null,
     sauces ? `صوص: ${sauces}` : null,
@@ -186,12 +269,63 @@ function getMealDetail(
     name: title,
     quantity: Number(meal.quantity || 1),
     detail: detailParts.join(" • "),
-    badges: compactParts([
+    badges: uniqueParts([
+      `وجبة ${index + 1}`,
       meal.mealTypeLabel?.ar,
       meal.premium?.isPremium ? meal.premium.labelAr || "Premium" : null,
       ...(meal.display?.badgesAr || []),
     ]),
     notes: meal.notes,
+    kind: "meal",
+  };
+}
+
+function getLegacyMealDetail(slot: unknown, index: number): PrepLine {
+  const record = asRecord(slot) || {};
+  const title =
+    recordText(record, [
+      "productNameI18n",
+      "productName",
+      "sandwichNameI18n",
+      "sandwichName",
+      "mealNameI18n",
+      "mealName",
+    ]) ||
+    legacyNameWithGrams(record, ["proteinNameI18n", "proteinName"], ["proteinGrams"]) ||
+    `وجبة ${index + 1}`;
+
+  const protein = legacyNameWithGrams(
+    record,
+    ["proteinNameI18n", "proteinName"],
+    ["proteinGrams"]
+  );
+  const selectionType = recordText(record, ["selectionTypeI18n", "selectionType"]);
+  const saladRecord = asRecord(record.salad);
+  const salad = saladRecord
+    ? legacyNameWithGrams(saladRecord, ["nameI18n", "name", "displayName"], ["grams"])
+    : entityName(record.salad);
+
+  const detailParts = uniqueParts([
+    selectionType,
+    protein ? `بروتين: ${protein}` : null,
+    legacyCollectionDetail(record.carbSelections, "كارب"),
+    salad ? `سلطة: ${salad}` : null,
+    legacyCollectionDetail(record.sauce, "صوص"),
+    legacyCollectionDetail(record.selectedOptions, "اختيارات"),
+    legacyCollectionDetail(record.sides, "جانبي"),
+  ]);
+
+  return {
+    id: String(record.slotKey || record.slotIndex || `legacy-meal-${index}`),
+    name: title,
+    quantity: Number(record.quantity || 1),
+    detail: detailParts.join(" • "),
+    badges: uniqueParts([
+      `وجبة ${record.slotIndex || index + 1}`,
+      selectionType,
+      record.isPremium ? "Premium" : null,
+    ]),
+    notes: asString(record.notes),
     kind: "meal",
   };
 }
@@ -210,38 +344,146 @@ function getAddonDetail(
   };
 }
 
-function getPreparationLines(item: UnifiedQueueItem): PrepLine[] {
-  if (item.kitchen?.meals?.length || item.kitchen?.addons?.length) {
-    return [
-      ...(item.kitchen.meals || []).map(getMealDetail),
-      ...(item.kitchen.addons || []).map(getAddonDetail),
-    ];
+function getLegacyAddonDetail(addon: unknown, index: number): PrepLine {
+  const record = asRecord(addon) || {};
+  const name =
+    recordText(record, ["nameI18n", "name", "displayName", "titleAr"]) || "إضافة";
+
+  return {
+    id: String(record.key || name || `legacy-addon-${index}`),
+    name,
+    quantity: Number(record.quantity || 1),
+    detail: "إضافة مع الطلب",
+    badges: ["إضافة"],
+    kind: "addon",
+  };
+}
+
+function mergeAddonLines(lines: PrepLine[]): PrepLine[] {
+  const byKey = new Map<string, PrepLine>();
+
+  lines.forEach((line) => {
+    const key = `${line.name}__${line.detail || ""}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { ...line });
+      return;
+    }
+
+    existing.quantity += line.quantity;
+    existing.badges = uniqueParts([...existing.badges, ...line.badges]);
+  });
+
+  return Array.from(byKey.values());
+}
+
+function getOrderDetails(item: UnifiedQueueItem): OrderDetails {
+  const kitchenDetails = asRecord(item.kitchenDetails);
+  const legacyMealSlots = asArray(kitchenDetails?.mealSlots);
+  const legacyAddons = asArray(kitchenDetails?.addons);
+
+  const meals =
+    item.kitchen?.meals?.length || item.kitchen?.addons?.length
+      ? [...(item.kitchen.meals || []).map(getMealDetail)]
+      : legacyMealSlots.map(getLegacyMealDetail);
+
+  const addons =
+    item.kitchen?.meals?.length || item.kitchen?.addons?.length
+      ? (item.kitchen.addons || []).map(getAddonDetail)
+      : mergeAddonLines(legacyAddons.map(getLegacyAddonDetail));
+
+  if (!meals.length && Array.isArray(item.items) && item.items.length) {
+    return {
+      meals: item.items.map((entry, index) => ({
+        id: String(entry.id || getDisplayName(entry.name) || index),
+        name: getDisplayName(entry.name),
+        quantity: getDisplayQuantity(entry),
+        detail: entry.notes,
+        badges: ["طلب فردي"],
+        notes: entry.notes,
+        kind: "item",
+      })),
+      addons,
+    };
   }
 
-  if (Array.isArray(item.items) && item.items.length) {
-    return item.items.map((entry, index) => ({
-      id: String(entry.id || getDisplayName(entry.name) || index),
-      name: getDisplayName(entry.name),
-      quantity: getDisplayQuantity(entry),
-      detail: entry.notes,
-      badges: [],
-      notes: entry.notes,
-      kind: "item",
-    }));
-  }
+  return { meals, addons };
+}
 
-  if (item.context?.mealCount) {
+function getContextNumber(item: UnifiedQueueItem, key: string) {
+  const context = asRecord(item.context);
+  return asNumber(context?.[key]);
+}
+
+function getRawNumber(item: UnifiedQueueItem, key: string) {
+  const raw = asRecord(item.rawData);
+  return asNumber(raw?.[key]);
+}
+
+function getSelectionModeLabel(item: UnifiedQueueItem) {
+  const kitchenDetails = asRecord(item.kitchenDetails);
+  const mode =
+    item.selectionMode ||
+    asString(kitchenDetails?.selectionMode) ||
+    asString(asRecord(item.rawData)?.selectionMode);
+
+  switch (mode) {
+    case "customer_selected":
+      return "اختيارات العميل";
+    case "quantity_only":
+      return "عدد فقط — لم يحدد الوجبات";
+    case "none":
+      return "لا توجد اختيارات محددة";
+    default:
+      return mode ? safeText(mode, "") : null;
+  }
+}
+
+function getOrderStats(item: UnifiedQueueItem, details: OrderDetails) {
+  const requiredMealCount =
+    item.context?.requiredMealCount ??
+    getContextNumber(item, "requiredMealCount") ??
+    item.context?.mealCount ??
+    getRawNumber(item, "mealCount") ??
+    details.meals.reduce((total, line) => total + line.quantity, 0);
+
+  const specifiedMealCount =
+    getContextNumber(item, "specifiedMealCount") ??
+    details.meals.reduce((total, line) => total + line.quantity, 0);
+
+  const unspecifiedMealCount =
+    getContextNumber(item, "unspecifiedMealCount") ??
+    Math.max(requiredMealCount - specifiedMealCount, 0);
+
+  const addonCount = details.addons.reduce((total, line) => total + line.quantity, 0);
+
+  return {
+    requiredMealCount,
+    specifiedMealCount,
+    unspecifiedMealCount,
+    addonCount,
+  };
+}
+
+function getFallbackMealLines(item: UnifiedQueueItem, details: OrderDetails): PrepLine[] {
+  if (details.meals.length) return details.meals;
+
+  const stats = getOrderStats(item, details);
+  if (stats.requiredMealCount > 0) {
     return [
       {
-        id: "meal-count",
-        name: "وجبات محجوزة",
-        quantity: item.context.mealCount,
-        detail: compactParts([
-          item.plan?.name || undefined,
-          item.plan?.proteinGrams ? `${item.plan.proteinGrams}g بروتين` : null,
-          item.plan?.portionSize,
-        ]).join(" • "),
-        badges: ["اشتراك"],
+        id: "required-meals",
+        name: `${stats.requiredMealCount} وجبات مطلوبة`,
+        quantity: stats.requiredMealCount,
+        detail:
+          stats.unspecifiedMealCount > 0
+            ? "العميل لم يحدد تفاصيل الوجبات بعد — جهّز حسب تعليمات الاشتراك عند التحديث."
+            : compactParts([
+                item.plan?.name || undefined,
+                item.plan?.proteinGrams ? `${item.plan.proteinGrams}g بروتين` : null,
+                item.plan?.portionSize,
+              ]).join(" • "),
+        badges: ["غير محدد"],
         kind: "summary",
       },
     ];
@@ -250,13 +492,8 @@ function getPreparationLines(item: UnifiedQueueItem): PrepLine[] {
   return [];
 }
 
-function getPreparationSummary(item: UnifiedQueueItem) {
-  const mealCount =
-    item.orderSummary?.mealCount ??
-    item.context?.mealCount ??
-    item.pickup?.mealCount;
-  const addonCount = item.orderSummary?.addonCount;
-  const itemCount = item.orderSummary?.itemCount;
+function getPreparationSummary(item: UnifiedQueueItem, details: OrderDetails) {
+  const stats = getOrderStats(item, details);
   const planParts = compactParts([
     item.plan?.name || undefined,
     item.plan?.proteinGrams ? `${item.plan.proteinGrams}g بروتين` : null,
@@ -264,13 +501,17 @@ function getPreparationSummary(item: UnifiedQueueItem) {
     item.plan?.selectedMealsPerDay
       ? `${item.plan.selectedMealsPerDay} وجبات/يوم`
       : null,
+    item.plan?.remainingMeals != null
+      ? `متبقي ${item.plan.remainingMeals} وجبة`
+      : null,
   ]);
+
   const titleParts = compactParts([
-    item.orderSummary?.display?.titleAr,
-    mealCount != null ? `${mealCount} وجبات` : null,
-    addonCount ? `${addonCount} إضافات` : null,
-    itemCount && !mealCount ? `${itemCount} عناصر` : null,
+    stats.requiredMealCount ? `${stats.requiredMealCount} وجبات` : null,
+    stats.addonCount ? `${stats.addonCount} إضافات` : "بدون إضافات",
+    stats.unspecifiedMealCount ? `${stats.unspecifiedMealCount} غير محددة` : null,
   ]);
+
   const warningParts = compactParts([
     item.notes || item.context?.notes,
     item.orderSummary?.notes,
@@ -280,12 +521,10 @@ function getPreparationSummary(item: UnifiedQueueItem) {
   ]);
 
   return {
-    title:
-      titleParts.join(" • ") ||
-      item.orderSummary?.display?.subtitleAr ||
-      "تحضير طلب",
+    title: titleParts.join(" • ") || "تحضير طلب",
     subtitle: planParts.join(" • "),
     warnings: Array.from(new Set(warningParts)).join(" • "),
+    selectionMode: getSelectionModeLabel(item),
   };
 }
 
@@ -403,7 +642,7 @@ function getVisibleActions(item: UnifiedQueueItem) {
   const seenIds = new Set<string>();
   const seenLabels = new Set<string>();
 
-  item.allowedActions.forEach((action) =>
+  (item.allowedActions || []).forEach((action) =>
     appendUniqueAction(result, action, seenIds, seenLabels)
   );
   (item.actions?.disabled || []).forEach((action) =>
@@ -414,7 +653,8 @@ function getVisibleActions(item: UnifiedQueueItem) {
 }
 
 function searchableText(item: UnifiedQueueItem) {
-  const prep = getPreparationLines(item)
+  const details = getOrderDetails(item);
+  const prep = [...details.meals, ...details.addons]
     .flatMap((line) => [line.name, line.detail, line.notes, ...line.badges])
     .join(" ");
   return [
@@ -429,6 +669,7 @@ function searchableText(item: UnifiedQueueItem) {
     item.plan?.name,
     item.orderSummary?.display?.titleAr,
     item.orderSummary?.display?.subtitleAr,
+    getSelectionModeLabel(item),
     prep,
   ]
     .filter(Boolean)
@@ -509,7 +750,13 @@ function InfoPill({ icon, label }: { icon: ReactNode; label: string }) {
 
 function PreparationLineCard({ line }: { line: PrepLine }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-background/70 p-3 shadow-sm">
+    <div
+      className={
+        line.kind === "addon"
+          ? "rounded-xl border border-purple-500/20 bg-purple-500/5 p-3 shadow-sm"
+          : "rounded-xl border border-border/70 bg-background/70 p-3 shadow-sm"
+      }
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-bold text-foreground">
@@ -530,13 +777,47 @@ function PreparationLineCard({ line }: { line: PrepLine }) {
       </div>
       {line.badges.length ? (
         <div className="mt-2 flex flex-wrap gap-1">
-          {Array.from(new Set(line.badges)).slice(0, 4).map((badge) => (
+          {Array.from(new Set(line.badges)).slice(0, 5).map((badge) => (
             <Badge key={badge} variant="secondary" className="rounded-md text-[10px]">
               {badge}
             </Badge>
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function OrderSection({
+  title,
+  count,
+  emptyText,
+  lines,
+}: {
+  title: string;
+  count: number;
+  emptyText: string;
+  lines: PrepLine[];
+}) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold">{title}</p>
+        <Badge variant="outline" className="rounded-md">
+          {count}
+        </Badge>
+      </div>
+      {lines.length ? (
+        <div className="grid gap-2">
+          {lines.map((line) => (
+            <PreparationLineCard key={`${line.kind}-${line.id}-${line.name}`} line={line} />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {emptyText}
+        </p>
+      )}
     </div>
   );
 }
@@ -554,8 +835,10 @@ function OperationsQueueCard({
   onFulfill?: OperationsQueueTableProps["onFulfill"];
   onDetails: (item: UnifiedQueueItem) => void;
 }) {
-  const preparationLines = getPreparationLines(item);
-  const summary = getPreparationSummary(item);
+  const orderDetails = getOrderDetails(item);
+  const mealLines = getFallbackMealLines(item, orderDetails);
+  const stats = getOrderStats(item, orderDetails);
+  const summary = getPreparationSummary(item, orderDetails);
   const fulfillment = getFulfillmentText(item);
   const paymentWarning = getPaymentWarning(item);
 
@@ -581,7 +864,7 @@ function OperationsQueueCard({
             variant="outline"
             className={`shrink-0 rounded-md ${getStatusClasses(item.status)}`}
           >
-            {item.statusLabel || item.ui?.label || item.status}
+            {item.ui?.label || item.statusLabel || item.status}
           </Badge>
         </div>
 
@@ -612,6 +895,11 @@ function OperationsQueueCard({
           {summary.subtitle ? (
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {summary.subtitle}
+            </p>
+          ) : null}
+          {summary.selectionMode ? (
+            <p className="mt-2 inline-flex rounded-md bg-background/80 px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+              {summary.selectionMode}
             </p>
           ) : null}
           {summary.warnings ? (
@@ -646,25 +934,19 @@ function OperationsQueueCard({
           </div>
         ) : null}
 
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-bold">ما يجب تحضيره</p>
-            <Badge variant="outline" className="rounded-md">
-              {preparationLines.length || 0} عناصر
-            </Badge>
-          </div>
-          {preparationLines.length ? (
-            <div className="grid gap-2">
-              {preparationLines.map((line) => (
-                <PreparationLineCard key={`${line.kind}-${line.id}`} line={line} />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              لا توجد عناصر مختصرة من الـ response الحالي.
-            </p>
-          )}
-        </div>
+        <OrderSection
+          title="الطلب الأساسي"
+          count={stats.requiredMealCount || mealLines.length}
+          emptyText="لا توجد تفاصيل وجبات واضحة في الـ response الحالي."
+          lines={mealLines}
+        />
+
+        <OrderSection
+          title="الإضافات"
+          count={stats.addonCount}
+          emptyText="لا توجد إضافات على هذا الطلب."
+          lines={orderDetails.addons}
+        />
       </div>
 
       <div className="border-t bg-muted/20 p-4">
@@ -829,13 +1111,13 @@ export function OperationsQueueTable({
         <div>
           <p className="text-sm font-bold">طلبات العمليات</p>
           <p className="text-xs text-muted-foreground">
-            عرض كروت مختصر يركز على ما يحتاجه المطبخ أو الفرع أو الكوريير فقط.
+            الكروت تعرض الطلب الأساسي والإضافات والحالة بدون إظهار IDs أو بيانات تقنية.
           </p>
         </div>
         <div className="relative w-full sm:max-w-sm">
           <Search className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="بحث داخل الكروت بالعميل، الوجبة، الهاتف أو الحالة..."
+            placeholder="بحث بالعميل، الوجبة، الإضافة، الهاتف أو الحالة..."
             value={globalFilter}
             onChange={(e) => {
               setGlobalFilter(e.target.value);
