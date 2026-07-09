@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { OperationsQueueCharts } from "./OperationsQueueCharts";
 import { OperationsQueueTable } from "./OperationsQueueTable";
@@ -66,18 +74,16 @@ export function OperationsKitchenBoard({
   const [statusFilter, setStatusFilter] = useState<KitchenStatusFilter>("all");
   const [localSearch, setLocalSearch] = useState("");
 
+  const selectedStatus = statusOptions.find((opt) => opt.value === statusFilter);
   const filteredItems = items.filter((item) => {
     const matchesStatus = matchesKitchenFilter(item.status, statusFilter);
-    const matchesSearch = localSearch
-      ? (item.customer?.name || "")
-          .toLowerCase()
-          .includes(localSearch.toLowerCase()) ||
-        (item.reference || "")
-          .toLowerCase()
-          .includes(localSearch.toLowerCase()) ||
-        (item.customer?.phone || "")
-          .toLowerCase()
-          .includes(localSearch.toLowerCase())
+    const query = localSearch.trim().toLowerCase();
+    const matchesSearch = query
+      ? (item.customer?.name || "").toLowerCase().includes(query) ||
+        (item.reference || "").toLowerCase().includes(query) ||
+        (item.customer?.phone || "").toLowerCase().includes(query) ||
+        (item.orderSummary?.display?.titleAr || "").toLowerCase().includes(query) ||
+        (item.plan?.name || "").toLowerCase().includes(query)
       : true;
     return matchesStatus && matchesSearch;
   });
@@ -90,8 +96,8 @@ export function OperationsKitchenBoard({
         description="توزيع حالات التحضير ومصادر الطلبات بدلا من كروت أرقام كثيرة."
       />
 
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-3 shadow-sm sm:p-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="relative w-full shrink-0 xl:max-w-sm">
+      <div className="grid gap-3 rounded-xl border bg-card p-3 shadow-sm sm:p-4 lg:grid-cols-[minmax(16rem,1fr)_18rem_11rem] lg:items-center">
+        <div className="relative w-full">
           <Input
             placeholder="ابحث في عناصر المطبخ..."
             value={localSearch}
@@ -101,37 +107,34 @@ export function OperationsKitchenBoard({
           <Search className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         </div>
 
-        <div className="-mx-1 flex w-full items-center gap-1.5 overflow-x-auto px-1 pb-1 xl:mx-0 xl:w-auto xl:px-0">
-          {statusOptions.map((opt) => {
-            const count = items.filter((i) =>
-              matchesKitchenFilter(i.status, opt.value)
-            ).length;
-            const isActive = statusFilter === opt.value;
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as KitchenStatusFilter)}
+        >
+          <SelectTrigger className="h-10 rounded-lg bg-muted/50">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="فلترة الحالة" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {statusOptions.map((opt) => {
+                const count = items.filter((i) =>
+                  matchesKitchenFilter(i.status, opt.value)
+                ).length;
+                return (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label} ({count})
+                  </SelectItem>
+                );
+              })}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
 
-            return (
-              <button
-                key={opt.value}
-                data-state={isActive ? "active" : "inactive"}
-                onClick={() => setStatusFilter(opt.value)}
-                className={`group flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition-all ${
-                  isActive
-                    ? "scale-100 border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20"
-                    : "scale-100 border-transparent bg-muted text-muted-foreground hover:scale-[1.02] hover:bg-muted/80 hover:text-foreground"
-                }`}
-              >
-                {opt.label}
-                <span
-                  className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] transition-colors ${
-                    isActive
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-background/80 text-muted-foreground group-hover:bg-background group-hover:text-foreground"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+        <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm font-semibold text-muted-foreground">
+          {selectedStatus?.label || "الكل"}: {filteredItems.length}
         </div>
       </div>
 
