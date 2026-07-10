@@ -18,11 +18,11 @@ Unknown roles fail closed. Logged-out users are redirected to login. Direct navi
 
 | Role | Default Route | Allowed Protected Routes |
 |---|---|---|
-| `superadmin` | `/dashboard` | `/dashboard`, `/operations`, `/subscriptions`, `/packages`, `/users`, `/addons`, `/delivery`, `/payments`, `/accounting`, `/promo-codes`, `/zones`, `/manual-deduction`, `/menu`, `/premium-meals`, `/dashboard-users`, `/settings`, `/restaurant-hours`, `/pickup-branches`, `/notifications`, `/profile` |
-| `admin` | `/dashboard` | `/dashboard`, `/operations`, `/subscriptions`, `/packages`, `/users`, `/addons`, `/delivery`, `/payments`, `/accounting`, `/promo-codes`, `/zones`, `/manual-deduction`, `/menu`, `/premium-meals`, `/dashboard-users`, `/settings`, `/restaurant-hours`, `/pickup-branches`, `/notifications`, `/profile` |
-| `kitchen` | `/operations` | `/addons`, `/operations`, `/menu`, `/premium-meals`, `/profile` |
+| `superadmin` | `/dashboard` | `/dashboard`, `/operations`, `/one-time-orders`, `/subscriptions`, `/packages`, `/users`, `/addons`, `/delivery`, `/payments`, `/accounting`, `/promo-codes`, `/zones`, `/manual-deduction`, `/menu`, `/premium-meals`, `/dashboard-users`, `/settings`, `/restaurant-hours`, `/pickup-branches`, `/notifications`, `/profile` |
+| `admin` | `/dashboard` | `/dashboard`, `/operations`, `/one-time-orders`, `/subscriptions`, `/packages`, `/users`, `/addons`, `/delivery`, `/payments`, `/accounting`, `/promo-codes`, `/zones`, `/manual-deduction`, `/menu`, `/premium-meals`, `/dashboard-users`, `/settings`, `/restaurant-hours`, `/pickup-branches`, `/notifications`, `/profile` |
+| `kitchen` | `/operations` | `/addons`, `/operations`, `/one-time-orders`, `/menu`, `/premium-meals`, `/profile` |
 | `courier` | `/delivery` | `/delivery`, `/profile` |
-| `cashier` | `/operations` | `/manual-deduction`, `/operations`, `/users`, `/profile` |
+| `cashier` | `/operations` | `/manual-deduction`, `/operations`, `/one-time-orders`, `/users`, `/profile` |
 
 Nested routes inherit access from their parent route. For example, `/menu/categories/:id/update` is allowed when `/menu` is allowed.
 
@@ -37,7 +37,7 @@ The sidebar is filtered from the same route matrix used by the route guard. A ro
 
 `/profile` is available through user/account UI, not the main sidebar.
 
-`/one-time-orders` is retired from the visible dashboard UX. Backend one-time order APIs may still be used by Operations, but the standalone frontend route should not be part of role navigation.
+`/one-time-orders` is retired from the visible dashboard UX and must not appear in sidebar/nav. It is allowed through the protected route guard only as a deprecated redirect route to `/operations?tab=kitchen` for roles that already access `/operations`. Backend one-time order APIs may still be used by Operations, but the standalone frontend route should not be part of role navigation.
 
 ## Backend API Matrix
 
