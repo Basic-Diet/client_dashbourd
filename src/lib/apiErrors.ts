@@ -1,6 +1,7 @@
 type ApiErrorData = {
   ok?: unknown;
   message?: unknown;
+  messageAr?: unknown;
   code?: unknown;
   success?: unknown;
   status?: unknown;
@@ -9,6 +10,7 @@ type ApiErrorData = {
     | string
     | {
         message?: unknown;
+        messageAr?: unknown;
         messageKey?: unknown;
         code?: unknown;
         details?: unknown;
@@ -47,6 +49,7 @@ const readDetailsMessage = (details: unknown): string | undefined => {
   if (!isRecord(details)) return undefined;
 
   return (
+    readString(details.messageAr) ??
     readString(details.message) ??
     readString(details.error) ??
     readString(details.reason)
@@ -71,8 +74,10 @@ export function parseApiError(error: unknown): ParsedApiError {
   const expectedField = readString(data?.expectedField);
 
   const message =
+    readString(data?.messageAr) ??
     readString(data?.message) ??
     (typeof data?.error === "string" ? data.error : undefined) ??
+    readString(errorNode?.messageAr) ??
     readString(errorNode?.message) ??
     readString(errorNode?.messageKey) ??
     readDetailsMessage(details) ??
