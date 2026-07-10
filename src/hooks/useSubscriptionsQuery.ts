@@ -141,9 +141,19 @@ export const useCreateSubscriptionMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createSubscription,
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-summary"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
+
+      const userId =
+        variables && typeof variables.userId === "string"
+          ? variables.userId
+          : null;
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ["user-details", userId] });
+        queryClient.invalidateQueries({ queryKey: ["user-subscriptions", userId] });
+      }
     },
   });
 };
