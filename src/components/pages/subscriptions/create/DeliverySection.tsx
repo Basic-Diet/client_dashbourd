@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -30,6 +31,10 @@ export function DeliverySection({ form }: DeliverySectionProps) {
 
   const methods = deliveryData?.methods || [];
   const areas = deliveryData?.areas?.filter((a) => a.isActive) || [];
+  const firstPickupLocationId =
+    deliveryData?.defaults?.pickupLocationId ||
+    deliveryData?.pickupLocations?.[0]?.id ||
+    "";
 
   const selectedMethodId = form.watch("delivery.type");
   const selectedMethod = methods.find((m: DeliveryMethod) => m.id === selectedMethodId);
@@ -37,6 +42,15 @@ export function DeliverySection({ form }: DeliverySectionProps) {
   const isDelivery = selectedMethodId === "delivery";
   const isPickup = selectedMethodId === "pickup";
   const slots = selectedMethod?.slots || [];
+
+  useEffect(() => {
+    if (!isPickup || !firstPickupLocationId) return;
+    if (form.getValues("delivery.pickupLocationId")) return;
+
+    form.setValue("delivery.pickupLocationId", firstPickupLocationId, {
+      shouldValidate: true,
+    });
+  }, [firstPickupLocationId, form, isPickup]);
 
   return (
     <Card>
@@ -68,10 +82,17 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                     onClick={() => {
                       form.setValue("delivery.type", method.id, { shouldValidate: true });
                       form.setValue("delivery.slot.type", method.type);
-                      form.setValue("delivery.slot.window", "");
+                      form.setValue("delivery.slot.window", "", { shouldValidate: true });
                       form.setValue("delivery.slot.slotId", "");
                       if (method.type === "pickup") {
-                        form.setValue("delivery.zoneId", "");
+                        form.setValue("delivery.zoneId", "", { shouldValidate: true });
+                        form.setValue("delivery.pickupLocationId", firstPickupLocationId, {
+                          shouldValidate: true,
+                        });
+                      } else {
+                        form.setValue("delivery.pickupLocationId", "", {
+                          shouldValidate: true,
+                        });
                       }
                     }}
                     className={`flex items-start gap-3 rounded-xl border p-4 text-right transition-all ${
@@ -152,7 +173,9 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                         type="button"
                         onClick={() => {
                           form.setValue("delivery.slot.slotId", slot.id);
-                          form.setValue("delivery.slot.window", slot.window);
+                          form.setValue("delivery.slot.window", slot.window, {
+                            shouldValidate: true,
+                          });
                           form.setValue("delivery.slot.type", slot.type);
                         }}
                         className={`rounded-lg border px-4 py-3 text-center text-sm font-medium transition-all ${
@@ -269,6 +292,11 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                     )}
                   </div>
                 </div>
+                {form.formState.errors.delivery?.pickupLocationId && (
+                  <p className="mt-3 text-xs text-destructive">
+                    {form.formState.errors.delivery.pickupLocationId.message}
+                  </p>
+                )}
               </div>
             )}
           </>
