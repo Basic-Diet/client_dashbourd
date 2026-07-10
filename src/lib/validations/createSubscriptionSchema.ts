@@ -22,6 +22,7 @@ const deliverySlotSchema = z.object({
 const deliverySchema = z.object({
   type: z.string().min(1, "طريقة التوصيل مطلوبة"),
   zoneId: z.string(),
+  pickupLocationId: z.string().optional(),
   address: deliveryAddressSchema,
   slot: deliverySlotSchema,
 });
@@ -83,6 +84,14 @@ const createSubscriptionSchema = z
           path: ["delivery", "address", "building"],
         });
       }
+    }
+
+    if (data.delivery.type === "pickup" && !data.delivery.pickupLocationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "فرع الاستلام مطلوب",
+        path: ["delivery", "pickupLocationId"],
+      });
     }
   });
 
