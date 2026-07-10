@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import { Button } from "@/components/ui/button";
 import useCreateSubscriptionForm from "@/hooks/useCreateSubscriptionForm";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import { useCreateSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
+import { fetchSubscriptionQuote } from "@/utils/fetchSubscriptionsData";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, FileCheck2 } from "lucide-react";
 
@@ -17,38 +20,100 @@ interface CreateSubscriptionFormContentProps {
   userId?: string;
 }
 
+type ApiRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): ApiRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as ApiRecord)
+    : null;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readSubscriptionId(response: unknown) {
+  const data = asRecord(asRecord(response)?.data);
+  return readString(data?.id) || readString(data?._id);
+}
+
+function readSubscriptionLabel(response: unknown) {
+  const data = asRecord(asRecord(response)?.data);
+  return readString(data?.displayId) || readSubscriptionId(response)?.slice(-8) || null;
+}
+
+function buildSubscriptionPayload(data: CreateSubscriptionSchemaType): Record<string, unknown> {
+  const isDelivery = data.delivery.type === "delivery";
+  const deliveryWindow = data.delivery.slot?.window?.trim();
+  const delivery = {
+    type: data.delivery.type,
+    ...(isDelivery
+      ? {
+          zoneId: data.delivery.zoneId,
+          address: data.delivery.address,
+        }
+      : {
+          pickupLocationId: data.delivery.pickupLocationId,
+        }),
+    ...(deliveryWindow ? { window: deliveryWindow } : {}),
+    slot: data.delivery.slot,
+  };
+
+  return {
+    ...data,
+    addons: data.addons.map((addon) => ({
+      addonId: addon.value,
+      qty: 1,
+    })),
+    delivery,
+  };
+}
+
 export function CreateSubscriptionFormContent({
   userId,
 }: CreateSubscriptionFormContentProps) {
   const form = useCreateSubscriptionForm(userId || "");
   const navigate = useNavigate();
-  const { mutate, isPending } = useCreateSubscriptionMutation();
+  const [isQuoting, setIsQuoting] = useState(false);
+  const { mutateAsync, isPending } = useCreateSubscriptionMutation();
+  const isSubmitting = isPending || isQuoting;
 
-  const onSubmit = (data: CreateSubscriptionSchemaType) => {
-    const payload = {
-      ...data,
-      addons: data.addons.map((a) => a.value),
-    };
+  const onSubmit = async (data: CreateSubscriptionSchemaType) => {
+    const payload = buildSubscriptionPayload(data);
 
-    mutate(payload as unknown as Record<string, unknown>, {
-      onSuccess: () => {
-        ToastMessage("تم إنشاء الاشتراك بنجاح", "success");
-        if (userId) {
-          navigate({ to: "/users/$userId", params: { userId } });
-        } else {
-          navigate({ to: "/subscriptions" });
-        }
-      },
-      onError: (error: unknown) => {
-        const err = error as {
-          response?: { data?: { error?: { message?: string } } };
-        };
-        const message =
-          err?.response?.data?.error?.message ||
-          "حدث خطأ أثناء إنشاء الاشتراك";
-        ToastMessage(message, "error");
-      },
-    });
+    try {
+      setIsQuoting(true);
+      await fetchSubscriptionQuote(payload);
+      setIsQuoting(false);
+
+      const response = await mutateAsync(payload);
+      const subscriptionId = readSubscriptionId(response);
+      const subscriptionLabel = readSubscriptionLabel(response);
+
+      ToastMessage(
+        subscriptionLabel
+          ? `تم إنشاء الاشتراك بنجاح (${subscriptionLabel})`
+          : "تم إنشاء الاشتراك بنجاح",
+        "success"
+      );
+
+      if (subscriptionId) {
+        navigate({
+          to: "/subscriptions/$subscriptionId",
+          params: { subscriptionId },
+        });
+        return;
+      }
+
+      if (userId) {
+        navigate({ to: "/users/$userId", params: { userId } });
+      } else {
+        navigate({ to: "/subscriptions" });
+      }
+    } catch (error: unknown) {
+      setIsQuoting(false);
+      ToastMessage(getApiErrorMessage(error) || "حدث خطأ أثناء إنشاء الاشتراك", "error");
+    }
   };
 
   return (
@@ -73,14 +138,14 @@ export function CreateSubscriptionFormContent({
         <div className="flex justify-end pb-8">
           <Button
             type="submit"
-            disabled={isPending}
+            disabled={isSubmitting}
             size="lg"
             className="min-w-52 gap-2"
           >
-            {isPending ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                جاري إنشاء الاشتراك...
+                {isQuoting ? "جاري مراجعة السعر..." : "جاري إنشاء الاشتراك..."}
               </>
             ) : (
               <>
