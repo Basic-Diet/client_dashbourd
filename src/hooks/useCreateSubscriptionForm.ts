@@ -17,6 +17,7 @@ const useCreateSubscriptionForm = (userId: string) => {
       delivery: {
         type: "delivery",
         zoneId: "",
+        pickupLocationId: "",
         address: {
           label: "",
           city: "",
