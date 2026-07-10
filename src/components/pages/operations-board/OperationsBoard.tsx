@@ -30,7 +30,6 @@ export function OperationsBoard() {
     useOperationsBoardDialog();
   const activeTab = getSafeOperationsTab(tabFromUrl, visibleScreens);
 
-
   const handleTabChange = (value: string) => {
     if (value === activeTab) {
       return;
@@ -92,7 +91,7 @@ export function OperationsBoard() {
 
   if (visibleScreens.length === 0) {
     return (
-      <div className="flex flex-col gap-4 p-6" dir="rtl">
+      <div className="operations-board-rtl flex flex-col gap-4 p-6" dir="rtl">
         <h1 className="text-2xl font-bold tracking-tight">لوحة العمليات</h1>
         <p className="text-sm text-muted-foreground">
           حسابك الحالي لا يملك صلاحية عرض طوابير العمليات. تواصل مع المسؤول إذا
@@ -103,7 +102,7 @@ export function OperationsBoard() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:gap-6 sm:p-6" dir="rtl">
+    <div className="operations-board-rtl flex flex-col gap-5 p-4 text-right sm:gap-6 sm:p-6" dir="rtl">
       <div className="flex flex-col gap-4 border-b pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">لوحة العمليات</h1>
@@ -119,6 +118,7 @@ export function OperationsBoard() {
               value={date}
               onChange={(event) => setDate(event.target.value)}
               className="h-10 w-full pr-10 text-right sm:w-44"
+              dir="rtl"
             />
           </div>
           <div className="relative">
@@ -127,13 +127,14 @@ export function OperationsBoard() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="بحث بالعميل أو الهاتف أو المرجع"
-              className="h-10 w-full pr-10 sm:w-72"
+              className="h-10 w-full pr-10 text-right sm:w-72"
+              dir="rtl"
             />
           </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={activeTab} onValueChange={handleTabChange} dir="rtl">
         <TabsList className="mb-4 h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-xl bg-muted/40 p-1 sm:flex-wrap">
           {visibleScreens.includes("kitchen") && (
             <TabsTrigger value="kitchen" className="flex shrink-0 items-center gap-2">
