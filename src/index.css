@@ -114,6 +114,7 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    --radius-5xl: calc(var(--radius) * 3);
 }
 
 @layer base {
@@ -160,6 +161,24 @@
 
 [data-slot="dialog-content"].max-w-2xl {
   max-width: min(calc(100vw - 1.5rem), 42rem) !important;
+}
+
+/* Force the Operations board to stay Arabic-first even when nested components default to LTR. */
+.operations-board-rtl,
+.operations-board-rtl :where(:not([dir="ltr"]):not([dir="ltr"] *)) {
+  direction: rtl;
+  text-align: right;
+}
+
+.operations-board-rtl :where(input:not([dir="ltr"]), textarea:not([dir="ltr"])) {
+  direction: rtl;
+  text-align: right;
+}
+
+.operations-board-rtl [dir="ltr"],
+.operations-board-rtl [dir="ltr"] * {
+  direction: ltr;
+  text-align: left;
 }
 
 /* Custom scrollbar for delivery list and similar scrollable containers */
