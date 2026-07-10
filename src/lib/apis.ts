@@ -51,7 +51,7 @@ api.interceptors.response.use(
     }
 
     if (parsedError.status === 403) {
-      toast.error(message || "Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ù„Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ù‡Ø°Ø§ Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡");
+      toast.error(message || "ليس لديك صلاحية للوصول إلى هذا الإجراء");
     }
 
     (error as Error & { normalizedMessage?: string }).normalizedMessage =
