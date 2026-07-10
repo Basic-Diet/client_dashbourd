@@ -18,10 +18,9 @@ import {
   Search,
   Store,
   Truck,
-  Utensils,
   XCircle,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +51,8 @@ interface OperationsQueueTableProps {
   ) => void;
   onFulfill?: (item: UnifiedQueueItem) => void;
 }
+
+type ButtonVariant = ComponentProps<typeof Button>["variant"];
 
 type VisibleAction = QueueAction & {
   color: string;
@@ -144,12 +145,15 @@ function localizedText(value: unknown): string | null {
 
 function recordText(record: RawRecord | null, keys: string[]): string | null {
   if (!record) return null;
+
   for (const key of keys) {
     const direct = asString(record[key]);
     if (direct) return direct;
+
     const localized = localizedText(record[key]);
     if (localized) return localized;
   }
+
   return null;
 }
 
@@ -161,27 +165,27 @@ function getStatusClasses(status: string) {
   if (["fulfilled", "ready_for_pickup", "ready"].includes(status)) {
     return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   }
+
   if (["in_preparation", "preparing"].includes(status)) {
     return "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300";
   }
+
   if (["out_for_delivery"].includes(status)) {
     return "border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300";
   }
+
   if (
-    [
-      "canceled",
-      "cancelled",
-      "delivery_canceled",
-      "canceled_at_branch",
-      "no_show",
-    ].includes(status)
+    ["canceled", "cancelled", "delivery_canceled", "canceled_at_branch", "no_show"].includes(
+      status
+    )
   ) {
     return "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300";
   }
+
   return "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300";
 }
 
-function getActionVariant(color: string) {
+function getActionVariant(color: string): ButtonVariant {
   if (color === "red" || color === "danger") return "destructive";
   if (color === "gray") return "secondary";
   return "default";
@@ -377,13 +381,12 @@ function getOrderDetails(item: UnifiedQueueItem): OrderDetails {
   const normalizedMeals = item.kitchen?.meals || [];
   const normalizedAddons = item.kitchen?.addons || [];
 
-  const meals = normalizedMeals.length
-    ? normalizedMeals.map(getNormalizedMealDetail)
-    : responseMeals.map(getResponseMealDetail);
-
-  const addons = normalizedAddons.length
-    ? normalizedAddons.map(getNormalizedAddonDetail)
-    : mergeAddonLines(responseAddons.map(getResponseAddonDetail));
+  const meals = responseMeals.length
+    ? responseMeals.map(getResponseMealDetail)
+    : normalizedMeals.map(getNormalizedMealDetail);
+  const addons = responseAddons.length
+    ? mergeAddonLines(responseAddons.map(getResponseAddonDetail))
+    : normalizedAddons.map(getNormalizedAddonDetail);
 
   if (!meals.length && Array.isArray(item.items) && item.items.length) {
     return {
@@ -408,10 +411,12 @@ function contextNumber(item: UnifiedQueueItem, key: string) {
 }
 
 function getOrderStats(item: UnifiedQueueItem, details: OrderDetails): OrderStats {
+  const itemRecord = item as UnifiedQueueItem & RawRecord;
   const mealsQuantity = details.meals.reduce((total, line) => total + line.quantity, 0);
   const requiredMealCount =
     contextNumber(item, "requiredMealCount") ??
     contextNumber(item, "mealCount") ??
+    asNumber(itemRecord.mealCount) ??
     mealsQuantity;
   const specifiedMealCount = contextNumber(item, "specifiedMealCount") ?? mealsQuantity;
   const unspecifiedMealCount =
@@ -474,7 +479,7 @@ function getPlanLabel(item: UnifiedQueueItem) {
   return days ? `اشتراك ${days} أيام` : item.plan.name || null;
 }
 
-function getSummaryChips(item: UnifiedQueueItem, stats: OrderStats) {
+function getSummaryChips(item: UnifiedQueueItem) {
   return compactParts([
     getPlanLabel(item),
     item.plan?.selectedMealsPerDay ? `${item.plan.selectedMealsPerDay} وجبة/يوم` : null,
@@ -497,6 +502,7 @@ function getPaymentWarning(item: UnifiedQueueItem) {
       ? "إضافات تحتاج تأكيد دفع قبل التحضير"
       : "مطلوب تأكيد الدفع قبل الإجراء";
   }
+
   return reason || null;
 }
 
@@ -618,6 +624,7 @@ function searchableText(item: UnifiedQueueItem) {
   const prep = [...details.meals, ...details.addons]
     .flatMap((line) => [line.name, line.notes, ...line.detailParts, ...line.badges])
     .join(" ");
+
   return [
     item.customer?.name,
     item.customer?.phone,
@@ -713,7 +720,7 @@ function SummaryMetric({ label, value }: { label: string; value: string | number
   return (
     <div className="rounded-lg border bg-background/60 px-2.5 py-2 text-center">
       <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-sm font-bold text-foreground">{value}</p>
+      <p className="mt-0.5 truncate text-sm font-bold text-foreground">{value}</p>
     </div>
   );
 }
@@ -795,7 +802,7 @@ function OperationsQueueCard({
   const stats = getOrderStats(item, orderDetails);
   const mealLines = getFallbackMealLines(item, orderDetails, stats);
   const selectionMode = getSelectionModeLabel(item);
-  const summaryChips = getSummaryChips(item, stats);
+  const summaryChips = getSummaryChips(item);
   const fulfillment = getFulfillmentMeta(item);
   const paymentWarning = getPaymentWarning(item);
 
@@ -887,7 +894,7 @@ function OperationsQueueCard({
           <SummaryMetric label="الحالة" value={item.ui?.label || item.statusLabel || item.status} />
         </div>
 
-        {(fulfillment.time || fulfillment.location) ? (
+        {fulfillment.time || fulfillment.location ? (
           <div className="grid gap-2 sm:grid-cols-2">
             {fulfillment.time ? (
               <InfoPill icon={<Clock className="h-3.5 w-3.5" />} label={fulfillment.time} />
@@ -921,7 +928,7 @@ function OperationsQueueCard({
         <div className="grid gap-2">
           <SectionHeader title="الطلب الأساسي" count={stats.requiredMealCount || mealLines.length} />
           {mealLines.length ? (
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2">
+            <div className="grid gap-2 md:grid-cols-2">
               {mealLines.map((line) => (
                 <MealCompactCard key={`${line.kind}-${line.id}-${line.name}`} line={line} />
               ))}
@@ -998,7 +1005,7 @@ function CardsPagination({
             }}
           >
             <SelectTrigger size="sm" className="w-20" id="operations-cards-page-size">
-              <SelectValue placeholder={pageSize} />
+              <SelectValue placeholder={`${pageSize}`} />
             </SelectTrigger>
             <SelectContent side="top">
               <SelectGroup>
@@ -1111,7 +1118,7 @@ export function OperationsQueueTable({
         <div>
           <p className="text-sm font-bold">طلبات العمليات</p>
           <p className="text-xs text-muted-foreground">
-            كروت مختصرة تعرض الوجبات والإضافات والحالة بدون بيانات تقنية.
+            عرض عملي مختصر يوضح الوجبات، الإضافات، الدفع، والحالة بدون بيانات تقنية.
           </p>
         </div>
         <div className="relative w-full sm:max-w-sm">
