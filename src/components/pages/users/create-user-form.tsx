@@ -11,11 +11,34 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import useCreateUserForm from "@/hooks/useCreateUserForm";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { CreateUserSchemaType } from "@/lib/validations/createUserSchema";
 import { createUser } from "@/utils/fetchUsersData";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
+
+type ApiRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): ApiRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as ApiRecord)
+    : null;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readCreatedUserId(response: unknown) {
+  const data = asRecord(asRecord(response)?.data);
+  return readString(data?.id) || readString(data?.coreUserId);
+}
+
+function readCreatedUserName(response: unknown) {
+  const data = asRecord(asRecord(response)?.data);
+  return readString(data?.fullName) || readString(data?.phone);
+}
 
 export function CreateUserForm() {
   const {
@@ -31,16 +54,31 @@ export function CreateUserForm() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data: CreateUserSchemaType) => createUser(data),
-    onSuccess: () => {
-      ToastMessage("تم إنشاء المستخدم بنجاح", "success");
+    onSuccess: (response) => {
+      const createdUserId = readCreatedUserId(response);
+      const createdUserName = readCreatedUserName(response);
+
+      ToastMessage(
+        createdUserName
+          ? `تم إنشاء المستخدم ${createdUserName} بنجاح. يمكنك الآن إنشاء الاشتراك.`
+          : "تم إنشاء المستخدم بنجاح. يمكنك الآن إنشاء الاشتراك.",
+        "success"
+      );
       queryClient.invalidateQueries({ queryKey: ["users"] });
+
+      if (createdUserId) {
+        queryClient.setQueryData(["user-details", createdUserId], response);
+        navigate({
+          to: "/users/$userId/create-subscription",
+          params: { userId: createdUserId },
+        });
+        return;
+      }
+
       navigate({ to: "/users" });
     },
     onError: (error: unknown) => {
-      const err = error as { response?: { data?: { error?: { message?: string } } } };
-      const message =
-        err?.response?.data?.error?.message || "حدث خطأ أثناء إنشاء المستخدم";
-      ToastMessage(message, "error");
+      ToastMessage(getApiErrorMessage(error) || "حدث خطأ أثناء إنشاء المستخدم", "error");
     },
   });
 
@@ -56,7 +94,7 @@ export function CreateUserForm() {
         <CardHeader>
           <CardTitle>إنشاء مستخدم جديد</CardTitle>
           <CardDescription>
-            أدخل بيانات المستخدم الجديد لإنشاء حسابه في التطبيق
+            أدخل بيانات المستخدم الجديد لإنشاء حسابه في التطبيق ثم إنشاء اشتراك له
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -142,7 +180,7 @@ export function CreateUserForm() {
                       جاري إنشاء المستخدم...
                     </>
                   ) : (
-                    "إنشاء المستخدم"
+                    "إنشاء المستخدم والمتابعة للاشتراك"
                   )}
                 </Button>
               </Field>
