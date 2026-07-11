@@ -16,11 +16,9 @@ type ZoneRow = {
   deliveryFeeHalala?: unknown;
   feeHalala?: unknown;
   isActive?: unknown;
-  sortOrder?: unknown;
 };
 
 type ZonesResponse = {
-  status?: boolean;
   data?: unknown;
 };
 
@@ -52,10 +50,13 @@ const formatFee = (feeHalala: number) => {
   return `${Number.isInteger(feeSar) ? feeSar : feeSar.toFixed(2)} ريال`;
 };
 
-const normalizeSlots = (windows: unknown, type: "delivery" | "pickup"): DeliverySlotOption[] => {
+const normalizeSlots = (
+  windows: unknown,
+  type: "delivery" | "pickup"
+): DeliverySlotOption[] => {
   const source = Array.isArray(windows) ? windows : [];
   return source
-    .map((window, index) => readString(window))
+    .map((window) => readString(window))
     .filter(Boolean)
     .map((window, index) => ({
       id: `${type}-${window || index}`,
@@ -137,7 +138,7 @@ export const fetchDeliveryOptions = async (): Promise<DeliveryOptionsResponse> =
     api.get<DashboardSettingsResponse>("/api/dashboard/settings"),
   ]);
 
-  const settings = settingsResponse.data?.data || {};
+  const settings = (settingsResponse.data?.data || {}) as Record<string, unknown>;
   const deliveryWindows = settings.delivery_windows;
   const deliverySlots = normalizeSlots(deliveryWindows, "delivery");
   const pickupSlots = normalizeSlots(deliveryWindows, "pickup");
