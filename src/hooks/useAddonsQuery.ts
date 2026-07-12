@@ -3,10 +3,10 @@ import {
   fetchAddonBasePlanPicker,
   fetchAddonCategoryPicker,
   fetchAddonPlans,
-  fetchAddonProductPicker,
   fetchAddons,
 } from "@/utils/fetchAddons";
 import { fetchAddonById } from "@/utils/fetchAddonById";
+import { fetchAllAddonProductPicker } from "@/utils/fetchAddonProductPicker";
 import {
   createAddonPlanPrice,
   deleteAddonPlanPrice,
@@ -49,7 +49,7 @@ export const useAddonPlanPricesQuery = () =>
 export const addonProductPickerQueryOptions = () =>
   queryOptions({
     queryKey: ["addons", "product-picker"],
-    queryFn: fetchAddonProductPicker,
+    queryFn: fetchAllAddonProductPicker,
     staleTime: 1000 * 60 * 5,
   });
 
