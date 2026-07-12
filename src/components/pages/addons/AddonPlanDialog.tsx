@@ -6,7 +6,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { CheckCircle2, Search } from "lucide-react";
+import { CheckCircle2, FolderTree, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,7 +26,7 @@ import type {
   AddonCategoryOption,
   AddonPlanWritePayload,
   BasePlanPickerItem,
-  MenuProductPickerItem,
+  MenuCategoryPickerItem,
 } from "@/types/addonTypes";
 import {
   addonId,
@@ -44,7 +44,8 @@ type AddonPlanDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: Addon | null;
-  products: MenuProductPickerItem[];
+  /** Kept as `products` temporarily so the route API stays stable; items are menu categories. */
+  products: MenuCategoryPickerItem[];
   basePlans: BasePlanPickerItem[];
   categories: AddonCategoryOption[];
   isSaving: boolean;
@@ -57,21 +58,19 @@ type DialogFormState = {
   error: string | null;
 };
 
-type TextFieldName = "nameAr" | "nameEn" | "category" | "maxPerDay";
+type TextFieldName = "nameAr" | "nameEn" | "maxPerDay";
 
 type DialogFormAction =
   | { type: "RESET_FROM_PLAN"; form: PlanFormState }
   | { type: "SET_FIELD"; field: TextFieldName; value: string }
   | { type: "SET_FIELD"; field: "isActive"; value: boolean }
-  | { type: "TOGGLE_PRODUCT"; productId: string }
-  | { type: "SET_PRODUCT_IDS"; productIds: string[] }
+  | { type: "SET_CATEGORY_KEYS"; categoryKeys: string[] }
   | {
       type: "UPDATE_PRICE";
       basePlanId: string;
       patch: Partial<Pick<PriceRowState, "priceHalala" | "isActive">>;
     }
-  | { type: "SET_ERROR"; error: string }
-  | { type: "CLEAR_ERROR" };
+  | { type: "SET_ERROR"; error: string };
 
 function dialogFormReducer(
   state: DialogFormState,
@@ -85,25 +84,11 @@ function dialogFormReducer(
         form: { ...state.form, [action.field]: action.value },
         error: null,
       };
-    case "TOGGLE_PRODUCT": {
-      const currentIds = uniqueIds(state.form.menuProductIds);
-      const exists = currentIds.includes(action.productId);
-
+    case "SET_CATEGORY_KEYS":
       return {
         form: {
           ...state.form,
-          menuProductIds: exists
-            ? currentIds.filter((id) => id !== action.productId)
-            : uniqueIds([...currentIds, action.productId]),
-        },
-        error: null,
-      };
-    }
-    case "SET_PRODUCT_IDS":
-      return {
-        form: {
-          ...state.form,
-          menuProductIds: uniqueIds(action.productIds),
+          menuCategoryKeys: uniqueIds(action.categoryKeys),
         },
         error: null,
       };
@@ -121,8 +106,6 @@ function dialogFormReducer(
       };
     case "SET_ERROR":
       return { ...state, error: action.error };
-    case "CLEAR_ERROR":
-      return { ...state, error: null };
     default:
       return state;
   }
@@ -132,7 +115,7 @@ export function AddonPlanDialog({
   open,
   onOpenChange,
   plan,
-  products,
+  products: menuCategories,
   basePlans,
   isSaving,
   serverError,
@@ -143,7 +126,7 @@ export function AddonPlanDialog({
     error: null,
   }));
   const { form } = state;
-  const [productSearch, setProductSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
   const planKey = plan ? addonId(plan) : "create";
   const basePlanIdsKey = useMemo(
     () => basePlans.map((basePlan) => basePlan.id).join("|"),
@@ -160,32 +143,29 @@ export function AddonPlanDialog({
       type: "RESET_FROM_PLAN",
       form: planToForm(plan, basePlans),
     });
+    setCategorySearch("");
     lastResetKeyRef.current = resetKey;
   }, [basePlans, open, plan, resetKey]);
 
-  const filteredProducts = useMemo(() => {
-    const search = productSearch.trim().toLowerCase();
-    if (!search) return products;
+  const filteredCategories = useMemo(() => {
+    const search = categorySearch.trim().toLowerCase();
+    if (!search) return menuCategories;
 
-    return products.filter((product) => {
-      const haystack = [
-        product.key,
-        product.category,
-        product.name.ar,
-        product.name.en,
-      ]
+    return menuCategories.filter((category) =>
+      [category.key, category.name.ar, category.name.en]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase();
+        .toLowerCase()
+        .includes(search)
+    );
+  }, [categorySearch, menuCategories]);
 
-      return haystack.includes(search);
-    });
-  }, [productSearch, products]);
-
-  const selectedProducts = useMemo(
+  const selectedCategories = useMemo(
     () =>
-      products.filter((product) => form.menuProductIds.includes(product.id)),
-    [form.menuProductIds, products]
+      menuCategories.filter((category) =>
+        form.menuCategoryKeys.includes(category.key)
+      ),
+    [form.menuCategoryKeys, menuCategories]
   );
 
   const activePriceRows = useMemo(
@@ -197,14 +177,13 @@ export function AddonPlanDialog({
     dispatch({ type: "SET_FIELD", field, value });
   };
 
-  const setProductSelected = (productId: string, selected: boolean) => {
-    const currentIds = uniqueIds(form.menuProductIds);
-
+  const setCategorySelected = (categoryKey: string, selected: boolean) => {
+    const currentKeys = uniqueIds(form.menuCategoryKeys);
     dispatch({
-      type: "SET_PRODUCT_IDS",
-      productIds: selected
-        ? uniqueIds([...currentIds, productId])
-        : currentIds.filter((id) => id !== productId),
+      type: "SET_CATEGORY_KEYS",
+      categoryKeys: selected
+        ? uniqueIds([...currentKeys, categoryKey])
+        : currentKeys.filter((key) => key !== categoryKey),
     });
   };
 
@@ -229,6 +208,7 @@ export function AddonPlanDialog({
   };
 
   const shownError = state.error || serverError;
+  const legacyProductsCount = form.legacyMenuProductIds.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -241,8 +221,8 @@ export function AddonPlanDialog({
             {plan ? "تعديل باقة إضافة" : "إنشاء باقة إضافة"}
           </DialogTitle>
           <DialogDescription>
-            اربط منتجات موجودة مسبقا، ثم أدخل أسعار الباقة بالهللة لكل خطة
-            اشتراك أساسية.
+            اربط باقة الإضافة بتصنيفات المنيو، ثم أدخل سعرها لكل باقة اشتراك
+            أساسية.
           </DialogDescription>
         </DialogHeader>
 
@@ -300,9 +280,12 @@ export function AddonPlanDialog({
               <section className="space-y-3 rounded-lg border bg-muted/10 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold">مصفوفة أسعار باقات الاشتراك الأساسية</h3>
+                    <h3 className="text-sm font-semibold">
+                      مصفوفة أسعار باقات الاشتراك الأساسية
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      أدخل السعر بالهللة لكل باقة اشتراك أساسية، ويمكن تعطيل أي صف بدون حذفه.
+                      أدخل السعر بالهللة لكل باقة اشتراك أساسية، ويمكن تعطيل أي صف
+                      بدون حذفه.
                     </p>
                   </div>
                   <Badge variant="outline">
@@ -338,9 +321,7 @@ export function AddonPlanDialog({
                             <Switch
                               checked={row?.isActive ?? true}
                               onCheckedChange={(checked) =>
-                                updatePrice(basePlan.id, {
-                                  isActive: checked,
-                                })
+                                updatePrice(basePlan.id, { isActive: checked })
                               }
                             />
                           </div>
@@ -371,58 +352,75 @@ export function AddonPlanDialog({
                 <section className="space-y-3 rounded-lg border bg-muted/10 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold">ربط المنتجات</h3>
-                      <p className="text-xs text-muted-foreground">
-                        اختر من منتجات المنيو المتاحة للاشتراكات فقط.
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <FolderTree className="size-4 text-primary" />
+                        ربط تصنيفات المنيو
+                      </h3>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        اختيار تصنيف واحد يربط تلقائيا كل منتجاته المؤهلة الحالية
+                        والمستقبلية بهذه الباقة.
                       </p>
                     </div>
                     <Badge variant="outline">
-                      {form.menuProductIds.length.toLocaleString("ar-EG")} مختارة
+                      {form.menuCategoryKeys.length.toLocaleString("ar-EG")} مختارة
                     </Badge>
                   </div>
+
+                  {legacyProductsCount > 0 && form.menuCategoryKeys.length === 0 ? (
+                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-800 dark:text-amber-300">
+                      هذه باقة قديمة مرتبطة بـ {legacyProductsCount.toLocaleString("ar-EG")} منتجات. اختر تصنيفا لترحيلها إلى الربط الجديد، أو احفظها دون تغيير للحفاظ على الربط القديم.
+                    </p>
+                  ) : null}
+
                   <div className="relative">
                     <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      value={productSearch}
-                      onChange={(event) => setProductSearch(event.target.value)}
+                      value={categorySearch}
+                      onChange={(event) => setCategorySearch(event.target.value)}
                       className="pr-9"
-                      placeholder="ابحث باسم المنتج أو الكود"
+                      placeholder="ابحث باسم التصنيف أو الكود"
                     />
                   </div>
+
                   <div className="max-h-[19rem] overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
-                    {filteredProducts.length === 0 ? (
+                    {filteredCategories.length === 0 ? (
                       <p className="p-4 text-sm text-muted-foreground">
-                        لا توجد منتجات مطابقة.
+                        لا توجد تصنيفات مطابقة.
                       </p>
                     ) : (
                       <div className="divide-y">
-                        {filteredProducts.map((product) => {
-                          const checked = form.menuProductIds.includes(product.id);
-                          const checkboxId = `addon-product-${product.id}`;
+                        {filteredCategories.map((category) => {
+                          const checked = form.menuCategoryKeys.includes(category.key);
+                          const disabled = category.productsCount <= 0 && !checked;
+                          const checkboxId = `addon-category-${category.key}`;
 
                           return (
                             <div
-                              key={product.id}
+                              key={category.key}
                               className="flex w-full items-center gap-3 px-3 py-3 text-right transition hover:bg-muted/50"
                             >
                               <Checkbox
                                 id={checkboxId}
                                 checked={checked}
+                                disabled={disabled}
                                 onCheckedChange={(value) =>
-                                  setProductSelected(product.id, value === true)
+                                  setCategorySelected(category.key, value === true)
                                 }
                               />
                               <label
                                 htmlFor={checkboxId}
-                                className="min-w-0 flex-1 cursor-pointer"
+                                className={`min-w-0 flex-1 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                               >
                                 <span className="block truncate text-sm font-medium">
-                                  {localizedName(product.name)}
+                                  {localizedName(category.name)}
                                 </span>
-                                <span className="block truncate text-xs text-muted-foreground">
-                                  {product.key || product.category || product.id}
+                                <span className="block truncate text-xs text-muted-foreground" dir="ltr">
+                                  {category.key}
                                 </span>
                               </label>
+                              <Badge variant={category.productsCount > 0 ? "secondary" : "outline"}>
+                                {category.productsCount.toLocaleString("ar-EG")} منتج
+                              </Badge>
                             </div>
                           );
                         })}
@@ -432,16 +430,19 @@ export function AddonPlanDialog({
                 </section>
 
                 <section className="space-y-2 rounded-lg border bg-muted/10 p-4">
-                  <h3 className="text-sm font-semibold">المنتجات المختارة</h3>
-                  {selectedProducts.length === 0 ? (
+                  <h3 className="text-sm font-semibold">التصنيفات المختارة</h3>
+                  {selectedCategories.length === 0 ? (
                     <p className="rounded-md border border-dashed bg-background p-3 text-sm text-muted-foreground">
-                      اختر منتجا واحدا على الأقل.
+                      اختر تصنيفا واحدا على الأقل.
                     </p>
                   ) : (
                     <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto overflow-x-hidden">
-                      {selectedProducts.map((product) => (
-                        <Badge key={product.id} variant="secondary">
-                          {localizedName(product.name)}
+                      {selectedCategories.map((category) => (
+                        <Badge key={category.key} variant="secondary" className="gap-1.5">
+                          {localizedName(category.name)}
+                          <span className="text-[10px] text-muted-foreground">
+                            ({category.productsCount.toLocaleString("ar-EG")})
+                          </span>
                         </Badge>
                       ))}
                     </div>
