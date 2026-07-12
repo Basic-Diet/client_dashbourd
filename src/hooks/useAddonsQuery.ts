@@ -1,8 +1,8 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchAddonBasePlanPicker,
+  fetchAddonCategoryPicker,
   fetchAddonPlans,
-  fetchAddonProductPicker,
   fetchAddons,
 } from "@/utils/fetchAddons";
 import { fetchAddonById } from "@/utils/fetchAddonById";
@@ -45,12 +45,15 @@ export const addonPlanPricesQueryOptions = () =>
 export const useAddonPlanPricesQuery = () =>
   useQuery(addonPlanPricesQueryOptions());
 
-export const addonProductPickerQueryOptions = () =>
+export const addonCategoryPickerQueryOptions = () =>
   queryOptions({
-    queryKey: ["addons", "product-picker"],
-    queryFn: fetchAddonProductPicker,
+    queryKey: ["addons", "category-picker"],
+    queryFn: fetchAddonCategoryPicker,
     staleTime: 1000 * 60 * 5,
   });
+
+// Temporary compatibility alias used by the existing /addons route.
+export const addonProductPickerQueryOptions = addonCategoryPickerQueryOptions;
 
 export const addonBasePlanPickerQueryOptions = () =>
   queryOptions({
