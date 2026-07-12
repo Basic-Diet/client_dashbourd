@@ -263,7 +263,7 @@ export function AddonPlanDialog({
             <section className="space-y-4 rounded-lg border bg-muted/10 p-4">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 shrink-0 text-primary" />
-                <h3 className="text-sm font-semibold">بيانات الباقة</h3>
+                <h3 className="text-sm font-semibold">بيانات باقة الإضافة</h3>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <Field
@@ -282,13 +282,13 @@ export function AddonPlanDialog({
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_9rem] md:items-end">
                 <div className="space-y-2">
-                  <Label>الباقة</Label>
+                  <Label>تصنيف الإضافة</Label>
                   <Select
                     value={form.category}
                     onValueChange={(value) => updateTextField("category", value)}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue />
+                      <SelectValue placeholder="اختر تصنيف الإضافة" />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
@@ -298,6 +298,10 @@ export function AddonPlanDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    هذا تصنيف باقة الإضافة، أما باقات الاشتراك الأساسية فتظهر في
+                    مصفوفة الأسعار بالأسفل.
+                  </p>
                 </div>
                 <Field
                   label="الحد اليومي"
@@ -326,9 +330,9 @@ export function AddonPlanDialog({
               <section className="space-y-3 rounded-lg border bg-muted/10 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold">مصفوفة الأسعار</h3>
+                    <h3 className="text-sm font-semibold">مصفوفة أسعار باقات الاشتراك الأساسية</h3>
                     <p className="text-xs text-muted-foreground">
-                      أدخل السعر بالهللة لكل خطة أساسية، ويمكن تعطيل أي صف بدون حذفه.
+                      أدخل السعر بالهللة لكل باقة اشتراك أساسية، ويمكن تعطيل أي صف بدون حذفه.
                     </p>
                   </div>
                   <Badge variant="outline">
@@ -337,7 +341,7 @@ export function AddonPlanDialog({
                 </div>
                 {basePlans.length === 0 ? (
                   <p className="rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground">
-                    لا توجد خطط أساسية من الخادم.
+                    لا توجد باقات اشتراك أساسية من الخادم.
                   </p>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2">
