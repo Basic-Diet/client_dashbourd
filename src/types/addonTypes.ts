@@ -107,8 +107,9 @@ export interface AddonPlanWritePayload {
   category: AddonCategory;
   maxPerDay?: number;
   isActive?: boolean;
-  menuCategoryKeys: string[];
-  menuProductIds?: string[];
+  menuProductIds: string[];
+  /** Temporary compatibility field while the backend category-linking rollout is reverted. */
+  menuCategoryKeys?: string[];
   planPrices: Array<{
     basePlanId: string;
     priceHalala: number;
