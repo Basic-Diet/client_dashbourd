@@ -17,8 +17,7 @@ export type PlanFormState = {
   category: string;
   maxPerDay: string;
   isActive: boolean;
-  menuCategoryKeys: string[];
-  legacyMenuProductIds: string[];
+  menuProductIds: string[];
   prices: PriceRowState[];
 };
 
@@ -33,7 +32,6 @@ export function planToForm(
   const priceMap = new Map(
     (plan?.planPrices ?? []).map((price) => [price.basePlanId, price])
   );
-  const menuCategoryKeys = uniqueIds(plan?.menuCategoryKeys ?? []);
 
   return {
     nameAr: plan?.name.ar ?? "",
@@ -41,10 +39,9 @@ export function planToForm(
     category: plan?.category ?? "snack",
     maxPerDay: String(plan?.maxPerDay ?? 1),
     isActive: plan?.isActive ?? true,
-    menuCategoryKeys,
-    // Keep old product links only while an old plan has not been migrated yet.
-    legacyMenuProductIds:
-      menuCategoryKeys.length > 0 ? [] : uniqueIds(plan?.menuProductIds ?? []),
+    // normalizeAddon already falls back to resolvedMenuProductIds for plans that
+    // were temporarily linked by category, so they can be migrated safely.
+    menuProductIds: uniqueIds(plan?.menuProductIds ?? []),
     prices: basePlans.map((basePlan) => {
       const price = priceMap.get(basePlan.id);
       return {
@@ -92,41 +89,25 @@ export function upsertPriceRow(
   );
 }
 
-function deriveLegacyAddonCategory(
-  menuCategoryKeys: string[],
-  currentCategory: string
-) {
-  const normalizedKeys = new Set(
-    menuCategoryKeys.map((key) => key.trim().toLowerCase())
-  );
-
-  if (normalizedKeys.has("juices") || normalizedKeys.has("drinks")) {
-    return "juice";
-  }
-
-  if (currentCategory === "small_salad") return "small_salad";
-  return "snack";
-}
-
 export function validateAndBuildPayload(
   form: PlanFormState,
   basePlans: BasePlanPickerItem[]
 ): PlanFormValidationResult {
   const nameAr = form.nameAr.trim();
   const nameEn = form.nameEn.trim();
-  const menuCategoryKeys = uniqueIds(form.menuCategoryKeys);
-  const legacyMenuProductIds = uniqueIds(form.legacyMenuProductIds);
-  const category = deriveLegacyAddonCategory(menuCategoryKeys, form.category);
+  const category = form.category.trim();
   const maxPerDay = Number(form.maxPerDay);
+  const menuProductIds = uniqueIds(form.menuProductIds);
   const prices = ensurePriceRows(form.prices, basePlans);
 
   if (!nameAr) return { ok: false, message: "الاسم العربي مطلوب." };
   if (!nameEn) return { ok: false, message: "الاسم الإنجليزي مطلوب." };
+  if (!category) return { ok: false, message: "التصنيف مطلوب." };
   if (!Number.isFinite(maxPerDay) || maxPerDay < 1) {
     return { ok: false, message: "الحد اليومي يجب أن يكون رقما لا يقل عن 1." };
   }
-  if (menuCategoryKeys.length === 0 && legacyMenuProductIds.length === 0) {
-    return { ok: false, message: "اختر تصنيفا واحدا على الأقل من المنيو." };
+  if (menuProductIds.length === 0) {
+    return { ok: false, message: "اختر منتجا واحدا على الأقل من المنيو." };
   }
   if (prices.length === 0) {
     return { ok: false, message: "يجب إضافة سعر واحد على الأقل." };
@@ -153,11 +134,10 @@ export function validateAndBuildPayload(
       category,
       maxPerDay: Math.round(maxPerDay),
       isActive: form.isActive,
-      menuCategoryKeys,
-      // Empty this field once categories are selected so the backend category link
-      // becomes the canonical source. Preserve it only for untouched legacy plans.
-      menuProductIds:
-        menuCategoryKeys.length > 0 ? [] : legacyMenuProductIds,
+      menuProductIds,
+      // Clear the temporary category-linking field so explicit product links are
+      // the canonical source after create/update.
+      menuCategoryKeys: [],
       planPrices: prices.map((price) => ({
         basePlanId: price.basePlanId,
         priceHalala: Math.round(Number(price.priceHalala)),
