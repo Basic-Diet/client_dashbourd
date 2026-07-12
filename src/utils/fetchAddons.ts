@@ -2,6 +2,7 @@ import api from "@/lib/apis";
 import type {
   Addon,
   AddonCategoryOption,
+  AddonMenuCategory,
   AddonMenuProduct,
   AddonPlanPrice,
   AddonPlanPricesResponse,
@@ -11,6 +12,8 @@ import type {
   BasePlanPickerItem,
   BasePlanPickerResponse,
   LocalizedName,
+  MenuCategoryPickerItem,
+  MenuCategoryPickerResponse,
   MenuProductPickerItem,
   MenuProductPickerResponse,
 } from "@/types/addonTypes";
@@ -134,15 +137,49 @@ const normalizeMenuProduct = (value: unknown): AddonMenuProduct => {
   };
 };
 
+const normalizeMenuCategory = (value: unknown): AddonMenuCategory => {
+  const category = asRecord(value);
+  return {
+    id:
+      category.id === undefined && category._id === undefined
+        ? undefined
+        : String(category.id ?? category._id),
+    key: String(category.key ?? ""),
+    name: asLocalized(category.name),
+    isActive: category.isActive !== false,
+    isVisible:
+      category.isVisible === undefined ? undefined : category.isVisible !== false,
+    isAvailable:
+      category.isAvailable === undefined ? undefined : category.isAvailable !== false,
+    productsCount:
+      category.productsCount === undefined
+        ? undefined
+        : asNumber(category.productsCount),
+  };
+};
+
 const normalizeAddon = (value: unknown): Addon => {
   const addon = asRecord(value);
   const legacy = asRecord(addon.legacyCompatibility);
   const id = String(addon.id ?? addon._id ?? "");
   const planPrices = asArray(addon.planPrices).map(normalizePlanPrice);
   const menuProducts = asArray(addon.menuProducts).map(normalizeMenuProduct);
+  const menuCategories = asArray(addon.menuCategories)
+    .map(normalizeMenuCategory)
+    .filter((category) => category.key);
   const menuProductIds = asArray(addon.menuProductIds)
     .map((item) => String(item))
     .filter(Boolean);
+  const menuCategoryKeys = asArray(addon.menuCategoryKeys)
+    .map((item) => String(item))
+    .filter(Boolean);
+  const resolvedMenuProductIds = asArray(addon.resolvedMenuProductIds)
+    .map((item) => String(item))
+    .filter(Boolean);
+  const resolvedMenuProductsCount = asNumber(
+    addon.resolvedMenuProductsCount,
+    resolvedMenuProductIds.length || menuProductIds.length
+  );
   const priceHalala = asNumber(
     addon.priceHalala ??
       legacy.priceHalala ??
@@ -170,9 +207,13 @@ const normalizeAddon = (value: unknown): Addon => {
     maxPerDay: asNumber(addon.maxPerDay, 1),
     menuProductIds:
       menuProductIds.length > 0 ? menuProductIds : menuProducts.map((item) => item.id),
+    menuCategoryKeys,
+    menuCategories,
+    resolvedMenuProductIds,
+    resolvedMenuProductsCount,
     menuProductsCount:
       addon.menuProductsCount === undefined
-        ? menuProducts.length
+        ? resolvedMenuProductsCount || menuProducts.length
         : asNumber(addon.menuProductsCount),
     planPricesCount:
       addon.planPricesCount === undefined
@@ -248,6 +289,26 @@ const normalizeProductPickerResponse = (
   }),
 });
 
+const normalizeCategoryPickerResponse = (
+  payload: unknown
+): MenuCategoryPickerResponse => ({
+  status: asRecord(payload).status !== false,
+  data: extractCollection(payload, "items")
+    .map((item): MenuCategoryPickerItem => {
+      const category = asRecord(item);
+      return {
+        id: String(category.id ?? category._id ?? ""),
+        key: String(category.key ?? ""),
+        name: asLocalized(category.name),
+        isActive: category.isActive !== false,
+        isVisible: category.isVisible !== false,
+        isAvailable: category.isAvailable !== false,
+        productsCount: asNumber(category.productsCount),
+      };
+    })
+    .filter((category) => category.key),
+});
+
 const normalizeBasePlanPickerResponse = (
   payload: unknown
 ): BasePlanPickerResponse => ({
@@ -310,6 +371,14 @@ export const fetchAddonProductPicker =
       "/api/dashboard/menu/products?view=picker&availableFor=subscription&isVisible=true&isAvailable=true&limit=100"
     );
     return normalizeProductPickerResponse(response.data);
+  };
+
+export const fetchAddonCategoryPicker =
+  async (): Promise<MenuCategoryPickerResponse> => {
+    const response = await api.get(
+      "/api/dashboard/menu/categories?view=picker&availableFor=subscription&isVisible=true&isAvailable=true&limit=100"
+    );
+    return normalizeCategoryPickerResponse(response.data);
   };
 
 export const fetchAddonBasePlanPicker =
