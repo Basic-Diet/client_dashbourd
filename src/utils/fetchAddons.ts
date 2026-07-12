@@ -167,7 +167,7 @@ const normalizeAddon = (value: unknown): Addon => {
   const menuCategories = asArray(addon.menuCategories)
     .map(normalizeMenuCategory)
     .filter((category) => category.key);
-  const menuProductIds = asArray(addon.menuProductIds)
+  const explicitMenuProductIds = asArray(addon.menuProductIds)
     .map((item) => String(item))
     .filter(Boolean);
   const menuCategoryKeys = asArray(addon.menuCategoryKeys)
@@ -176,9 +176,15 @@ const normalizeAddon = (value: unknown): Addon => {
   const resolvedMenuProductIds = asArray(addon.resolvedMenuProductIds)
     .map((item) => String(item))
     .filter(Boolean);
+  const displayMenuProductIds =
+    explicitMenuProductIds.length > 0
+      ? explicitMenuProductIds
+      : resolvedMenuProductIds.length > 0
+        ? resolvedMenuProductIds
+        : menuProducts.map((item) => item.id).filter(Boolean);
   const resolvedMenuProductsCount = asNumber(
     addon.resolvedMenuProductsCount,
-    resolvedMenuProductIds.length || menuProductIds.length
+    resolvedMenuProductIds.length || displayMenuProductIds.length
   );
   const priceHalala = asNumber(
     addon.priceHalala ??
@@ -205,8 +211,7 @@ const normalizeAddon = (value: unknown): Addon => {
     billingMode:
       addon.billingMode === undefined ? "per_day" : String(addon.billingMode),
     maxPerDay: asNumber(addon.maxPerDay, 1),
-    menuProductIds:
-      menuProductIds.length > 0 ? menuProductIds : menuProducts.map((item) => item.id),
+    menuProductIds: displayMenuProductIds,
     menuCategoryKeys,
     menuCategories,
     resolvedMenuProductIds,
