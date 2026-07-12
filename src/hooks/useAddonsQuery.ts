@@ -3,6 +3,7 @@ import {
   fetchAddonBasePlanPicker,
   fetchAddonCategoryPicker,
   fetchAddonPlans,
+  fetchAddonProductPicker,
   fetchAddons,
 } from "@/utils/fetchAddons";
 import { fetchAddonById } from "@/utils/fetchAddonById";
@@ -45,15 +46,21 @@ export const addonPlanPricesQueryOptions = () =>
 export const useAddonPlanPricesQuery = () =>
   useQuery(addonPlanPricesQueryOptions());
 
+export const addonProductPickerQueryOptions = () =>
+  queryOptions({
+    queryKey: ["addons", "product-picker"],
+    queryFn: fetchAddonProductPicker,
+    staleTime: 1000 * 60 * 5,
+  });
+
+// Kept available for other screens, but the Add-on create/edit flow now links
+// explicit products and only uses category as a local UI filter.
 export const addonCategoryPickerQueryOptions = () =>
   queryOptions({
     queryKey: ["addons", "category-picker"],
     queryFn: fetchAddonCategoryPicker,
     staleTime: 1000 * 60 * 5,
   });
-
-// Temporary compatibility alias used by the existing /addons route.
-export const addonProductPickerQueryOptions = addonCategoryPickerQueryOptions;
 
 export const addonBasePlanPickerQueryOptions = () =>
   queryOptions({
