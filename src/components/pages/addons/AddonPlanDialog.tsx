@@ -6,7 +6,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { CheckCircle2, FolderTree, Search } from "lucide-react";
+import { CheckCircle2, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,13 +20,20 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type {
   Addon,
   AddonCategoryOption,
   AddonPlanWritePayload,
   BasePlanPickerItem,
-  MenuCategoryPickerItem,
+  MenuProductPickerItem,
 } from "@/types/addonTypes";
 import {
   addonId,
@@ -40,12 +47,13 @@ import {
   type PriceRowState,
 } from "./addon-plan-form-utils";
 
+const UNCATEGORIZED_KEY = "__uncategorized__";
+
 type AddonPlanDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: Addon | null;
-  /** Kept as `products` temporarily so the route API stays stable; items are menu categories. */
-  products: MenuCategoryPickerItem[];
+  products: MenuProductPickerItem[];
   basePlans: BasePlanPickerItem[];
   categories: AddonCategoryOption[];
   isSaving: boolean;
@@ -58,13 +66,13 @@ type DialogFormState = {
   error: string | null;
 };
 
-type TextFieldName = "nameAr" | "nameEn" | "maxPerDay";
+type TextFieldName = "nameAr" | "nameEn" | "category" | "maxPerDay";
 
 type DialogFormAction =
   | { type: "RESET_FROM_PLAN"; form: PlanFormState }
   | { type: "SET_FIELD"; field: TextFieldName; value: string }
   | { type: "SET_FIELD"; field: "isActive"; value: boolean }
-  | { type: "SET_CATEGORY_KEYS"; categoryKeys: string[] }
+  | { type: "SET_PRODUCT_IDS"; productIds: string[] }
   | {
       type: "UPDATE_PRICE";
       basePlanId: string;
@@ -84,11 +92,11 @@ function dialogFormReducer(
         form: { ...state.form, [action.field]: action.value },
         error: null,
       };
-    case "SET_CATEGORY_KEYS":
+    case "SET_PRODUCT_IDS":
       return {
         form: {
           ...state.form,
-          menuCategoryKeys: uniqueIds(action.categoryKeys),
+          menuProductIds: uniqueIds(action.productIds),
         },
         error: null,
       };
@@ -115,7 +123,7 @@ export function AddonPlanDialog({
   open,
   onOpenChange,
   plan,
-  products: menuCategories,
+  products,
   basePlans,
   isSaving,
   serverError,
@@ -126,7 +134,8 @@ export function AddonPlanDialog({
     error: null,
   }));
   const { form } = state;
-  const [categorySearch, setCategorySearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
   const planKey = plan ? addonId(plan) : "create";
   const basePlanIdsKey = useMemo(
     () => basePlans.map((basePlan) => basePlan.id).join("|"),
@@ -143,29 +152,58 @@ export function AddonPlanDialog({
       type: "RESET_FROM_PLAN",
       form: planToForm(plan, basePlans),
     });
-    setCategorySearch("");
+    setProductSearch("");
+    setProductCategoryFilter("all");
     lastResetKeyRef.current = resetKey;
   }, [basePlans, open, plan, resetKey]);
 
-  const filteredCategories = useMemo(() => {
-    const search = categorySearch.trim().toLowerCase();
-    if (!search) return menuCategories;
+  const productCategoryOptions = useMemo(() => {
+    const counts = new Map<string, number>();
 
-    return menuCategories.filter((category) =>
-      [category.key, category.name.ar, category.name.en]
+    products.forEach((product) => {
+      const key = getProductCategoryKey(product);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+
+    return Array.from(counts.entries())
+      .map(([key, count]) => ({ key, count }))
+      .sort((left, right) =>
+        formatProductCategory(left.key).localeCompare(
+          formatProductCategory(right.key),
+          "ar"
+        )
+      );
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const search = productSearch.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const matchesCategory =
+        productCategoryFilter === "all" ||
+        getProductCategoryKey(product) === productCategoryFilter;
+
+      if (!matchesCategory) return false;
+      if (!search) return true;
+
+      const haystack = [
+        product.key,
+        product.category,
+        product.name.ar,
+        product.name.en,
+      ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(search)
-    );
-  }, [categorySearch, menuCategories]);
+        .toLowerCase();
 
-  const selectedCategories = useMemo(
+      return haystack.includes(search);
+    });
+  }, [productCategoryFilter, productSearch, products]);
+
+  const selectedProducts = useMemo(
     () =>
-      menuCategories.filter((category) =>
-        form.menuCategoryKeys.includes(category.key)
-      ),
-    [form.menuCategoryKeys, menuCategories]
+      products.filter((product) => form.menuProductIds.includes(product.id)),
+    [form.menuProductIds, products]
   );
 
   const activePriceRows = useMemo(
@@ -177,13 +215,14 @@ export function AddonPlanDialog({
     dispatch({ type: "SET_FIELD", field, value });
   };
 
-  const setCategorySelected = (categoryKey: string, selected: boolean) => {
-    const currentKeys = uniqueIds(form.menuCategoryKeys);
+  const setProductSelected = (productId: string, selected: boolean) => {
+    const currentIds = uniqueIds(form.menuProductIds);
+
     dispatch({
-      type: "SET_CATEGORY_KEYS",
-      categoryKeys: selected
-        ? uniqueIds([...currentKeys, categoryKey])
-        : currentKeys.filter((key) => key !== categoryKey),
+      type: "SET_PRODUCT_IDS",
+      productIds: selected
+        ? uniqueIds([...currentIds, productId])
+        : currentIds.filter((id) => id !== productId),
     });
   };
 
@@ -208,7 +247,6 @@ export function AddonPlanDialog({
   };
 
   const shownError = state.error || serverError;
-  const legacyProductsCount = form.legacyMenuProductIds.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -221,8 +259,8 @@ export function AddonPlanDialog({
             {plan ? "تعديل باقة إضافة" : "إنشاء باقة إضافة"}
           </DialogTitle>
           <DialogDescription>
-            اربط باقة الإضافة بتصنيفات المنيو، ثم أدخل سعرها لكل باقة اشتراك
-            أساسية.
+            اربط المنتجات المطلوبة مباشرة بالباقة، واستخدم فلتر التصنيف للوصول
+            إليها بسرعة، ثم أدخل السعر لكل باقة اشتراك أساسية.
           </DialogDescription>
         </DialogHeader>
 
@@ -352,74 +390,108 @@ export function AddonPlanDialog({
                 <section className="space-y-3 rounded-lg border bg-muted/10 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        <FolderTree className="size-4 text-primary" />
-                        ربط تصنيفات المنيو
-                      </h3>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        اختيار تصنيف واحد يربط تلقائيا كل منتجاته المؤهلة الحالية
-                        والمستقبلية بهذه الباقة.
+                      <h3 className="text-sm font-semibold">ربط المنتجات</h3>
+                      <p className="text-xs text-muted-foreground">
+                        اختر المنتجات نفسها. فلتر التصنيف للتنظيم فقط ولا يربط
+                        التصنيف بالباقة.
                       </p>
                     </div>
                     <Badge variant="outline">
-                      {form.menuCategoryKeys.length.toLocaleString("ar-EG")} مختارة
+                      {form.menuProductIds.length.toLocaleString("ar-EG")} مختارة
                     </Badge>
                   </div>
 
-                  {legacyProductsCount > 0 && form.menuCategoryKeys.length === 0 ? (
-                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-800 dark:text-amber-300">
-                      هذه باقة قديمة مرتبطة بـ {legacyProductsCount.toLocaleString("ar-EG")} منتجات. اختر تصنيفا لترحيلها إلى الربط الجديد، أو احفظها دون تغيير للحفاظ على الربط القديم.
-                    </p>
-                  ) : null}
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_13rem]">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={productSearch}
+                        onChange={(event) => setProductSearch(event.target.value)}
+                        className="pr-9"
+                        placeholder="ابحث باسم المنتج أو الكود"
+                      />
+                    </div>
+                    <Select
+                      value={productCategoryFilter}
+                      onValueChange={setProductCategoryFilter}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="كل التصنيفات" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          كل التصنيفات ({products.length.toLocaleString("ar-EG")})
+                        </SelectItem>
+                        {productCategoryOptions.map((category) => (
+                          <SelectItem key={category.key} value={category.key}>
+                            {formatProductCategory(category.key)} ({category.count.toLocaleString("ar-EG")})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={categorySearch}
-                      onChange={(event) => setCategorySearch(event.target.value)}
-                      className="pr-9"
-                      placeholder="ابحث باسم التصنيف أو الكود"
-                    />
+                  <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span>
+                      ظاهر {filteredProducts.length.toLocaleString("ar-EG")} من{" "}
+                      {products.length.toLocaleString("ar-EG")} منتج
+                    </span>
+                    {productCategoryFilter !== "all" || productSearch.trim() ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setProductSearch("");
+                          setProductCategoryFilter("all");
+                        }}
+                      >
+                        مسح الفلتر
+                      </Button>
+                    ) : null}
                   </div>
 
                   <div className="max-h-[19rem] overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
-                    {filteredCategories.length === 0 ? (
+                    {filteredProducts.length === 0 ? (
                       <p className="p-4 text-sm text-muted-foreground">
-                        لا توجد تصنيفات مطابقة.
+                        لا توجد منتجات مطابقة للبحث والتصنيف المحددين.
                       </p>
                     ) : (
                       <div className="divide-y">
-                        {filteredCategories.map((category) => {
-                          const checked = form.menuCategoryKeys.includes(category.key);
-                          const disabled = category.productsCount <= 0 && !checked;
-                          const checkboxId = `addon-category-${category.key}`;
+                        {filteredProducts.map((product) => {
+                          const checked = form.menuProductIds.includes(product.id);
+                          const checkboxId = `addon-product-${product.id}`;
+                          const categoryKey = getProductCategoryKey(product);
 
                           return (
                             <div
-                              key={category.key}
+                              key={product.id}
                               className="flex w-full items-center gap-3 px-3 py-3 text-right transition hover:bg-muted/50"
                             >
                               <Checkbox
                                 id={checkboxId}
                                 checked={checked}
-                                disabled={disabled}
                                 onCheckedChange={(value) =>
-                                  setCategorySelected(category.key, value === true)
+                                  setProductSelected(product.id, value === true)
                                 }
                               />
                               <label
                                 htmlFor={checkboxId}
-                                className={`min-w-0 flex-1 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                                className="min-w-0 flex-1 cursor-pointer"
                               >
                                 <span className="block truncate text-sm font-medium">
-                                  {localizedName(category.name)}
+                                  {localizedName(product.name)}
                                 </span>
-                                <span className="block truncate text-xs text-muted-foreground" dir="ltr">
-                                  {category.key}
+                                <span
+                                  className="block truncate text-xs text-muted-foreground"
+                                  dir="ltr"
+                                >
+                                  {product.key || product.id}
                                 </span>
                               </label>
-                              <Badge variant={category.productsCount > 0 ? "secondary" : "outline"}>
-                                {category.productsCount.toLocaleString("ar-EG")} منتج
+                              <Badge variant="secondary" className="max-w-28 truncate">
+                                {formatProductCategory(categoryKey)}
                               </Badge>
                             </div>
                           );
@@ -430,19 +502,16 @@ export function AddonPlanDialog({
                 </section>
 
                 <section className="space-y-2 rounded-lg border bg-muted/10 p-4">
-                  <h3 className="text-sm font-semibold">التصنيفات المختارة</h3>
-                  {selectedCategories.length === 0 ? (
+                  <h3 className="text-sm font-semibold">المنتجات المختارة</h3>
+                  {selectedProducts.length === 0 ? (
                     <p className="rounded-md border border-dashed bg-background p-3 text-sm text-muted-foreground">
-                      اختر تصنيفا واحدا على الأقل.
+                      اختر منتجا واحدا على الأقل.
                     </p>
                   ) : (
                     <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto overflow-x-hidden">
-                      {selectedCategories.map((category) => (
-                        <Badge key={category.key} variant="secondary" className="gap-1.5">
-                          {localizedName(category.name)}
-                          <span className="text-[10px] text-muted-foreground">
-                            ({category.productsCount.toLocaleString("ar-EG")})
-                          </span>
+                      {selectedProducts.map((product) => (
+                        <Badge key={product.id} variant="secondary">
+                          {localizedName(product.name)}
                         </Badge>
                       ))}
                     </div>
@@ -475,6 +544,15 @@ export function AddonPlanDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function getProductCategoryKey(product: MenuProductPickerItem) {
+  return product.category?.trim() || UNCATEGORIZED_KEY;
+}
+
+function formatProductCategory(categoryKey: string) {
+  if (categoryKey === UNCATEGORIZED_KEY) return "بدون تصنيف";
+  return categoryKey.replace(/[_-]+/g, " ");
 }
 
 function Field({
