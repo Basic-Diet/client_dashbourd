@@ -15,6 +15,16 @@ export interface AddonMenuProduct {
   isActive: boolean;
 }
 
+export interface AddonMenuCategory {
+  id?: string;
+  key: string;
+  name: LocalizedName;
+  isActive: boolean;
+  isVisible?: boolean;
+  isAvailable?: boolean;
+  productsCount?: number;
+}
+
 export interface AddonPlanPrice {
   id?: string;
   _id?: string;
@@ -48,6 +58,10 @@ export interface Addon {
   billingMode?: "per_day" | "per_meal" | string;
   maxPerDay?: number;
   menuProductIds: string[];
+  menuCategoryKeys: string[];
+  menuCategories: AddonMenuCategory[];
+  resolvedMenuProductIds: string[];
+  resolvedMenuProductsCount: number;
   menuProductsCount?: number;
   planPricesCount?: number;
   pricingMode?: string;
@@ -93,7 +107,8 @@ export interface AddonPlanWritePayload {
   category: AddonCategory;
   maxPerDay?: number;
   isActive?: boolean;
-  menuProductIds: string[];
+  menuCategoryKeys: string[];
+  menuProductIds?: string[];
   planPrices: Array<{
     basePlanId: string;
     priceHalala: number;
@@ -133,6 +148,21 @@ export interface MenuProductPickerItem {
 export interface MenuProductPickerResponse {
   status: boolean;
   data: MenuProductPickerItem[];
+}
+
+export interface MenuCategoryPickerItem {
+  id: string;
+  key: string;
+  name: LocalizedName;
+  isActive: boolean;
+  isVisible: boolean;
+  isAvailable: boolean;
+  productsCount: number;
+}
+
+export interface MenuCategoryPickerResponse {
+  status: boolean;
+  data: MenuCategoryPickerItem[];
 }
 
 export interface BasePlanPickerItem {
