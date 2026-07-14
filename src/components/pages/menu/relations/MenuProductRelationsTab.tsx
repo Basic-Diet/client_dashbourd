@@ -39,9 +39,12 @@ import type {
   MenuOption,
 } from "@/types/menuTypes";
 import { parseOptionalSelectionLimit } from "@/utils/menuPayloadMappers";
+import {
+  halalaToRiyalInput,
+  optionalRiyalToHalala,
+  riyalToHalala,
+} from "@/utils/price";
 
-/* ─── helpers ─── */
-const toHalala = (sar: string) => Math.round((Number(sar) || 0) * 100);
 const toOptionalNumber = (value: string) =>
   value.trim() === "" ? undefined : Number(value);
 
@@ -74,7 +77,6 @@ const normalizeOption = (
   sortOrder: option.sortOrder ?? 0,
 });
 
-/* ─── state reducer ─── */
 interface FormState {
   productId: string;
   groupId: string;
@@ -92,9 +94,18 @@ interface FormState {
 
 type FormAction =
   | { type: "SET_PRODUCT"; payload: string }
-  | { type: "SET_GROUP"; payload: { id: string; linkedGroup?: MenuProductLinkedGroup } }
-  | { type: "SET_OPTION"; payload: { id: string; linkedOption?: ProductGroupOptionOverride } }
-  | { type: "UPDATE_GROUP_RULES"; payload: Partial<Omit<FormState, "productId" | "groupId" | "optionId">> }
+  | {
+      type: "SET_GROUP";
+      payload: { id: string; linkedGroup?: MenuProductLinkedGroup };
+    }
+  | {
+      type: "SET_OPTION";
+      payload: { id: string; linkedOption?: ProductGroupOptionOverride };
+    }
+  | {
+      type: "UPDATE_GROUP_RULES";
+      payload: Partial<Omit<FormState, "productId" | "groupId" | "optionId">>;
+    }
   | { type: "UPDATE_OPTION_FIELDS"; payload: Partial<FormState> }
   | { type: "RESET_GROUP_FIELDS" }
   | { type: "RESET_OPTION_FIELDS" };
@@ -154,15 +165,15 @@ function formReducer(state: FormState, action: FormAction): FormState {
         return {
           ...state,
           optionId: id,
-          extraPriceSar: String((linkedOption.extraPriceHalala ?? 0) / 100),
+          extraPriceSar:
+            halalaToRiyalInput(linkedOption.extraPriceHalala ?? 0) || "0",
           extraWeightUnitGrams:
             linkedOption.extraWeightUnitGrams !== undefined
               ? String(linkedOption.extraWeightUnitGrams)
               : "",
-          extraWeightPriceSar:
-            linkedOption.extraWeightPriceHalala !== undefined
-              ? String(linkedOption.extraWeightPriceHalala / 100)
-              : "",
+          extraWeightPriceSar: halalaToRiyalInput(
+            linkedOption.extraWeightPriceHalala
+          ),
           optionSortOrder: String(linkedOption.sortOrder ?? 0),
           optionAvailable: linkedOption.isAvailable ?? true,
         };
@@ -203,7 +214,6 @@ function formReducer(state: FormState, action: FormAction): FormState {
   }
 }
 
-/* ─── sub-components ─── */
 function ProductSelect({
   value,
   onChange,
@@ -313,8 +323,11 @@ function GroupRuleFields({
           type="number"
           min="0"
           value={state.minSelections}
-          onChange={(e) =>
-            dispatch({ type: "UPDATE_GROUP_RULES", payload: { minSelections: e.target.value } })
+          onChange={(event) =>
+            dispatch({
+              type: "UPDATE_GROUP_RULES",
+              payload: { minSelections: event.target.value },
+            })
           }
         />
       </div>
@@ -324,8 +337,11 @@ function GroupRuleFields({
           type="number"
           min="0"
           value={state.maxSelections}
-          onChange={(e) =>
-            dispatch({ type: "UPDATE_GROUP_RULES", payload: { maxSelections: e.target.value } })
+          onChange={(event) =>
+            dispatch({
+              type: "UPDATE_GROUP_RULES",
+              payload: { maxSelections: event.target.value },
+            })
           }
         />
       </div>
@@ -335,8 +351,11 @@ function GroupRuleFields({
           type="number"
           min="0"
           value={state.groupSortOrder}
-          onChange={(e) =>
-            dispatch({ type: "UPDATE_GROUP_RULES", payload: { groupSortOrder: e.target.value } })
+          onChange={(event) =>
+            dispatch({
+              type: "UPDATE_GROUP_RULES",
+              payload: { groupSortOrder: event.target.value },
+            })
           }
         />
       </div>
@@ -344,7 +363,10 @@ function GroupRuleFields({
         <Switch
           checked={state.isRequired}
           onCheckedChange={(checked) =>
-            dispatch({ type: "UPDATE_GROUP_RULES", payload: { isRequired: checked } })
+            dispatch({
+              type: "UPDATE_GROUP_RULES",
+              payload: { isRequired: checked },
+            })
           }
         />
         <span className="text-sm font-medium">
@@ -370,8 +392,11 @@ function OptionOverrideFields({
           type="number"
           min="0"
           value={state.extraWeightUnitGrams}
-          onChange={(e) =>
-            dispatch({ type: "UPDATE_OPTION_FIELDS", payload: { extraWeightUnitGrams: e.target.value } })
+          onChange={(event) =>
+            dispatch({
+              type: "UPDATE_OPTION_FIELDS",
+              payload: { extraWeightUnitGrams: event.target.value },
+            })
           }
         />
       </div>
@@ -381,9 +406,14 @@ function OptionOverrideFields({
           type="number"
           min="0"
           step="0.01"
+          inputMode="decimal"
+          dir="ltr"
           value={state.extraWeightPriceSar}
-          onChange={(e) =>
-            dispatch({ type: "UPDATE_OPTION_FIELDS", payload: { extraWeightPriceSar: e.target.value } })
+          onChange={(event) =>
+            dispatch({
+              type: "UPDATE_OPTION_FIELDS",
+              payload: { extraWeightPriceSar: event.target.value },
+            })
           }
         />
       </div>
@@ -393,8 +423,11 @@ function OptionOverrideFields({
           type="number"
           min="0"
           value={state.optionSortOrder}
-          onChange={(e) =>
-            dispatch({ type: "UPDATE_OPTION_FIELDS", payload: { optionSortOrder: e.target.value } })
+          onChange={(event) =>
+            dispatch({
+              type: "UPDATE_OPTION_FIELDS",
+              payload: { optionSortOrder: event.target.value },
+            })
           }
         />
       </div>
@@ -402,7 +435,10 @@ function OptionOverrideFields({
         <Switch
           checked={state.optionAvailable}
           onCheckedChange={(checked) =>
-            dispatch({ type: "UPDATE_OPTION_FIELDS", payload: { optionAvailable: checked } })
+            dispatch({
+              type: "UPDATE_OPTION_FIELDS",
+              payload: { optionAvailable: checked },
+            })
           }
         />
         <span className="text-sm font-medium">
@@ -446,7 +482,8 @@ function LinkedGroupsPreview({
                     {group.group?.name?.ar || group.groupId}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {group.minSelections ?? 0} - {group.maxSelections ?? "غير محدود"} اختيارات
+                    {group.minSelections ?? 0} -{" "}
+                    {group.maxSelections ?? "غير محدود"} اختيارات
                   </p>
                 </div>
                 <Badge variant={group.isRequired ? "default" : "outline"}>
@@ -458,7 +495,9 @@ function LinkedGroupsPreview({
                   {group.options.map((option) => (
                     <Badge
                       key={option.optionId || option.option?.id}
-                      variant={option.isAvailable === false ? "outline" : "secondary"}
+                      variant={
+                        option.isAvailable === false ? "outline" : "secondary"
+                      }
                     >
                       {option.option?.name?.ar || option.optionId}
                     </Badge>
@@ -473,7 +512,6 @@ function LinkedGroupsPreview({
   );
 }
 
-/* ─── main component ─── */
 export function MenuProductRelationsTab() {
   const [state, dispatch] = useReducer(formReducer, initialState);
 
@@ -520,13 +558,15 @@ export function MenuProductRelationsTab() {
   );
   const linkedOptions = selectedLinkedGroup?.options || [];
   const selectedLinkedOption = linkedOptions.find(
-    (opt) => (opt.optionId || opt.option?.id) === state.optionId
+    (option) => (option.optionId || option.option?.id) === state.optionId
   );
 
   const isGroupAlreadyLinked = Boolean(selectedLinkedGroup);
   const isOptionAlreadyLinked = Boolean(selectedLinkedOption);
   const canSaveGroup = Boolean(state.productId && state.groupId);
-  const canSaveOption = Boolean(state.productId && state.groupId && state.optionId);
+  const canSaveOption = Boolean(
+    state.productId && state.groupId && state.optionId
+  );
 
   const handleProductChange = (value: string) => {
     dispatch({ type: "SET_PRODUCT", payload: value });
@@ -534,14 +574,14 @@ export function MenuProductRelationsTab() {
 
   const handleGroupChange = (value: string) => {
     const linkedGroup = linkedGroups.find(
-      (g) => (g.groupId || g.group?.id) === value
+      (group) => (group.groupId || group.group?.id) === value
     );
     dispatch({ type: "SET_GROUP", payload: { id: value, linkedGroup } });
   };
 
   const handleOptionChange = (value: string) => {
     const linkedOption = linkedOptions.find(
-      (o) => (o.optionId || o.option?.id) === value
+      (option) => (option.optionId || option.option?.id) === value
     );
     dispatch({ type: "SET_OPTION", payload: { id: value, linkedOption } });
   };
@@ -563,15 +603,16 @@ export function MenuProductRelationsTab() {
     return { groups: [...existing, nextRule] };
   };
 
-  const buildOptionPayload = (): { options: ProductGroupOptionOverride[] } => {
+  const buildOptionPayload = (): {
+    options: ProductGroupOptionOverride[];
+  } => {
     const nextOption: ProductGroupOptionOverride = {
       optionId: state.optionId,
-      extraPriceHalala: toHalala(state.extraPriceSar),
+      extraPriceHalala: riyalToHalala(state.extraPriceSar || 0),
       extraWeightUnitGrams: toOptionalNumber(state.extraWeightUnitGrams),
-      extraWeightPriceHalala:
-        state.extraWeightPriceSar.trim() === ""
-          ? undefined
-          : toHalala(state.extraWeightPriceSar),
+      extraWeightPriceHalala: optionalRiyalToHalala(
+        state.extraWeightPriceSar
+      ),
       isActive: true,
       isAvailable: state.optionAvailable,
       isVisible: true,
@@ -584,7 +625,9 @@ export function MenuProductRelationsTab() {
           optionId: option.optionId || option.option?.id || "",
         })
       )
-      .filter((option) => option.optionId && option.optionId !== state.optionId);
+      .filter(
+        (option) => option.optionId && option.optionId !== state.optionId
+      );
     return { options: [...existing, nextOption] };
   };
 
@@ -607,7 +650,9 @@ export function MenuProductRelationsTab() {
           optionId: option.optionId || option.option?.id || "",
         })
       )
-      .filter((option) => option.optionId && option.optionId !== state.optionId);
+      .filter(
+        (option) => option.optionId && option.optionId !== state.optionId
+      );
     linkOptions.mutate({
       productId: state.productId,
       groupId: state.groupId,
@@ -622,7 +667,6 @@ export function MenuProductRelationsTab() {
       description="اربط المنتجات بمجموعات الخيارات واضبط قواعد الاختيار والتجاوزات الأسبوعية."
     >
       <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
-        {/* Group linker panel */}
         <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <ProductSelect
@@ -662,7 +706,9 @@ export function MenuProductRelationsTab() {
                   groupId: state.groupId,
                   data: {
                     minSelections: Number(state.minSelections) || 0,
-                    maxSelections: parseOptionalSelectionLimit(state.maxSelections),
+                    maxSelections: parseOptionalSelectionLimit(
+                      state.maxSelections
+                    ),
                     isRequired: state.isRequired,
                   },
                 })
@@ -684,7 +730,6 @@ export function MenuProductRelationsTab() {
           </div>
         </div>
 
-        {/* Option linker panel */}
         <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <OptionSelect
@@ -699,11 +744,13 @@ export function MenuProductRelationsTab() {
                 type="number"
                 min="0"
                 step="0.01"
+                inputMode="decimal"
+                dir="ltr"
                 value={state.extraPriceSar}
-                onChange={(e) =>
+                onChange={(event) =>
                   dispatch({
                     type: "UPDATE_OPTION_FIELDS",
-                    payload: { extraPriceSar: e.target.value },
+                    payload: { extraPriceSar: event.target.value },
                   })
                 }
               />
