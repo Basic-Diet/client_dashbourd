@@ -76,7 +76,7 @@ type DialogFormAction =
   | {
       type: "UPDATE_PRICE";
       basePlanId: string;
-      patch: Partial<Pick<PriceRowState, "priceHalala" | "isActive">>;
+      patch: Partial<Pick<PriceRowState, "priceSar" | "isActive">>;
     }
   | { type: "SET_ERROR"; error: string };
 
@@ -145,8 +145,7 @@ export function AddonPlanDialog({
   const lastResetKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    if (lastResetKeyRef.current === resetKey) return;
+    if (!open || lastResetKeyRef.current === resetKey) return;
 
     dispatch({
       type: "RESET_FROM_PLAN",
@@ -186,7 +185,7 @@ export function AddonPlanDialog({
       if (!matchesCategory) return false;
       if (!search) return true;
 
-      const haystack = [
+      return [
         product.key,
         product.category,
         product.name.ar,
@@ -194,9 +193,8 @@ export function AddonPlanDialog({
       ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(search);
+        .toLowerCase()
+        .includes(search);
     });
   }, [productCategoryFilter, productSearch, products]);
 
@@ -217,7 +215,6 @@ export function AddonPlanDialog({
 
   const setProductSelected = (productId: string, selected: boolean) => {
     const currentIds = uniqueIds(form.menuProductIds);
-
     dispatch({
       type: "SET_PRODUCT_IDS",
       productIds: selected
@@ -228,7 +225,7 @@ export function AddonPlanDialog({
 
   const updatePrice = (
     basePlanId: string,
-    patch: Partial<Pick<PriceRowState, "priceHalala" | "isActive">>
+    patch: Partial<Pick<PriceRowState, "priceSar" | "isActive">>
   ) => {
     dispatch({ type: "UPDATE_PRICE", basePlanId, patch });
   };
@@ -259,8 +256,8 @@ export function AddonPlanDialog({
             {plan ? "تعديل باقة إضافة" : "إنشاء باقة إضافة"}
           </DialogTitle>
           <DialogDescription>
-            اربط المنتجات المطلوبة مباشرة بالباقة، واستخدم فلتر التصنيف للوصول
-            إليها بسرعة، ثم أدخل السعر لكل باقة اشتراك أساسية.
+            اربط المنتجات المطلوبة مباشرة بالباقة، ثم أدخل الأسعار بالريال لكل
+            باقة اشتراك أساسية.
           </DialogDescription>
         </DialogHeader>
 
@@ -294,6 +291,8 @@ export function AddonPlanDialog({
                 <Field
                   label="الحد اليومي"
                   type="number"
+                  min="1"
+                  step="1"
                   value={form.maxPerDay}
                   onChange={(value) => updateTextField("maxPerDay", value)}
                   required
@@ -322,14 +321,15 @@ export function AddonPlanDialog({
                       مصفوفة أسعار باقات الاشتراك الأساسية
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      أدخل السعر بالهللة لكل باقة اشتراك أساسية، ويمكن تعطيل أي صف
-                      بدون حذفه.
+                      اكتب السعر بالريال. التحويل إلى هللة يتم فقط عند إرسال
+                      البيانات للباك اند.
                     </p>
                   </div>
                   <Badge variant="outline">
                     {activePriceRows.length.toLocaleString("ar-EG")} نشطة
                   </Badge>
                 </div>
+
                 {basePlans.length === 0 ? (
                   <p className="rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground">
                     لا توجد باقات اشتراك أساسية من الخادم.
@@ -364,20 +364,26 @@ export function AddonPlanDialog({
                             />
                           </div>
                           <div className="mt-3 space-y-2">
-                            <Label className="text-xs">السعر بالهللة</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="1"
-                              inputMode="numeric"
-                              value={row?.priceHalala ?? "0"}
-                              onChange={(event) =>
-                                updatePrice(basePlan.id, {
-                                  priceHalala: event.target.value,
-                                })
-                              }
-                              className="h-10 text-right"
-                            />
+                            <Label className="text-xs">السعر بالريال</Label>
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                inputMode="decimal"
+                                dir="ltr"
+                                value={row?.priceSar ?? "0"}
+                                onChange={(event) =>
+                                  updatePrice(basePlan.id, {
+                                    priceSar: event.target.value,
+                                  })
+                                }
+                                className="h-10 pl-12 text-left"
+                              />
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                                ر.س
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );
@@ -392,8 +398,7 @@ export function AddonPlanDialog({
                     <div>
                       <h3 className="text-sm font-semibold">ربط المنتجات</h3>
                       <p className="text-xs text-muted-foreground">
-                        اختر المنتجات نفسها. فلتر التصنيف للتنظيم فقط ولا يربط
-                        التصنيف بالباقة.
+                        اختر المنتجات نفسها. فلتر التصنيف للتنظيم فقط.
                       </p>
                     </div>
                     <Badge variant="outline">
@@ -562,6 +567,8 @@ function Field({
   type = "text",
   required = false,
   dir,
+  min,
+  step,
 }: {
   label: string;
   value: string;
@@ -569,6 +576,8 @@ function Field({
   type?: "text" | "number";
   required?: boolean;
   dir?: "rtl" | "ltr";
+  min?: string;
+  step?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -578,6 +587,8 @@ function Field({
         value={value}
         required={required}
         dir={dir}
+        min={min}
+        step={step}
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
