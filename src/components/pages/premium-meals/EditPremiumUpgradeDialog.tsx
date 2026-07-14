@@ -21,6 +21,7 @@ import {
   premiumSelectionTypeLabel,
   premiumSourceTypeLabel,
 } from "@/utils/fetchPremiumUpgrades";
+import { isValidRiyalInput, riyalToHalala } from "@/utils/price";
 import { SelectField } from "./PremiumUpgradeFilters";
 import { ReadOnlyItem } from "./PremiumCandidateCard";
 
@@ -70,12 +71,12 @@ function EditPremiumUpgradeForm({
   function submit(event: FormEvent) {
     event.preventDefault();
 
-    const delta = Math.round(Number(form.upgradeDeltaSarInput) * 100);
-    const sortOrder = Number(form.sortOrder);
-    if (!Number.isFinite(delta) || delta < 0) {
-      toast.error("فرق سعر الترقية يجب أن يكون رقما غير سالب.");
+    if (!isValidRiyalInput(form.upgradeDeltaSarInput)) {
+      toast.error("فرق سعر الترقية يجب أن يكون رقما غير سالب بالريال.");
       return;
     }
+
+    const sortOrder = Number(form.sortOrder);
     if (!Number.isFinite(sortOrder)) {
       toast.error("الترتيب يجب أن يكون رقما.");
       return;
@@ -86,7 +87,7 @@ function EditPremiumUpgradeForm({
       payload: {
         expectedRevision: row.revision,
         displayGroupKey: form.displayGroupKey,
-        upgradeDeltaHalala: delta,
+        upgradeDeltaHalala: riyalToHalala(form.upgradeDeltaSarInput),
         sortOrder,
       },
     });
@@ -117,10 +118,11 @@ function EditPremiumUpgradeForm({
           ]}
         />
         <NumberField
-          label="فرق سعر بالريال"
+          label="فرق سعر الترقية بالريال"
           value={form.upgradeDeltaSarInput}
           min="0"
           step="0.01"
+          suffix="ر.س"
           onChange={(upgradeDeltaSarInput) =>
             setForm((current) => ({ ...current, upgradeDeltaSarInput }))
           }
@@ -153,24 +155,35 @@ function NumberField({
   onChange,
   min,
   step,
+  suffix,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   min?: string;
   step?: string;
+  suffix?: string;
 }) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input
-        type="number"
-        inputMode="decimal"
-        value={value}
-        min={min}
-        step={step}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <div className="relative">
+        <Input
+          type="number"
+          inputMode="decimal"
+          value={value}
+          min={min}
+          step={step}
+          dir="ltr"
+          className={suffix ? "pl-12 text-left" : undefined}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {suffix ? (
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+            {suffix}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
