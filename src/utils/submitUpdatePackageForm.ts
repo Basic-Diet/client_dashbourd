@@ -3,6 +3,7 @@ import { packagesQueryOptions } from "@/hooks/usePackagesQuery";
 import { fetchUpdatePackage } from "@/utils/fetchUpdatePackage";
 import type { CreatePackageSchemaType } from "@/lib/validations/createPackageSchema";
 import { ToastMessage } from "@/components/global/ToastMessage";
+import { optionalRiyalToHalala, riyalToHalala } from "@/utils/price";
 
 interface SubmitUpdateDeps {
   planId: string;
@@ -27,11 +28,8 @@ export const submitUpdatePackageForm = async (
           return {
             ...rest,
             sortOrder: mi,
-            priceHalala: Math.round(Number(priceSar) * 100),
-            compareAtHalala:
-              compareAtSar === "" || compareAtSar === undefined
-                ? undefined
-                : Math.round(Number(compareAtSar) * 100),
+            priceHalala: riyalToHalala(priceSar),
+            compareAtHalala: optionalRiyalToHalala(compareAtSar),
             mealsPerDay: Number(meal.mealsPerDay),
           };
         }),
