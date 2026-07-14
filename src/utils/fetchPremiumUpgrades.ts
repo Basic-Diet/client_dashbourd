@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 
 import api from "@/lib/apis";
+import { riyalToHalala } from "@/utils/price";
 import type {
   PremiumUpgradeArchivePayload,
   PremiumUpgradeCandidateDto,
@@ -150,7 +151,7 @@ export function buildCreatePremiumUpgradePayload(
     sourceGroupId: candidate.sourceGroupId,
     selectionType: candidate.selectionType,
     displayGroupKey: form.displayGroupKey,
-    upgradeDeltaHalala: Math.round(Number(form.upgradeDeltaSarInput) * 100),
+    upgradeDeltaHalala: riyalToHalala(form.upgradeDeltaSarInput),
     isEnabled: Boolean(form.isEnabled),
     isVisible: Boolean(form.isVisible),
     sortOrder: Number(form.sortOrder),
