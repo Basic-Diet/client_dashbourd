@@ -5,6 +5,7 @@ import type { MenuCategorySchemaInput } from "@/lib/validations/menuCategorySche
 import type { MenuOptionGroupSchemaInput } from "@/lib/validations/menuOptionGroupSchema";
 import type { MenuOptionSchemaInput } from "@/lib/validations/menuOptionSchema";
 import type { MenuProductSchemaInput } from "@/lib/validations/menuProductSchema";
+import { halalaToRiyal } from "@/utils/price";
 
 const emptyLocalizedText = { ar: "", en: "" };
 
@@ -50,8 +51,12 @@ const firstNonEmptyString = (...values: Array<string | null | undefined>) => {
 const getProductPriceSar = (product?: ProductLikeRef | null) => {
   if (!product) return 0;
   const halala = product.priceHalala ?? product.price_halala;
-  if (typeof halala === "number" && Number.isFinite(halala)) return halala / 100;
-  if (typeof product.price === "number" && Number.isFinite(product.price)) return product.price;
+  if (typeof halala === "number" && Number.isFinite(halala)) {
+    return halalaToRiyal(halala);
+  }
+  if (typeof product.price === "number" && Number.isFinite(product.price)) {
+    return product.price;
+  }
   return 0;
 };
 
@@ -125,16 +130,19 @@ export const getMenuOptionFormValues = (
   name: option?.name ?? emptyLocalizedText,
   description: option?.description ?? emptyLocalizedText,
   imageUrl: option?.imageUrl ?? "",
-  extraPriceSar: option ? (option.extraPriceHalala ?? 0) / 100 : 0,
+  extraPriceSar: halalaToRiyal(option?.extraPriceHalala ?? 0),
   extraWeightUnitGrams: option?.extraWeightUnitGrams ?? undefined,
   extraWeightPriceSar:
     option?.extraWeightPriceHalala !== undefined && option.extraWeightPriceHalala !== null
-      ? option.extraWeightPriceHalala / 100
+      ? halalaToRiyal(option.extraWeightPriceHalala)
       : undefined,
   isActive: option?.isActive ?? true,
   isAvailable: option?.isAvailable ?? true,
   isVisible: option?.isVisible ?? true,
-  extraFeeSar: option?.extraFeeHalala !== undefined && option.extraFeeHalala !== null ? option.extraFeeHalala / 100 : 0,
+  extraFeeSar:
+    option?.extraFeeHalala !== undefined && option.extraFeeHalala !== null
+      ? halalaToRiyal(option.extraFeeHalala)
+      : 0,
   availableFor: normalizeAvailableForFromApi(option?.availableFor),
   availableForSubscription:
     option?.availableForSubscription ?? option?.availableFor?.includes("subscription") ?? true,
