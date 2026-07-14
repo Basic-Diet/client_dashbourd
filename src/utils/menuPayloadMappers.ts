@@ -6,6 +6,7 @@ import type { MenuProteinSchemaType } from "@/lib/validations/menuProteinSchema"
 import type { MenuPremiumProteinSchemaType } from "@/lib/validations/menuPremiumProteinSchema";
 import type { MenuMealCategorySchemaType } from "@/lib/validations/menuMealCategorySchema";
 import { normalizeAvailableForToApi } from "@/constants/menuCatalog";
+import { optionalRiyalToHalala, riyalToHalala } from "@/utils/price";
 import type {
   CreateMenuCategoryPayload,
   CreateMenuMealCategoryPayload,
@@ -24,17 +25,15 @@ import type {
   UpdateSelectionRulesPayload,
 } from "@/types/menuTypes";
 
-const sarToHalala = (amount: number) => Math.round(amount * 100);
-
-const optionalSarToHalala = (amount?: number) =>
-  amount === undefined ? undefined : sarToHalala(amount);
-
 const optionalKey = (key?: string) => {
   const value = key?.trim();
   return value ? value : undefined;
 };
 
-const withOptionalKey = <T extends object>(payload: T, key?: string): T & { key?: string } => {
+const withOptionalKey = <T extends object>(
+  payload: T,
+  key?: string
+): T & { key?: string } => {
   const normalizedKey = optionalKey(key);
   return normalizedKey ? { ...payload, key: normalizedKey } : payload;
 };
@@ -43,15 +42,19 @@ const mapAvailableFor = normalizeAvailableForToApi;
 
 export const toCreateMenuCategoryPayload = (
   data: MenuCategorySchemaType
-): CreateMenuCategoryPayload => withOptionalKey({
-  name: data.name,
-  description: data.description,
-  imageUrl: data.imageUrl,
-  isActive: data.isActive,
-  isAvailable: data.isAvailable,
-  isVisible: data.isVisible,
-  sortOrder: data.sortOrder,
-}, data.key);
+): CreateMenuCategoryPayload =>
+  withOptionalKey(
+    {
+      name: data.name,
+      description: data.description,
+      imageUrl: data.imageUrl,
+      isActive: data.isActive,
+      isAvailable: data.isAvailable,
+      isVisible: data.isVisible,
+      sortOrder: data.sortOrder,
+    },
+    data.key
+  );
 
 export const toUpdateMenuCategoryPayload = (
   data: MenuCategorySchemaType
@@ -67,15 +70,19 @@ export const toUpdateMenuCategoryPayload = (
 
 export const toCreateMenuMealCategoryPayload = (
   data: MenuMealCategorySchemaType
-): CreateMenuMealCategoryPayload => withOptionalKey({
-  name: data.name,
-  description: data.description,
-  imageUrl: data.imageUrl,
-  isActive: data.isActive,
-  isAvailable: data.isAvailable,
-  isVisible: data.isVisible,
-  sortOrder: data.sortOrder,
-}, data.key);
+): CreateMenuMealCategoryPayload =>
+  withOptionalKey(
+    {
+      name: data.name,
+      description: data.description,
+      imageUrl: data.imageUrl,
+      isActive: data.isActive,
+      isAvailable: data.isAvailable,
+      isVisible: data.isVisible,
+      sortOrder: data.sortOrder,
+    },
+    data.key
+  );
 
 export const toUpdateMenuMealCategoryPayload = (
   data: MenuMealCategorySchemaType
@@ -130,7 +137,7 @@ export const toCreateMenuPremiumProteinPayload = (
 ): CreateMenuPremiumProteinPayload => ({
   ...toCreateMenuProteinPayload(data),
   currency: data.currency,
-  extraFeeHalala: sarToHalala(data.extraFeeSar),
+  extraFeeHalala: riyalToHalala(data.extraFeeSar),
 });
 
 export const toUpdateMenuPremiumProteinPayload = (
@@ -138,34 +145,38 @@ export const toUpdateMenuPremiumProteinPayload = (
 ): UpdateMenuPremiumProteinPayload => ({
   ...toUpdateMenuProteinPayload(data),
   currency: data.currency,
-  extraFeeHalala: sarToHalala(data.extraFeeSar),
+  extraFeeHalala: riyalToHalala(data.extraFeeSar),
 });
 
 export const toCreateMenuProductPayload = (
   data: MenuProductSchemaType
-): CreateMenuProductPayload => withOptionalKey({
-  categoryId: data.categoryId,
-  itemType: data.itemType,
-  name: data.name,
-  description: data.description,
-  imageUrl: data.imageUrl,
-  pricingModel: data.pricingModel,
-  priceHalala: sarToHalala(data.priceSar),
-  baseUnitGrams: data.baseUnitGrams,
-  defaultWeightGrams: data.defaultWeightGrams,
-  minWeightGrams: data.minWeightGrams,
-  maxWeightGrams: data.maxWeightGrams,
-  weightStepGrams: data.weightStepGrams,
-  isActive: data.isActive,
-  isAvailable: data.isAvailable,
-  isVisible: data.isVisible,
-  isCustomizable: data.isCustomizable,
-  availableFor: mapAvailableFor(data.availableFor),
-  ui: {
-    cardSize: data.ui.cardSize,
-  },
-  sortOrder: data.sortOrder,
-}, data.key);
+): CreateMenuProductPayload =>
+  withOptionalKey(
+    {
+      categoryId: data.categoryId,
+      itemType: data.itemType,
+      name: data.name,
+      description: data.description,
+      imageUrl: data.imageUrl,
+      pricingModel: data.pricingModel,
+      priceHalala: riyalToHalala(data.priceSar),
+      baseUnitGrams: data.baseUnitGrams,
+      defaultWeightGrams: data.defaultWeightGrams,
+      minWeightGrams: data.minWeightGrams,
+      maxWeightGrams: data.maxWeightGrams,
+      weightStepGrams: data.weightStepGrams,
+      isActive: data.isActive,
+      isAvailable: data.isAvailable,
+      isVisible: data.isVisible,
+      isCustomizable: data.isCustomizable,
+      availableFor: mapAvailableFor(data.availableFor),
+      ui: {
+        cardSize: data.ui.cardSize,
+      },
+      sortOrder: data.sortOrder,
+    },
+    data.key
+  );
 
 export const toUpdateMenuProductPayload = (
   data: MenuProductSchemaType
@@ -176,7 +187,7 @@ export const toUpdateMenuProductPayload = (
   description: data.description,
   imageUrl: data.imageUrl,
   pricingModel: data.pricingModel,
-  priceHalala: sarToHalala(data.priceSar),
+  priceHalala: riyalToHalala(data.priceSar),
   baseUnitGrams: data.baseUnitGrams,
   defaultWeightGrams: data.defaultWeightGrams,
   minWeightGrams: data.minWeightGrams,
@@ -195,15 +206,19 @@ export const toUpdateMenuProductPayload = (
 
 export const toCreateMenuOptionGroupPayload = (
   data: MenuOptionGroupSchemaType
-): CreateMenuOptionGroupPayload => withOptionalKey({
-  name: data.name,
-  description: data.description,
-  isActive: data.isActive,
-  isAvailable: data.isAvailable,
-  isVisible: data.isVisible,
-  ui: data.ui,
-  sortOrder: data.sortOrder,
-}, data.key);
+): CreateMenuOptionGroupPayload =>
+  withOptionalKey(
+    {
+      name: data.name,
+      description: data.description,
+      isActive: data.isActive,
+      isAvailable: data.isAvailable,
+      isVisible: data.isVisible,
+      ui: data.ui,
+      sortOrder: data.sortOrder,
+    },
+    data.key
+  );
 
 export const toUpdateMenuOptionGroupPayload = (
   data: MenuOptionGroupSchemaType
@@ -219,22 +234,31 @@ export const toUpdateMenuOptionGroupPayload = (
 
 export const toCreateMenuOptionPayload = (
   data: MenuOptionSchemaType
-): CreateMenuOptionPayload => withOptionalKey({
-  groupId: data.groupId,
-  name: data.name,
-  description: data.description,
-  imageUrl: data.imageUrl,
-  extraPriceHalala: sarToHalala(data.extraPriceSar),
-  extraWeightUnitGrams: data.extraWeightUnitGrams,
-  extraWeightPriceHalala: optionalSarToHalala(data.extraWeightPriceSar),
-  isActive: data.isActive,
-  isAvailable: data.isAvailable,
-  isVisible: data.isVisible,
-  extraFeeHalala: data.extraFeeSar ? sarToHalala(data.extraFeeSar) : 0,
-  availableFor: mapAvailableFor(data.availableFor),
-  availableForSubscription: data.availableForSubscription,
-  sortOrder: data.sortOrder,
-}, data.key);
+): CreateMenuOptionPayload =>
+  withOptionalKey(
+    {
+      groupId: data.groupId,
+      name: data.name,
+      description: data.description,
+      imageUrl: data.imageUrl,
+      extraPriceHalala: riyalToHalala(data.extraPriceSar),
+      extraWeightUnitGrams: data.extraWeightUnitGrams,
+      extraWeightPriceHalala: optionalRiyalToHalala(
+        data.extraWeightPriceSar
+      ),
+      isActive: data.isActive,
+      isAvailable: data.isAvailable,
+      isVisible: data.isVisible,
+      extraFeeHalala:
+        data.extraFeeSar === undefined || data.extraFeeSar === null
+          ? 0
+          : riyalToHalala(data.extraFeeSar),
+      availableFor: mapAvailableFor(data.availableFor),
+      availableForSubscription: data.availableForSubscription,
+      sortOrder: data.sortOrder,
+    },
+    data.key
+  );
 
 export const toUpdateMenuOptionPayload = (
   data: MenuOptionSchemaType
@@ -242,13 +266,16 @@ export const toUpdateMenuOptionPayload = (
   name: data.name,
   description: data.description,
   imageUrl: data.imageUrl,
-  extraPriceHalala: sarToHalala(data.extraPriceSar),
+  extraPriceHalala: riyalToHalala(data.extraPriceSar),
   extraWeightUnitGrams: data.extraWeightUnitGrams,
-  extraWeightPriceHalala: optionalSarToHalala(data.extraWeightPriceSar),
+  extraWeightPriceHalala: optionalRiyalToHalala(data.extraWeightPriceSar),
   isActive: data.isActive,
   isAvailable: data.isAvailable,
   isVisible: data.isVisible,
-  extraFeeHalala: data.extraFeeSar ? sarToHalala(data.extraFeeSar) : 0,
+  extraFeeHalala:
+    data.extraFeeSar === undefined || data.extraFeeSar === null
+      ? 0
+      : riyalToHalala(data.extraFeeSar),
   availableFor: mapAvailableFor(data.availableFor),
   availableForSubscription: data.availableForSubscription,
   sortOrder: data.sortOrder,
