@@ -29,7 +29,6 @@ export function MealCard({
 
   return (
     <div className="relative rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-border/80 hover:shadow-md">
-      {/* Header */}
       <div className="mb-5 flex items-center justify-between border-b pb-3">
         <div className="flex items-center gap-2">
           <div className="flex size-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
@@ -53,7 +52,6 @@ export function MealCard({
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
-        {/* Meals Per Day */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
             عدد الوجبات يومياً
@@ -72,17 +70,26 @@ export function MealCard({
           )}
         </div>
 
-        {/* Price */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">السعر</Label>
-          <Input
-            type="number"
-            min="0.01"
-            step="0.01"
-            placeholder="100"
-            {...form.register(`${prefix}.priceSar`)}
-            aria-invalid={!!errors?.priceSar}
-          />
+          <Label className="text-xs text-muted-foreground">
+            السعر بالريال
+          </Label>
+          <div className="relative">
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              inputMode="decimal"
+              dir="ltr"
+              placeholder="100.00"
+              {...form.register(`${prefix}.priceSar`)}
+              aria-invalid={!!errors?.priceSar}
+              className="pl-12 text-left"
+            />
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+              ر.س
+            </span>
+          </div>
           {errors?.priceSar && (
             <p className="text-xs text-destructive">
               {errors.priceSar.message}
@@ -90,19 +97,26 @@ export function MealCard({
           )}
         </div>
 
-        {/* Compare At Price */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
-            سعر المقارنة
+            سعر المقارنة بالريال
           </Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="200"
-            {...form.register(`${prefix}.compareAtSar`)}
-            aria-invalid={!!errors?.compareAtSar}
-          />
+          <div className="relative">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              dir="ltr"
+              placeholder="200.00"
+              {...form.register(`${prefix}.compareAtSar`)}
+              aria-invalid={!!errors?.compareAtSar}
+              className="pl-12 text-left"
+            />
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+              ر.س
+            </span>
+          </div>
           {errors?.compareAtSar && (
             <p className="text-xs text-destructive">
               {errors.compareAtSar.message}
@@ -110,7 +124,6 @@ export function MealCard({
           )}
         </div>
 
-        {/* Sort Order */}
         <div className="space-y-1.5">
           <Label className="text-sm font-medium">ترتيب العرض</Label>
           <Input
@@ -127,7 +140,6 @@ export function MealCard({
           )}
         </div>
 
-        {/* Active Toggle */}
         <label className="mt-4 flex cursor-pointer items-center gap-2 pb-2 lg:mt-0 lg:justify-center">
           <Controller
             control={form.control}
