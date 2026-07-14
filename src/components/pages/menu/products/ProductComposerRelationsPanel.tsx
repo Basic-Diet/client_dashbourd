@@ -46,16 +46,16 @@ import type {
   ProductGroupRule,
 } from "@/types/menuTypes";
 import { parseOptionalSelectionLimit } from "@/utils/menuPayloadMappers";
+import {
+  halalaToRiyalInput,
+  optionalRiyalToHalala,
+  riyalToHalala,
+} from "@/utils/price";
 
 type ProductComposerRelationsPanelProps = {
   composer: MenuProductComposer;
   productId: string;
 };
-
-const toSar = (halala?: number | null) =>
-  halala === null || halala === undefined ? "" : String(halala / 100);
-
-const toHalala = (sar: string) => Math.round((Number(sar) || 0) * 100);
 
 const toOptionalNumber = (value: string) =>
   value.trim() === "" ? undefined : Number(value);
@@ -161,13 +161,17 @@ export function ProductComposerRelationsPanel({
   };
 
   const loadOptionDraft = (option: MenuProductLinkedOption | undefined) => {
-    setExtraPriceSar(toSar(option?.extraPriceHalala) || "0");
+    setExtraPriceSar(
+      halalaToRiyalInput(option?.extraPriceHalala) || "0"
+    );
     setExtraWeightUnitGrams(
       option?.extraWeightUnitGrams === undefined
         ? ""
         : String(option.extraWeightUnitGrams)
     );
-    setExtraWeightPriceSar(toSar(option?.extraWeightPriceHalala));
+    setExtraWeightPriceSar(
+      halalaToRiyalInput(option?.extraWeightPriceHalala)
+    );
     setOptionSortOrder(String(option?.sortOrder ?? 0));
     setOptionAvailable(option?.isAvailable ?? true);
   };
@@ -212,12 +216,9 @@ export function ProductComposerRelationsPanel({
         .filter((option) => option.optionId && option.optionId !== optionId),
       {
         optionId,
-        extraPriceHalala: toHalala(extraPriceSar),
+        extraPriceHalala: riyalToHalala(extraPriceSar || 0),
         extraWeightUnitGrams: toOptionalNumber(extraWeightUnitGrams),
-        extraWeightPriceHalala:
-          extraWeightPriceSar.trim() === ""
-            ? undefined
-            : toHalala(extraWeightPriceSar),
+        extraWeightPriceHalala: optionalRiyalToHalala(extraWeightPriceSar),
         isActive: true,
         isAvailable: optionAvailable,
         isVisible: true,
@@ -483,7 +484,13 @@ function ComposerStatus({
       />
       <StatusTile
         label="التحقق"
-        value={errorCount ? `${errorCount} أخطاء` : warningCount ? `${warningCount} تنبيه` : "سليم"}
+        value={
+          errorCount
+            ? `${errorCount} أخطاء`
+            : warningCount
+              ? `${warningCount} تنبيه`
+              : "سليم"
+        }
         tone={errorCount ? "destructive" : warningCount ? "outline" : "secondary"}
       />
       {composer.validation?.errors?.length ? (
@@ -515,7 +522,9 @@ function StatusTile({
     <div className="rounded-lg border bg-muted/20 p-4">
       <p className="mb-2 text-xs text-muted-foreground">{label}</p>
       <Badge variant={tone}>
-        {tone === "secondary" ? <CheckCircle2 data-icon="inline-start" /> : null}
+        {tone === "secondary" ? (
+          <CheckCircle2 data-icon="inline-start" />
+        ) : null}
         {value}
       </Badge>
     </div>
@@ -533,7 +542,10 @@ function IssueList({
     <div className="rounded-lg border bg-background p-3 md:col-span-4">
       <div className="grid gap-2">
         {issues.map((issue, index) => (
-          <div key={`${issueMessage(issue)}-${index}`} className="flex gap-2 text-sm">
+          <div
+            key={`${issueMessage(issue)}-${index}`}
+            className="flex gap-2 text-sm"
+          >
             {icon}
             <span>{issueMessage(issue)}</span>
           </div>
@@ -553,29 +565,39 @@ function LinkedGroupsOverview({
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       {linkedGroups.map((group) => (
-        <div key={groupRelationId(group)} className="rounded-lg border bg-background p-4">
+        <div
+          key={groupRelationId(group)}
+          className="rounded-lg border bg-background p-4"
+        >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
                 {group.group?.name?.ar || group.group?.name?.en || group.groupId}
               </p>
-              {group.group?.key ? <MenuKeyBadge value={group.group.key} /> : null}
+              {group.group?.key ? (
+                <MenuKeyBadge value={group.group.key} />
+              ) : null}
             </div>
             <Badge variant={group.isRequired ? "default" : "outline"}>
               {group.isRequired ? "إجباري" : "اختياري"}
             </Badge>
           </div>
           <p className="mb-3 text-xs text-muted-foreground">
-            {group.minSelections ?? 0} - {group.maxSelections ?? "بدون حد"} اختيارات
+            {group.minSelections ?? 0} - {group.maxSelections ?? "بدون حد"}{" "}
+            اختيارات
           </p>
           {group.options?.length ? (
             <div className="flex flex-wrap gap-1.5">
               {group.options.map((option) => (
                 <Badge
                   key={optionRelationId(option)}
-                  variant={option.isAvailable === false ? "outline" : "secondary"}
+                  variant={
+                    option.isAvailable === false ? "outline" : "secondary"
+                  }
                 >
-                  {option.option?.name?.ar || option.option?.name?.en || option.optionId}
+                  {option.option?.name?.ar ||
+                    option.option?.name?.en ||
+                    option.optionId}
                 </Badge>
               ))}
             </div>
@@ -628,9 +650,9 @@ function SwitchField({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-end gap-3 pb-2">
+    <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2">
+      <Label>{label}</Label>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
-      <span className="text-sm font-medium">{label}</span>
     </div>
   );
 }
