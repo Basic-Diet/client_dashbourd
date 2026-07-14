@@ -28,6 +28,11 @@ import {
   useUpdateDeliveryZoneMutation,
 } from "@/hooks/useDeliveryZonesQuery";
 import type { DeliveryZone } from "@/types/deliveryZoneTypes";
+import {
+  halalaToRiyalInput,
+  isValidRiyalInput,
+  riyalToHalala,
+} from "@/utils/price";
 
 const zoneSchema = z
   .object({
@@ -36,7 +41,7 @@ const zoneSchema = z
     deliveryFeeSar: z
       .string()
       .min(1, "يرجى إدخال رسوم التوصيل")
-      .refine((value) => Number(value) >= 0, "يرجى إدخال رسوم توصيل صحيحة"),
+      .refine(isValidRiyalInput, "يرجى إدخال رسوم توصيل صحيحة بالريال"),
     sortOrder: z.string().optional(),
     isActive: z.boolean(),
   })
@@ -77,15 +82,6 @@ function readApiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function formatFeeInput(value?: number): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "";
-  return (value / 100).toString();
-}
-
-function toHalala(value: string): number {
-  return Math.round(Number(value) * 100);
-}
-
 function getZoneId(zone: DeliveryZone): string {
   return zone._id || zone.id || "";
 }
@@ -94,7 +90,7 @@ function getDefaultValues(zone?: DeliveryZone): ZoneFormValues {
   return {
     nameAr: zone?.name?.ar ?? "",
     nameEn: zone?.name?.en ?? "",
-    deliveryFeeSar: formatFeeInput(zone?.deliveryFeeHalala),
+    deliveryFeeSar: halalaToRiyalInput(zone?.deliveryFeeHalala),
     sortOrder: typeof zone?.sortOrder === "number" ? String(zone.sortOrder) : "",
     isActive: zone?.isActive ?? true,
   };
@@ -121,7 +117,7 @@ export function ZoneFormDialog({
         ar: data.nameAr?.trim() ?? "",
         en: data.nameEn?.trim() ?? "",
       },
-      deliveryFeeHalala: toHalala(data.deliveryFeeSar),
+      deliveryFeeHalala: riyalToHalala(data.deliveryFeeSar),
       isActive: data.isActive,
       sortOrder: data.sortOrder?.trim()
         ? Math.max(0, Math.floor(Number(data.sortOrder)))
@@ -175,7 +171,7 @@ export function ZoneFormDialog({
               <div className="flex items-start gap-2">
                 <Info className="mt-0.5 size-4 shrink-0 text-primary" />
                 <p>
-                  اكتب رسوم التوصيل بالريال في الواجهة، وسيتم إرسالها للباك اند بالهللة. مثال: 15 ر.س يتم إرسالها كـ 1500.
+                  اكتب رسوم التوصيل بالريال. يتم تحويلها إلى هللة فقط عند إرسال البيانات للباك اند.
                 </p>
               </div>
             </div>
@@ -230,7 +226,7 @@ export function ZoneFormDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-bold">
-                      رسوم التوصيل
+                      رسوم التوصيل بالريال
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
@@ -238,19 +234,20 @@ export function ZoneFormDialog({
                           type="number"
                           min="0"
                           step="0.01"
+                          inputMode="decimal"
                           placeholder="15.00"
                           {...field}
                           value={field.value ?? ""}
-                          className="h-12 rounded-lg border-muted-foreground/10 bg-muted/30 pl-14 pr-4 ring-offset-background transition-all focus:bg-background"
+                          className="h-12 rounded-lg border-muted-foreground/10 bg-muted/30 pl-14 pr-4 text-left ring-offset-background transition-all focus:bg-background"
                           dir="ltr"
                         />
-                        <span className="absolute top-1/2 left-4 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
                           ر.س
                         </span>
                       </div>
                     </FormControl>
                     <FormDescription>
-                      سيتم تحويل القيمة إلى هللات قبل الإرسال.
+                      القيمة الظاهرة والمدخلة هنا بالريال السعودي.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -321,8 +318,9 @@ export function ZoneFormDialog({
               <Button
                 type="button"
                 variant="outline"
+                className="h-12 rounded-lg px-6"
                 onClick={onClose}
-                className="h-12 rounded-lg border-muted-foreground/10 px-6 hover:bg-muted/50"
+                disabled={isLoading}
               >
                 إلغاء
               </Button>
