@@ -3,6 +3,7 @@ import { packagesQueryOptions } from "@/hooks/usePackagesQuery";
 import type { CreatePackageSchemaType } from "@/lib/validations/createPackageSchema";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import { fetchCreatePackage } from "@/utils/fetchCreatePackage";
+import { optionalRiyalToHalala, riyalToHalala } from "@/utils/price";
 
 interface SubmitCreateDeps {
   queryClient: QueryClient;
@@ -20,11 +21,8 @@ export const buildPackagePayload = (data: CreatePackageSchemaType) => ({
       return {
         ...rest,
         sortOrder: mi,
-        priceHalala: Math.round(Number(priceSar) * 100),
-        compareAtHalala:
-          compareAtSar === "" || compareAtSar === undefined
-            ? undefined
-            : Math.round(Number(compareAtSar) * 100),
+        priceHalala: riyalToHalala(priceSar),
+        compareAtHalala: optionalRiyalToHalala(compareAtSar),
         mealsPerDay: Number(meal.mealsPerDay),
       };
     }),
