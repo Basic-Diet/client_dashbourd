@@ -4,10 +4,11 @@ import type {
   BasePlanPickerItem,
   LocalizedName,
 } from "@/types/addonTypes";
+import { halalaToRiyalInput, riyalToHalala } from "@/utils/price";
 
 export type PriceRowState = {
   basePlanId: string;
-  priceHalala: string;
+  priceSar: string;
   isActive: boolean;
 };
 
@@ -46,7 +47,7 @@ export function planToForm(
       const price = priceMap.get(basePlan.id);
       return {
         basePlanId: basePlan.id,
-        priceHalala: String(price?.priceHalala ?? 0),
+        priceSar: halalaToRiyalInput(price?.priceHalala ?? 0) || "0",
         isActive: price?.isActive ?? true,
       };
     }),
@@ -61,7 +62,7 @@ export function ensurePriceRows(
 
   return basePlans.map((basePlan) => ({
     basePlanId: basePlan.id,
-    priceHalala: rowMap.get(basePlan.id)?.priceHalala ?? "0",
+    priceSar: rowMap.get(basePlan.id)?.priceSar ?? "0",
     isActive: rowMap.get(basePlan.id)?.isActive ?? true,
   }));
 }
@@ -69,7 +70,7 @@ export function ensurePriceRows(
 export function upsertPriceRow(
   rows: PriceRowState[],
   basePlanId: string,
-  patch: Partial<Pick<PriceRowState, "priceHalala" | "isActive">>
+  patch: Partial<Pick<PriceRowState, "priceSar" | "isActive">>
 ) {
   const exists = rows.some((row) => row.basePlanId === basePlanId);
 
@@ -78,7 +79,7 @@ export function upsertPriceRow(
       ...rows,
       {
         basePlanId,
-        priceHalala: patch.priceHalala ?? "0",
+        priceSar: patch.priceSar ?? "0",
         isActive: patch.isActive ?? true,
       },
     ];
@@ -113,18 +114,21 @@ export function validateAndBuildPayload(
     return { ok: false, message: "يجب إضافة سعر واحد على الأقل." };
   }
 
-  for (const price of prices) {
-    const parsedPrice = Number(price.priceHalala);
-    if (
-      !Number.isFinite(parsedPrice) ||
-      parsedPrice < 0 ||
-      !Number.isInteger(parsedPrice)
-    ) {
-      return {
-        ok: false,
-        message: "كل الأسعار يجب أن تكون أرقاما صحيحة وغير سالبة بالهللة.",
-      };
-    }
+  const priceRows = prices.map((price) => ({
+    ...price,
+    priceHalala: riyalToHalala(price.priceSar),
+  }));
+
+  if (
+    priceRows.some(
+      (price) =>
+        !Number.isInteger(price.priceHalala) || price.priceHalala < 0
+    )
+  ) {
+    return {
+      ok: false,
+      message: "كل الأسعار يجب أن تكون قيما صحيحة وغير سالبة بالريال.",
+    };
   }
 
   return {
@@ -138,9 +142,9 @@ export function validateAndBuildPayload(
       // Clear the temporary category-linking field so explicit product links are
       // the canonical source after create/update.
       menuCategoryKeys: [],
-      planPrices: prices.map((price) => ({
+      planPrices: priceRows.map((price) => ({
         basePlanId: price.basePlanId,
-        priceHalala: Math.round(Number(price.priceHalala)),
+        priceHalala: price.priceHalala,
         isActive: price.isActive,
       })),
     },
