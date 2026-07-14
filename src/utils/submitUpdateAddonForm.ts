@@ -3,6 +3,7 @@ import { addonsQueryOptions, addonByIdQueryOptions } from "@/hooks/useAddonsQuer
 import { fetchUpdateAddon } from "@/utils/fetchUpdateAddon";
 import type { AddonSchemaType } from "@/lib/validations/addonSchema";
 import { ToastMessage } from "@/components/global/ToastMessage";
+import { riyalToHalala } from "@/utils/price";
 
 interface SubmitUpdateAddonDeps {
   addonId: string;
@@ -25,7 +26,7 @@ export const submitUpdateAddonForm = async (
     formData.append("currency", data.currency);
     formData.append("kind", data.type === "subscription" ? "plan" : "item");
     formData.append("price", String(Number(data.priceSar)));
-    formData.append("priceHalala", Math.round(Number(data.priceSar) * 100).toString());
+    formData.append("priceHalala", String(riyalToHalala(data.priceSar)));
     formData.append("category", data.category);
     formData.append("type", data.type);
     formData.append("isActive", String(data.isActive));
