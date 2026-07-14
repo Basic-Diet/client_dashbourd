@@ -39,22 +39,36 @@ import type {
   PromoCodeDTO,
   PromoCodePayload,
 } from "@/types/financeTypes";
+import {
+  halalaToRiyalInput,
+  isValidRiyalInput,
+  riyalToHalala,
+} from "@/utils/price";
 
 const promoCodeSchema = z.object({
   code: z.string().min(1, "مطلوب"),
   nameAr: z.string().optional(),
   nameEn: z.string().optional(),
   discountType: z.enum(["percentage", "fixed"]),
-  discountValue: z
-    .string()
-    .min(1, "مطلوب")
-    .refine((value) => Number(value) > 0, "قيمة غير صحيحة"),
+  discountValue: z.string().min(1, "مطلوب"),
   usageLimitTotal: z.string().optional(),
   usageLimitPerUser: z.string().optional(),
   startsAt: z.string().optional(),
   expiresAt: z.string().optional(),
   appliesTo: z.enum(["subscription", "addon_plans", "all"]),
   isActive: z.boolean(),
+}).superRefine((values, context) => {
+  const valid = values.discountType === "fixed"
+    ? isValidRiyalInput(values.discountValue) && riyalToHalala(values.discountValue) > 0
+    : Number(values.discountValue) > 0;
+
+  if (!valid) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["discountValue"],
+      message: "قيمة غير صحيحة",
+    });
+  }
 });
 
 type PromoCodeFormValues = z.infer<typeof promoCodeSchema>;
@@ -121,14 +135,10 @@ function riyadhDateTimeInputToIso(value?: string): string | null {
   return new Date(Date.UTC(year, month - 1, day, hour - 3, minute)).toISOString();
 }
 
-function formatFixedDiscountInput(value?: number | null): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "";
-
-  return (value / 100).toString();
-}
-
 function getDefaultValues(editData?: PromoCodeDTO): PromoCodeFormValues {
-  const discountType = editData?.discountType === "fixed_amount" ? "fixed" : editData?.discountType ?? "percentage";
+  const discountType = editData?.discountType === "fixed_amount"
+    ? "fixed"
+    : editData?.discountType ?? "percentage";
 
   return {
     code: editData?.code ?? "",
@@ -137,7 +147,7 @@ function getDefaultValues(editData?: PromoCodeDTO): PromoCodeFormValues {
     discountType: discountType === "fixed" ? "fixed" : "percentage",
     discountValue:
       discountType === "fixed"
-        ? formatFixedDiscountInput(editData?.discountValue)
+        ? halalaToRiyalInput(editData?.discountValue)
         : editData?.discountValue?.toString() ?? "",
     usageLimitTotal: editData?.usageLimitTotal?.toString() ?? "",
     usageLimitPerUser: editData?.usageLimitPerUser?.toString() ?? "",
@@ -153,14 +163,12 @@ function getDefaultValues(editData?: PromoCodeDTO): PromoCodeFormValues {
 
 function optionalInteger(value?: string): number | null {
   if (!value) return null;
-
   return Math.max(0, Math.floor(Number(value)));
 }
 
 function toPromoCodePayload(values: PromoCodeFormValues): PromoCodePayload {
-  const isFixedDiscount = values.discountType === "fixed";
-  const discountValue = isFixedDiscount
-    ? Math.round(Number(values.discountValue) * 100)
+  const discountValue = values.discountType === "fixed"
+    ? riyalToHalala(values.discountValue)
     : Number(values.discountValue);
 
   return {
@@ -246,7 +254,7 @@ export function PromoCodeDialog({
               <div className="flex items-start gap-2">
                 <Info className="mt-0.5 size-4 shrink-0 text-primary" />
                 <p>
-                  المبلغ الثابت يُكتب بالريال في الواجهة، ويتم إرساله للباك اند بالهللة. مثال: 25 ر.س يتم إرسالها كـ 2500.
+                  المبلغ الثابت يُكتب بالريال، ويتم تحويله إلى هللة فقط عند إرسال البيانات للباك اند.
                 </p>
               </div>
             </div>
@@ -366,10 +374,11 @@ export function PromoCodeDialog({
                           type="number"
                           min="0"
                           step={discountType === "percentage" ? "1" : "0.01"}
+                          inputMode={discountType === "percentage" ? "numeric" : "decimal"}
                           dir="ltr"
                           className="pl-12"
                         />
-                        <span className="absolute top-1/2 left-3 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
                           {discountType === "percentage" ? "%" : "ر.س"}
                         </span>
                       </div>
@@ -377,7 +386,7 @@ export function PromoCodeDialog({
                     <FormDescription>
                       {discountType === "percentage"
                         ? "مثال: 10 تعني خصم 10%."
-                        : "مثال: 25 تعني 25.00 ر.س وسيتم إرسالها 2500 هللة."}
+                        : "اكتب المبلغ بالريال السعودي."}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
