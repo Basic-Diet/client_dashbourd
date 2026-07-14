@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-query";
 import { fetchGetPlanById } from "@/utils/fetchGetPlanById";
 import { Loader } from "@/components/global/loader";
+import { halalaToRiyal } from "@/utils/price";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,6 @@ export const Route = createFileRoute("/_protected/packages/$planId/update")({
   ),
 });
 
-/* ─── Main Page ─── */
 function UpdatePackagePage() {
   const router = useRouter();
   const { planId } = Route.useParams();
@@ -44,7 +44,6 @@ function UpdatePackagePage() {
   const { data: planResponse } = useSuspenseQuery(planQueryOptions(planId));
   const planData = planResponse.data;
 
-  // Map API response to form shape
   const initialData: CreatePackageSchemaType = {
     name: planData.name,
     daysCount: planData.daysCount,
@@ -68,8 +67,11 @@ function UpdatePackagePage() {
         mealsPerDay: meal.mealsPerDay,
         sortOrder: meal.sortOrder,
         isActive: meal.isActive,
-        priceSar: meal.priceHalala / 100,
-        compareAtSar: meal.compareAtHalala ? meal.compareAtHalala / 100 : "",
+        priceSar: halalaToRiyal(meal.priceHalala),
+        compareAtSar:
+          meal.compareAtHalala === undefined || meal.compareAtHalala === null
+            ? ""
+            : halalaToRiyal(meal.compareAtHalala),
       })),
     })),
   };
@@ -90,7 +92,6 @@ function UpdatePackagePage() {
 
   return (
     <div className="w-full px-4 py-8 lg:px-8">
-      {/* Page Header */}
       <div className="mb-8">
         <div className="mb-2 flex items-center gap-3">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -111,9 +112,7 @@ function UpdatePackagePage() {
         noValidate
       >
         <BasicInfoSection form={form} />
-
         <FreezePolicySection form={form} />
-
         <GramOptionsSection
           form={form}
           gramsFieldArray={gramsFieldArray}
@@ -122,7 +121,6 @@ function UpdatePackagePage() {
           defaultMeal={DEFAULT_MEAL}
         />
 
-        {/* ─── Submit ─── */}
         <div className="sticky bottom-6 z-10 pt-2">
           <Card className="border-primary/30 bg-card/95 shadow-2xl ring-1 shadow-primary/10 ring-primary/10 backdrop-blur-md transition-all hover:border-primary/50">
             <CardContent className="flex items-center justify-between p-4 sm:px-6">
