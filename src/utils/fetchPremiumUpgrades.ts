@@ -297,7 +297,6 @@ export function premiumDetailStatus(
   detailRow: PremiumUpgradeConfigDto
 ): PremiumUpgradeStatus {
   if (compactRow?.status === "archived") return "archived";
-  if (compactRow?.status) return compactRow.status as PremiumUpgradeStatus;
 
   const display = readRecord(detailRow.display);
   const enabled = display.enabled ?? detailRow.isEnabled;
@@ -305,6 +304,16 @@ export function premiumDetailStatus(
 
   if (enabled === false) return "disabled";
   if (enabled === true && visible === false) return "hidden";
+  if (enabled === true) return "active";
+
+  if (
+    compactRow?.status === "active" ||
+    compactRow?.status === "hidden" ||
+    compactRow?.status === "disabled"
+  ) {
+    return compactRow.status;
+  }
+
   return "active";
 }
 
