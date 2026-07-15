@@ -24,6 +24,7 @@ import type {
   MealBuilderConfig,
   MealBuilderDraftPayload,
   MealBuilderLifecycleResponse,
+  MealBuilderLifecycleResponseData,
   MealBuilderPickerParams,
 } from "@/types/mealBuilderTypes";
 import { mealBuilderErrorMessage } from "@/components/pages/menu/meal-builder/mealBuilderFrontendUtils";
@@ -84,11 +85,17 @@ export const mealBuilderPublishedQueryOptions = () =>
     queryKey: [MEAL_BUILDER_PUBLISHED_KEY],
     queryFn: async (): Promise<MealBuilderLifecycleResponse> => {
       const response = await getPublishedMealBuilder();
-      const config = response.data.config as VersionedMealBuilderConfig | null | undefined;
+      const rawData = response.data as MealBuilderLifecycleResponseData | null;
+      const config = rawData?.config as
+        | VersionedMealBuilderConfig
+        | null
+        | undefined;
+
       return {
         ...response,
         data: {
-          ...response.data,
+          ...(rawData ?? {}),
+          config: config ?? null,
           versionId: config?.versionId ?? config?.id ?? null,
           versionNumber: config?.versionNumber ?? null,
           basedOnPublishedVersionId: config?.basedOnPublishedVersionId ?? null,
