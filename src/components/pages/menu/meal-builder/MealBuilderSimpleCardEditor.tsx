@@ -1,6 +1,5 @@
 import {
   useDeferredValue,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -105,10 +104,25 @@ export function MealBuilderSimpleCardEditor({
   const [includeNotLinked, setIncludeNotLinked] = useState(false);
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
+  function resetPickerSelection() {
     setPage(1);
     setSelectedIds([]);
-  }, [deferredQuery, includeUnavailable, includeNotLinked]);
+  }
+
+  function updateSearch(value: string) {
+    setQuery(value);
+    resetPickerSelection();
+  }
+
+  function updateIncludeUnavailable(checked: boolean) {
+    setIncludeUnavailable(checked);
+    resetPickerSelection();
+  }
+
+  function updateIncludeNotLinked(checked: boolean) {
+    setIncludeNotLinked(checked);
+    resetPickerSelection();
+  }
 
   const liveCard = rebuildCard(card.key, draftSections, catalog, card);
   const primaryIndex = findPrimarySectionIndex(card.key, draftSections, catalog);
@@ -189,7 +203,7 @@ export function MealBuilderSimpleCardEditor({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
-        className="grid h-[min(92dvh,820px)] w-[calc(100%-1rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
+        className="grid h-[min(86dvh,840px)] w-[calc(100vw-2rem)] max-w-6xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
         dir="rtl"
       >
         <DialogHeader className="border-b px-4 py-4 text-right sm:px-6">
@@ -222,7 +236,7 @@ export function MealBuilderSimpleCardEditor({
             value="items"
             className="m-0 min-h-0 overflow-y-auto px-4 py-4 sm:px-6"
           >
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
               <section className="space-y-3 rounded-lg border p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -297,7 +311,7 @@ export function MealBuilderSimpleCardEditor({
                       <Input
                         id="meal-builder-item-search"
                         value={query}
-                        onChange={(event) => setQuery(event.target.value)}
+                        onChange={(event) => updateSearch(event.target.value)}
                         placeholder="ابحث باسم العنصر"
                         className="pr-9 text-right"
                       />
@@ -374,23 +388,23 @@ export function MealBuilderSimpleCardEditor({
                   onPageChange={setPage}
                 />
 
-                <details className="rounded-lg border bg-muted/10 px-3 py-2">
-                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                <div className="rounded-lg border bg-muted/10 px-3 py-2">
+                  <p className="text-xs font-medium text-muted-foreground">
                     خيارات التشخيص
-                  </summary>
+                  </p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <SwitchLine
                       label="إظهار غير المتاح"
                       checked={includeUnavailable}
-                      onChange={setIncludeUnavailable}
+                      onChange={updateIncludeUnavailable}
                     />
                     <SwitchLine
                       label="إظهار غير المرتبط"
                       checked={includeNotLinked}
-                      onChange={setIncludeNotLinked}
+                      onChange={updateIncludeNotLinked}
                     />
                   </div>
-                </details>
+                </div>
               </section>
             </div>
           </TabsContent>
@@ -466,10 +480,10 @@ export function MealBuilderSimpleCardEditor({
                   />
                 </div>
 
-                <details className="rounded-lg border bg-muted/10 px-3 py-2">
-                  <summary className="cursor-pointer text-sm font-medium">
+                <div className="rounded-lg border bg-muted/10 px-3 py-2">
+                  <p className="text-sm font-medium">
                     العنوان الإنجليزي
-                  </summary>
+                  </p>
                   <div className="mt-3">
                     <TextField
                       label="English title"
@@ -490,7 +504,7 @@ export function MealBuilderSimpleCardEditor({
                       }
                     />
                   </div>
-                </details>
+                </div>
 
                 {sectionError ? (
                   <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">

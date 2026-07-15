@@ -3,7 +3,7 @@ import { BookOpen, CheckCircle2, FileText, Layers } from "lucide-react";
 
 import { MenuAuditLogTab } from "@/components/pages/menu/audit/MenuAuditLogTab";
 import { MenuCategoriesTab } from "@/components/pages/menu/categories/MenuCategoriesTab";
-import { MealBuilderExperienceShell } from "@/components/pages/menu/meal-builder/MealBuilderExperienceShell";
+import { MealBuilderSimplePage } from "@/components/pages/menu/meal-builder/MealBuilderSimplePage";
 import { MenuPublishDialog } from "@/components/pages/menu/MenuPublishDialog";
 import { MenuValidationDialog } from "@/components/pages/menu/MenuValidationDialog";
 import { MenuOptionGroupsTab } from "@/components/pages/menu/option-groups/MenuOptionGroupsTab";
@@ -32,6 +32,7 @@ export const Route = createFileRoute("/_protected/menu/")({
 function MenuPage() {
   const { tab: activeTab } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
+  const isMealBuilderTab = activeTab === "meal-builder";
 
   const setActiveTab = (value: string) => {
     navigate({ search: (prev) => ({ ...prev, tab: value }) });
@@ -50,39 +51,46 @@ function MenuPage() {
             </div>
             <div className="flex min-w-0 flex-col gap-2">
               <h1 className="text-xl font-semibold tracking-tight">
-                إدارة قائمة الطلبات
+                {isMealBuilderTab ? "منشئ وجبات الاشتراك" : "إدارة قائمة الطلبات"}
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                دورة واضحة لبناء القائمة: التصنيفات، المنتجات، مجموعات
-                الخيارات، الربط، معاينة العميل، ثم التحقق والنشر.
+                {isMealBuilderTab
+                  ? "إدارة النسخة المنشورة ومسودة العمل الخاصة بمنشئ وجبات الاشتراك."
+                  : "دورة واضحة لبناء القائمة: التصنيفات، المنتجات، مجموعات الخيارات، الربط، معاينة العميل، ثم التحقق والنشر."}
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <MenuValidationDialog />
-            <MenuPublishDialog />
-          </div>
+          {!isMealBuilderTab ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <MenuValidationDialog />
+              <MenuPublishDialog />
+            </div>
+          ) : null}
         </div>
 
-        <Separator />
+        {!isMealBuilderTab ? (
+          <>
+            <Separator />
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <MenuHeaderMetric
-            icon={CheckCircle2}
-            title="جاهزة للمراجعة"
-            description="تحقق من العلاقات قبل النشر"
-          />
-          <MenuHeaderMetric
-            icon={Layers}
-            title="دورة مترابطة"
-            description="التصنيفات والمنتجات والخيارات في مكان واحد"
-          />
-          <MenuHeaderMetric
-            icon={FileText}
-            title="تتبع التغييرات"
-            description="السجل يعرض آخر عمليات الإدارة"
-          />
-        </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MenuHeaderMetric
+                icon={CheckCircle2}
+                title="جاهزة للمراجعة"
+                description="تحقق من العلاقات قبل النشر"
+              />
+              <MenuHeaderMetric
+                icon={Layers}
+                title="دورة مترابطة"
+                description="التصنيفات والمنتجات والخيارات في مكان واحد"
+              />
+              <MenuHeaderMetric
+                icon={FileText}
+                title="تتبع التغييرات"
+                description="السجل يعرض آخر عمليات الإدارة"
+              />
+            </div>
+          </>
+        ) : null}
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl">
@@ -127,7 +135,7 @@ function MenuPage() {
           </div>
         </TabsContent>
         <TabsContent value="meal-builder" className="mt-5">
-          <MealBuilderExperienceShell />
+          <MealBuilderSimplePage />
         </TabsContent>
         <TabsContent value="preview" className="mt-5">
           <div className="grid gap-5">

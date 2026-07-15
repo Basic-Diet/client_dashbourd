@@ -57,7 +57,7 @@ export function MealBuilderSimpleCard({
               onClick={onEdit}
             >
               <Pencil data-icon="inline-start" />
-              تعديل
+              تعديل العناصر
             </Button>
           ) : null}
         </div>
