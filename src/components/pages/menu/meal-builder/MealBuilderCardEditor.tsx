@@ -71,6 +71,12 @@ type Catalog = {
 };
 
 const PICKER_PAGE_SIZE = 50;
+const AUTOMATIC_PROTEIN_FAMILY_CARDS = new Set([
+  "chicken",
+  "beef",
+  "fish",
+  "eggs",
+]);
 
 export function MealBuilderCardEditor({
   open,
@@ -99,6 +105,7 @@ export function MealBuilderCardEditor({
 
   useEffect(() => {
     setPage(1);
+    setSelectedIds([]);
   }, [deferredQuery, includeUnavailable, includeNotLinked]);
 
   const liveCard = rebuildCard(card.key, draftSections, catalog, card);
@@ -109,6 +116,9 @@ export function MealBuilderCardEditor({
     ? validateMealBuilderSectionDraft(primarySection)
     : null;
   const canCreateMissingSection = canCreateSectionForCard(card.key, catalog);
+  const automaticProteinFamily = AUTOMATIC_PROTEIN_FAMILY_CARDS.has(
+    liveCard.key
+  );
 
   const pickerQuery = useMealBuilderPickerQuery(liveCard.key, {
     q: deferredQuery || undefined,
@@ -129,7 +139,7 @@ export function MealBuilderCardEditor({
   );
   const validSelectedIds = selectedIds.filter((encoded) => {
     const candidate = candidates.find((item) => encodeItem(item) === encoded);
-    return candidate ? isMealBuilderCandidateSelectable(candidate) : true;
+    return candidate ? isMealBuilderCandidateSelectable(candidate) : false;
   });
 
   function patchPrimary(change: Partial<MealBuilderSection>) {
@@ -192,6 +202,9 @@ export function MealBuilderCardEditor({
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">{liveCard.items.length} عناصر</Badge>
+              {automaticProteinFamily ? (
+                <Badge variant="outline">عضوية تلقائية من الباكند</Badge>
+              ) : null}
               {pickerQuery.isFetching ? (
                 <Badge variant="outline">
                   <Loader2 className="size-3 animate-spin" /> تحديث النتائج
@@ -296,7 +309,9 @@ export function MealBuilderCardEditor({
                 <div>
                   <Label>العناصر الموجودة في البطاقة</Label>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    الأسهم تعمل داخل نفس مصدر القسم فقط.
+                    {automaticProteinFamily
+                      ? "الخادم يضمن وجود كل عناصر عائلة البروتين الجاهزة؛ يمكن ترتيبها لكن لا يمكن حذفها من هنا."
+                      : "الأسهم تعمل داخل نفس مصدر القسم فقط."}
                   </p>
                 </div>
                 <Badge variant="outline">{liveCard.items.length}</Badge>
@@ -305,7 +320,8 @@ export function MealBuilderCardEditor({
               <div className="divide-y rounded-lg border lg:min-h-0 lg:overflow-auto">
                 {liveCard.items.length ? (
                   liveCard.items.map((item, index) => {
-                    const automatic = isAutomaticMealBuilderItem(item);
+                    const automatic =
+                      automaticProteinFamily || isAutomaticMealBuilderItem(item);
                     return (
                       <SelectedItemRow
                         key={`${item.kind}:${item.id}`}
@@ -512,7 +528,9 @@ function CandidateRow({
       >
         <span className="block font-medium">{hydratedItemName(item)}</span>
         <span className="block text-xs text-muted-foreground">
-          {alreadyAdded ? "موجود بالفعل داخل البطاقة" : pickerStateLabel(item.state)}
+          {alreadyAdded
+            ? "موجود بالفعل داخل البطاقة"
+            : pickerStateLabel(item.state)}
         </span>
         <span className="mt-2 flex flex-wrap gap-1">
           <ItemStateBadges item={item} />
@@ -942,12 +960,18 @@ function encodeItem(item: MealBuilderHydratedItem) {
 }
 
 function hydratedItemName(item: MealBuilderHydratedItem) {
-  return item.label || item.name?.ar || item.name?.en || item.key || "عنصر غير معروف";
+  return (
+    item.label ||
+    item.name?.ar ||
+    item.name?.en ||
+    item.key ||
+    "عنصر غير معروف"
+  );
 }
 
 function pickerStateLabel(state?: string) {
   if (state === "selected") return "مختار حاليا";
-  if (state === "eligible") return "مؤهل للإضافة";
+  if (state === "eligible" || state === "addable") return "مؤهل للإضافة";
   if (state === "not_linked") return "غير مرتبط بالمنتج والمجموعة";
   if (state === "unavailable") return "غير متاح حاليا";
   return "غير مؤهل ويحتاج مراجعة";
@@ -959,7 +983,7 @@ function ItemStateBadges({ item }: { item: MealBuilderHydratedItem }) {
       {item.selected ? <Badge variant="default">مختار</Badge> : null}
       {item.eligible ? <Badge variant="secondary">مؤهل</Badge> : null}
       <Badge variant={item.linked ? "outline" : "destructive"}>
-        {item.linked ? "مرتبط" : "غير مرتبط"}
+        {item.linked ? "مرتبط" : "إضافة مباشرة للقسم"}
       </Badge>
       <Badge variant={item.available ? "outline" : "destructive"}>
         {item.available ? "متاح" : "غير متاح"}
@@ -982,8 +1006,8 @@ function VisualItemStateBadges({ item }: { item: MealBuilderVisualItem }) {
     <>
       {item.selected ? <Badge variant="default">مختار</Badge> : null}
       {item.eligible ? <Badge variant="secondary">مؤهل</Badge> : null}
-      <Badge variant={item.linked ? "outline" : "destructive"}>
-        {item.linked ? "مرتبط" : "غير مرتبط"}
+      <Badge variant={item.linked ? "outline" : "secondary"}>
+        {item.linked ? "مرتبط" : "داخل القسم"}
       </Badge>
       <Badge variant={item.available ? "outline" : "destructive"}>
         {item.available ? "متاح" : "غير متاح"}
