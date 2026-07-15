@@ -23,10 +23,10 @@ import {
   defaultPremiumUpgradeSourceFilters,
   getSourceRelationId,
   premiumDisplayName,
-  sourceHasRequiredRelation,
   sourceRelationContext,
 } from "@/utils/fetchPremiumUpgrades";
 import { isValidRiyalInput } from "@/utils/price";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   useCreatePremiumUpgradeMutation,
   usePremiumUpgradeSourcesQuery,
@@ -83,10 +83,18 @@ function CandidateLinkDialogContent({
   const [form, setForm] = useState<LinkFormState>(defaultLinkForm);
   const [sourceFilters, setSourceFilters] =
     useState<PremiumUpgradeSourceFilters>(defaultPremiumUpgradeSourceFilters);
+  const [sourceSearch, setSourceSearch] = useState("");
+  const debouncedSourceSearch = useDebounce(sourceSearch, 350);
 
-  const sourcesQuery = usePremiumUpgradeSourcesQuery(sourceFilters, true);
+  const sourceQueryFilters = {
+    ...sourceFilters,
+    q: debouncedSourceSearch,
+  };
+  const sourcesQuery = usePremiumUpgradeSourcesQuery(sourceQueryFilters, true);
   const createMutation = useCreatePremiumUpgradeMutation(onCreated);
   const sources = sourcesQuery.data?.data ?? [];
+  const sourceTotal = sourcesQuery.data?.meta?.total ?? sources.length;
+  const sourceTotalPages = Math.max(1, Math.ceil(sourceTotal / sourceFilters.limit));
 
   function update(next: Partial<LinkFormState>) {
     setForm((current) => ({ ...current, ...next }));
@@ -102,9 +110,9 @@ function CandidateLinkDialogContent({
     setSourceFilters((current) => ({
       ...current,
       kind: nextKind,
-      q: "",
       page: 1,
     }));
+    setSourceSearch("");
   }
 
   function submit(event: FormEvent) {
@@ -115,10 +123,8 @@ function CandidateLinkDialogContent({
       toast.error("اختر المصدر أولاً.");
       return;
     }
-    if (!sourceHasRequiredRelation(selectedSource)) {
-      toast.error(
-        "تعذر تحديد علاقة الخيار بالمنتج والمجموعة. حدّث قائمة المصادر وحاول مرة أخرى."
-      );
+    if (selectedSource.selectable === false) {
+      toast.error("المصدر المحدد غير متاح للاشتراكات.");
       return;
     }
     if (!isValidRiyalInput(form.upgradePriceSarInput)) {
@@ -127,8 +133,8 @@ function CandidateLinkDialogContent({
     }
 
     const sortOrder = Number(form.sortOrder);
-    if (!Number.isFinite(sortOrder)) {
-      toast.error("الترتيب يجب أن يكون رقمًا.");
+    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+      toast.error("الترتيب يجب أن يكون رقمًا صحيحًا وغير سالب.");
       return;
     }
 
@@ -167,14 +173,23 @@ function CandidateLinkDialogContent({
               <Label>المصدر</Label>
               <MenuSourcePicker
                 sources={sources}
+                selectedSource={form.selectedSource}
                 selectedRelationId={
                   form.selectedSource ? getSourceRelationId(form.selectedSource) : ""
                 }
-                search={sourceFilters.q}
+                search={sourceSearch}
                 loading={sourcesQuery.isLoading || sourcesQuery.isFetching}
-                onSearchChange={(q) =>
-                  setSourceFilters((current) => ({ ...current, q, page: 1 }))
+                error={sourcesQuery.error}
+                page={sourceQueryFilters.page}
+                totalPages={sourceTotalPages}
+                onSearchChange={(value) => {
+                  setSourceSearch(value);
+                  setSourceFilters((current) => ({ ...current, page: 1 }));
+                }}
+                onPageChange={(page) =>
+                  setSourceFilters((current) => ({ ...current, page }))
                 }
+                onRetry={() => sourcesQuery.refetch()}
                 onSelect={(source) => update({ selectedSource: source })}
               />
             </div>
@@ -189,20 +204,14 @@ function CandidateLinkDialogContent({
                   label="مفتاح المصدر"
                   value={form.selectedSource.key || form.selectedSource.sourceId}
                 />
-                <ReadOnlyItem
-                  label="العلاقة"
-                  value={
-                    sourceRelationContext(form.selectedSource) ||
-                    getSourceRelationId(form.selectedSource)
-                  }
-                />
+                <ReadOnlyItem label="المجموعة" value={sourceRelationContext(form.selectedSource) || "-"} />
               </div>
             ) : null}
           </section>
 
           <section className="space-y-4 rounded-lg border p-4">
             <div className="space-y-2">
-              <Label>سعر الترقية</Label>
+              <Label>فرق سعر الترقية بالريال</Label>
               <PriceInput
                 value={form.upgradePriceSarInput}
                 onChange={(upgradePriceSarInput) =>
@@ -210,12 +219,7 @@ function CandidateLinkDialogContent({
                 }
               />
             </div>
-            <SelectField
-              label="العملة"
-              value={form.currency}
-              onValueChange={() => update({ currency: "SAR" })}
-              options={[["SAR", "SAR"]]}
-            />
+            <ReadOnlyItem label="العملة" value={form.currency} />
             <NumberField
               label="الترتيب"
               value={form.sortOrder}

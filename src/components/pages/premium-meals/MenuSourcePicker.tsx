@@ -16,30 +16,43 @@ import {
   sourceConflictMessage,
   sourceRelationContext,
 } from "@/utils/fetchPremiumUpgrades";
+import { parseApiError } from "@/lib/apiErrors";
 import { cn } from "@/lib/utils";
 
 export type MenuSourcePickerProps = {
   sources: PremiumUpgradeSourceDto[];
   selectedRelationId: string;
+  selectedSource?: PremiumUpgradeSourceDto | null;
   search: string;
   loading: boolean;
+  error?: unknown;
+  page: number;
+  totalPages: number;
   currentConfigId?: string;
   onSearchChange: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onRetry: () => void;
   onSelect: (source: PremiumUpgradeSourceDto) => void;
 };
 
 export function MenuSourcePicker({
   sources,
   selectedRelationId,
+  selectedSource,
   search,
   loading,
+  error,
+  page,
+  totalPages,
   currentConfigId,
   onSearchChange,
+  onPageChange,
+  onRetry,
   onSelect,
 }: MenuSourcePickerProps) {
-  const selected = sources.find(
-    (source) => getSourceRelationId(source) === selectedRelationId
-  );
+  const selected =
+    selectedSource ||
+    sources.find((source) => getSourceRelationId(source) === selectedRelationId);
 
   function choose(source: PremiumUpgradeSourceDto) {
     if (sourceConflictMessage(source, currentConfigId)) return;
@@ -88,10 +101,6 @@ export function MenuSourcePicker({
           <div className="border-b p-3">
             <div>
               <h3 className="font-semibold">اختر مصدر الترقية</h3>
-              <p className="text-xs text-muted-foreground">
-                يتم استخدام علاقة المصدر كاملة، خصوصًا خيارات الوجبات المرتبطة
-                بمنتج ومجموعة.
-              </p>
             </div>
             <div className="relative mt-3">
               <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -108,9 +117,36 @@ export function MenuSourcePicker({
             sources={sources}
             selectedRelationId={selectedRelationId}
             loading={loading}
+            error={error}
             currentConfigId={currentConfigId}
+            onRetry={onRetry}
             onSelect={choose}
           />
+          <div className="flex items-center justify-between gap-3 border-t p-3 text-sm">
+            <span className="text-muted-foreground">
+              صفحة {page} من {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={loading || page <= 1}
+                onClick={() => onPageChange(page - 1)}
+              >
+                السابق
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={loading || page >= totalPages}
+                onClick={() => onPageChange(page + 1)}
+              >
+                التالي
+              </Button>
+            </div>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -121,13 +157,17 @@ function SourceList({
   sources,
   selectedRelationId,
   loading,
+  error,
   currentConfigId,
+  onRetry,
   onSelect,
 }: {
   sources: PremiumUpgradeSourceDto[];
   selectedRelationId: string;
   loading: boolean;
+  error?: unknown;
   currentConfigId?: string;
+  onRetry: () => void;
   onSelect: (source: PremiumUpgradeSourceDto) => void;
 }) {
   if (loading) {
@@ -135,6 +175,20 @@ function SourceList({
       <div className="p-3">
         <div className="rounded-lg border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
           جاري تحميل المصادر...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    const parsed = parseApiError(error);
+    return (
+      <div className="p-3">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-medium">{parsed.message}</p>
+          <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onRetry}>
+            إعادة المحاولة
+          </Button>
         </div>
       </div>
     );

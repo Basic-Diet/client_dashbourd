@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -8,25 +9,23 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { parseApiError } from "@/lib/apiErrors";
 import type { PremiumUpgradeConfigDto } from "@/types/premiumUpgradeTypes";
 import { usePremiumUpgradeDetailQuery } from "@/hooks/usePremiumUpgradesQuery";
 import {
-  formatJsonValue,
+  formatPremiumSar,
   premiumDisplayName,
+  premiumHealthLabel,
+  premiumIssueMessage,
+  premiumKindLabel,
+  premiumPriceSar,
+  premiumRowHealth,
   premiumRowKey,
+  premiumRowKind,
   premiumRowName,
-  sourceRelationContext,
+  premiumRowStatus,
+  premiumStatusLabel,
 } from "@/utils/fetchPremiumUpgrades";
-
-const detailSections: Array<[string, keyof PremiumUpgradeConfigDto]> = [
-  ["revision", "revision"],
-  ["source", "source"],
-  ["pricing", "pricing"],
-  ["display", "display"],
-  ["behavior", "behavior"],
-  ["health", "health"],
-  ["compatibility", "compatibility"],
-];
 
 export function PremiumUpgradeDetailDrawer({
   row,
@@ -39,103 +38,231 @@ export function PremiumUpgradeDetailDrawer({
   const detail = detailQuery.data?.data ?? row;
 
   return (
-    <Drawer open={Boolean(row)} onOpenChange={(next) => !next && onClose()} direction="right">
+    <Drawer
+      open={Boolean(row)}
+      onOpenChange={(next) => !next && onClose()}
+      direction="right"
+    >
       <DrawerContent className="w-[min(92vw,44rem)] sm:max-w-none" dir="rtl">
         <DrawerHeader className="border-b text-right">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <DrawerTitle>{detail ? premiumRowName(detail) : "تفاصيل الترقية"}</DrawerTitle>
+              <DrawerTitle>
+                {detail ? premiumRowName(detail) : "تفاصيل الترقية"}
+              </DrawerTitle>
               <DrawerDescription>
                 {detail ? premiumRowKey(detail) : "جاري تحميل التفاصيل..."}
               </DrawerDescription>
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              aria-label="إغلاق التفاصيل"
+              title="إغلاق التفاصيل"
+            >
               <X className="size-4" />
             </Button>
           </div>
         </DrawerHeader>
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {detailQuery.isLoading ? (
-            <div className="rounded-lg border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-              جاري تحميل التفاصيل...
-            </div>
+            <DetailSkeleton />
           ) : detailQuery.isError ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-              تعذر تحميل تفاصيل الترقية.
-            </div>
+            <DetailError error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
           ) : detail ? (
-            <>
-              <RepairDiagnostics detail={detail} />
-              {detailSections.map(([label, key]) => (
-                <section key={key} className="rounded-lg border">
-                  <div className="border-b bg-muted/20 px-3 py-2 text-sm font-semibold">
-                    {label}
-                  </div>
-                  <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-6">
-                    {formatJsonValue(detail[key])}
-                  </pre>
-                </section>
-              ))}
-            </>
-          ) : null}
+            <DetailContent detail={detail} />
+          ) : (
+            <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+              لا توجد بيانات لهذا السجل.
+            </div>
+          )}
         </div>
       </DrawerContent>
     </Drawer>
   );
 }
 
-function RepairDiagnostics({ detail }: { detail: PremiumUpgradeConfigDto }) {
-  const repair = detail.repair;
-  if (!repair) return null;
+function DetailContent({ detail }: { detail: PremiumUpgradeConfigDto }) {
+  const source = asRecord(detail.source);
+  const pricing = asRecord(detail.pricing);
+  const display = asRecord(detail.display);
+  const behavior = asRecord(detail.behavior);
+  const health = asRecord(detail.health);
+  const compatibility = asRecord(detail.compatibility);
 
   return (
-    <section className="rounded-lg border border-amber-200 bg-amber-50/60">
-      <div className="border-b border-amber-200 px-3 py-2 text-sm font-semibold text-amber-950">
-        تشخيص الإصلاح
-      </div>
-      <div className="grid gap-3 p-3 text-sm sm:grid-cols-2">
-        <DetailItem label="هوية الترقية الحالية" value={repair.currentPremiumKey || "-"} />
-        <DetailItem label="المصدر المفقود" value={repair.missingSourceId || "-"} />
-        <DetailItem label="النوع المتوقع" value={repair.expectedKind || "-"} />
+    <>
+      <DetailSection title="المصدر">
+        <DetailItem label="الاسم" value={premiumRowName(detail)} />
+        <DetailItem label="المفتاح" value={premiumRowKey(detail)} />
+        <DetailItem label="النوع" value={premiumKindLabel(premiumRowKind(detail))} />
+        <DetailItem label="معرف المصدر" value={detail.sourceId || readString(source.id) || "-"} />
+        <DetailItem label="اسم المصدر" value={premiumDisplayName(source.name as never)} />
+      </DetailSection>
+
+      <DetailSection title="التسعير">
+        <DetailItem label="فرق سعر الترقية" value={formatPremiumSar(premiumPriceSar(detail))} />
+        <DetailItem label="العملة" value={detail.currency || readString(pricing.currency) || "SAR"} />
         <DetailItem
-          label="عدد البدائل المتوافقة"
-          value={repair.compatibleReplacementCount ?? 0}
+          label="القيمة بالهللة"
+          value={detail.priceHalala ?? detail.upgradeDeltaHalala ?? readNumber(pricing.priceHalala) ?? "-"}
         />
-        <DetailItem label="مانع الإصلاح" value={repair.blockingIssueCode || "-"} />
-        <DetailItem
-          label="إعادة الربط متاحة"
-          value={repair.canRelink === false ? "لا" : "نعم"}
-        />
-      </div>
-      {repair.compatibleSourceSuggestions?.length ? (
-        <div className="border-t border-amber-200 p-3">
-          <p className="mb-2 text-sm font-medium text-amber-950">
-            مصادر مقترحة
-          </p>
-          <div className="space-y-2">
-            {repair.compatibleSourceSuggestions.map((source) => (
-              <div
-                key={source.relationId || source.id || source.sourceId}
-                className="rounded-md border bg-background/80 p-2 text-sm"
-              >
-                <p className="font-medium">{premiumDisplayName(source.name)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {sourceRelationContext(source) || source.key || source.sourceId}
-                </p>
-              </div>
-            ))}
-          </div>
+      </DetailSection>
+
+      <DetailSection title="العرض والحالة">
+        <DetailItem label="الحالة" value={premiumStatusLabel(premiumRowStatus(detail))} />
+        <DetailItem label="نشط" value={yesNo(detail.isEnabled ?? display.isEnabled)} />
+        <DetailItem label="ظاهر للعميل" value={yesNo(detail.isVisible ?? display.isVisible)} />
+        <DetailItem label="الترتيب" value={detail.sortOrder ?? readNumber(display.sortOrder) ?? 0} />
+      </DetailSection>
+
+      <DetailSection title="سلوك الترقية">
+        <DetailItem label="تستهلك وجبة موجودة" value={yesNo(behavior.consumesExistingMealSlot)} />
+        <DetailItem label="تضيف وجبة جديدة" value={yesNo(behavior.doesAddMeal)} />
+        <DetailItem label="مصدر الحد" value={translateText(readString(behavior.limitSource))} />
+      </DetailSection>
+
+      <DetailSection title="صحة الربط">
+        <DetailItem label="الصحة" value={premiumHealthLabel(premiumRowHealth(detail))} />
+        <DetailItem label="التحذير" value={premiumRowHealth(detail) === "broken" ? premiumIssueMessage(detail.issueCode) : "-"} />
+        <DetailItem label="جاهز للاستخدام" value={yesNo(health.status === "ready" || premiumRowHealth(detail) === "ready")} />
+      </DetailSection>
+
+      <DetailSection title="التوافق">
+        <DetailItem label="مفاتيح متوافقة" value={formatList(compatibility.compatibilityKeys)} />
+        <DetailItem label="بدائل مقترحة" value={formatList(detail.repair?.compatibleSourceSuggestions?.map((source) => premiumDisplayName(source.name)))} />
+        <DetailItem label="إعادة الربط متاحة" value={yesNo(detail.repair?.canRelink)} />
+      </DetailSection>
+
+      <DetailSection title="معلومات النسخة">
+        <DetailItem label="رقم النسخة" value={detail.revision ?? "-"} />
+        <DetailItem label="تاريخ الإنشاء" value={formatDate(readString(detail.createdAt))} />
+        <DetailItem label="آخر تحديث" value={formatDate(readString(detail.updatedAt))} />
+        <DetailItem label="تاريخ الأرشفة" value={formatDate(readString(detail.archivedAt))} />
+      </DetailSection>
+
+      <details className="rounded-lg border">
+        <summary className="cursor-pointer bg-muted/20 px-3 py-2 text-sm font-semibold">
+          تفاصيل تقنية
+        </summary>
+        <div className="grid gap-3 p-3 text-sm sm:grid-cols-2">
+          <DetailItem label="id" value={detail.id} />
+          <DetailItem label="revision" value={detail.revision ?? "-"} />
+          <DetailItem label="issueCode" value={detail.issueCode || "-"} />
+          <DetailItem label="sourceId" value={detail.sourceId || "-"} />
+          <DetailItem label="sourceProductId" value={readString(detail.sourceProductId) || "-"} />
+          <DetailItem label="sourceGroupId" value={readString(detail.sourceGroupId) || "-"} />
         </div>
-      ) : null}
+      </details>
+    </>
+  );
+}
+
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border">
+      <div className="border-b bg-muted/20 px-3 py-2 text-sm font-semibold">
+        {title}
+      </div>
+      <div className="grid gap-3 p-3 text-sm sm:grid-cols-2">{children}</div>
     </section>
   );
 }
 
-function DetailItem({ label, value }: { label: string; value: string | number }) {
+function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | boolean | null | undefined;
+}) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 break-words font-medium">{value}</p>
+      <p className="mt-1 break-words font-medium">{formatValue(value)}</p>
     </div>
   );
+}
+
+function DetailSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="rounded-lg border p-3">
+          <div className="h-4 w-32 rounded bg-muted" />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="h-10 rounded bg-muted/60" />
+            <div className="h-10 rounded bg-muted/60" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DetailError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const parsed = parseApiError(error);
+  return (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+      <p className="font-medium">{parsed.message}</p>
+      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onRetry}>
+        إعادة المحاولة
+      </Button>
+    </div>
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function readNumber(value: unknown) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+}
+
+function yesNo(value: unknown) {
+  if (value === undefined || value === null) return "-";
+  return value ? "نعم" : "لا";
+}
+
+function formatValue(value: string | number | boolean | null | undefined) {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "boolean") return yesNo(value);
+  return String(value);
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("ar-SA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function formatList(value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) return "-";
+  return value.map((item) => String(item)).join("، ");
+}
+
+function translateText(value?: string) {
+  if (!value) return "-";
+  if (value === "subscription_total_meals") return "إجمالي وجبات الاشتراك";
+  return value;
 }

@@ -1,5 +1,7 @@
-import { Filter, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Filter, Search, X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,7 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useDebounce } from "@/hooks/useDebounce";
 import type { PremiumUpgradeListFilters } from "@/types/premiumUpgradeTypes";
+import { defaultPremiumUpgradeListFilters } from "@/utils/fetchPremiumUpgrades";
 
 export function PremiumUpgradeFilters({
   filters,
@@ -24,17 +28,45 @@ export function PremiumUpgradeFilters({
   filters: PremiumUpgradeListFilters;
   onChange: (filters: PremiumUpgradeListFilters) => void;
 }) {
+  const [searchValue, setSearchValue] = useState(filters.q);
+  const debouncedSearch = useDebounce(searchValue, 400);
+  const filtersActive =
+    Boolean(filters.q) ||
+    filters.kind !== "all" ||
+    filters.status !== "all" ||
+    filters.health !== "all";
+
+  useEffect(() => {
+    if (debouncedSearch !== filters.q) {
+      onChange({ ...filters, q: debouncedSearch, page: 1 });
+    }
+  }, [debouncedSearch, filters, onChange]);
+
   function update(next: Partial<PremiumUpgradeListFilters>) {
     onChange({ ...filters, ...next, page: next.page ?? 1 });
   }
 
   return (
     <Card className="shadow-none">
-      <CardHeader>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2 text-base">
           <Filter className="size-4" />
           التصفية والبحث
         </CardTitle>
+        {filtersActive ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchValue("");
+              onChange(defaultPremiumUpgradeListFilters);
+            }}
+          >
+            <X data-icon="inline-start" />
+            مسح الفلاتر
+          </Button>
+        ) : null}
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <div className="space-y-2 xl:col-span-2">
@@ -43,8 +75,8 @@ export function PremiumUpgradeFilters({
             <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="premium-search"
-              value={filters.q}
-              onChange={(event) => update({ q: event.target.value })}
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
               className="pr-9"
               placeholder="اسم أو مفتاح"
             />

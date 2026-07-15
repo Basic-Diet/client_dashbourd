@@ -43,6 +43,9 @@ export type PremiumUpgradeConfigDto = {
   } | null;
 
   sourceType?: "menu_option" | "menu_product" | string;
+  sourceProductId?: string | null;
+  sourceGroupId?: string | null;
+  sourceGroupKey?: string | null;
   sourceName?: PremiumUpgradeLocalizedName | null;
   sourceKey?: string | null;
   premiumKey?: string | null;
@@ -65,6 +68,9 @@ export type PremiumUpgradeConfigDto = {
     subscriptionEnabled?: boolean;
     relationValid?: boolean;
   } | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  archivedAt?: string | null;
 };
 
 export type PremiumUpgradeSourceDto = {
@@ -164,8 +170,6 @@ export type PremiumUpgradeSourceFilters = {
 export type PremiumUpgradeCreatePayload = {
   kind: PremiumUpgradeKind;
   sourceId: string;
-  sourceProductId?: string | null;
-  sourceGroupId?: string | null;
   upgradeDeltaHalala: number;
   currency: "SAR";
   isActive: boolean;
@@ -177,8 +181,6 @@ export type PremiumUpgradeUpdatePayload = {
   expectedRevision: number;
   kind?: PremiumUpgradeKind;
   sourceId?: string;
-  sourceProductId?: string | null;
-  sourceGroupId?: string | null;
   upgradeDeltaHalala?: number;
   currency?: "SAR";
   isActive?: boolean;

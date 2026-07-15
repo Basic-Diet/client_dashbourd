@@ -32,7 +32,7 @@ export function ArchivePremiumUpgradeDialog({
         <DialogHeader>
           <DialogTitle>أرشفة ترقية مميزة</DialogTitle>
           <DialogDescription>
-            سيتم أرشفة إعداد الترقية فقط. لن يتم حذف مصدر المنتج أو الخيار.
+            سيتم الاحتفاظ بالسجل في الأرشيف ولن يظهر كترقية نشطة للعملاء.
           </DialogDescription>
         </DialogHeader>
         {row ? (

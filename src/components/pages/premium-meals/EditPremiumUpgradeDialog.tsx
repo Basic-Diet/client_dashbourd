@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,15 +26,16 @@ import {
   buildRelinkPremiumUpgradePayload,
   defaultPremiumUpgradeSourceFilters,
   getSourceRelationId,
-  isSourceCompatibleWithConfig,
+  premiumEditStateFromRow,
   premiumDisplayName,
+  premiumKindLabel,
   premiumPriceSar,
   premiumRowHealth,
   premiumRowKind,
   premiumRowName,
-  sourceHasRequiredRelation,
   sourceRelationContext,
 } from "@/utils/fetchPremiumUpgrades";
+import { useDebounce } from "@/hooks/useDebounce";
 import { isValidRiyalInput, riyalToHalala } from "@/utils/price";
 import { SelectField } from "./PremiumUpgradeFilters";
 import { ReadOnlyItem, StateToggleLine } from "./PremiumCandidateCard";
@@ -99,11 +100,12 @@ function EditPremiumUpgradeForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const editState = premiumEditStateFromRow(row);
   const [form, setForm] = useState({
     upgradePriceSarInput: String(premiumPriceSar(row)),
     currency: "SAR" as const,
-    isActive: row.status ? row.status === "active" : row.isEnabled !== false,
-    isVisible: row.status ? row.status !== "hidden" : row.isVisible !== false,
+    isActive: editState.isActive,
+    isVisible: editState.isVisible,
     sortOrder: String(row.sortOrder ?? 0),
   });
   const updateMutation = useUpdatePremiumUpgradeMutation(onSaved);
@@ -117,8 +119,8 @@ function EditPremiumUpgradeForm({
     }
 
     const sortOrder = Number(form.sortOrder);
-    if (!Number.isFinite(sortOrder)) {
-      toast.error("الترتيب يجب أن يكون رقمًا.");
+    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+      toast.error("الترتيب يجب أن يكون رقمًا صحيحًا وغير سالب.");
       return;
     }
 
@@ -141,7 +143,7 @@ function EditPremiumUpgradeForm({
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="space-y-2">
-          <Label>سعر الترقية</Label>
+          <Label>فرق سعر الترقية بالريال</Label>
           <PriceInput
             value={form.upgradePriceSarInput}
             onChange={(upgradePriceSarInput) =>
@@ -149,14 +151,7 @@ function EditPremiumUpgradeForm({
             }
           />
         </div>
-        <SelectField
-          label="العملة"
-          value={form.currency}
-          onValueChange={() =>
-            setForm((current) => ({ ...current, currency: "SAR" }))
-          }
-          options={[["SAR", "SAR"]]}
-        />
+        <ReadOnlyItem label="العملة" value={form.currency} />
         <NumberField
           label="الترتيب"
           value={form.sortOrder}
@@ -213,15 +208,17 @@ function RelinkPremiumUpgradeForm({
     kind,
     excludeConfigId: row.id,
   });
-  const sourcesQuery = usePremiumUpgradeSourcesQuery(sourceFilters, true);
+  const [sourceSearch, setSourceSearch] = useState("");
+  const debouncedSourceSearch = useDebounce(sourceSearch, 350);
+  const sourceQueryFilters = {
+    ...sourceFilters,
+    q: debouncedSourceSearch,
+  };
+  const sourcesQuery = usePremiumUpgradeSourcesQuery(sourceQueryFilters, true);
   const updateMutation = useUpdatePremiumUpgradeMutation(onSaved);
-  const compatibleSources = useMemo(
-    () =>
-      (sourcesQuery.data?.data ?? []).filter((source) =>
-        isSourceCompatibleWithConfig(source, row)
-      ),
-    [row, sourcesQuery.data?.data]
-  );
+  const sources = sourcesQuery.data?.data ?? [];
+  const sourceTotal = sourcesQuery.data?.meta?.total ?? sources.length;
+  const sourceTotalPages = Math.max(1, Math.ceil(sourceTotal / sourceFilters.limit));
 
   function updateKind(value: string) {
     const nextKind = value as PremiumUpgradeKind;
@@ -231,9 +228,9 @@ function RelinkPremiumUpgradeForm({
       ...current,
       kind: nextKind,
       excludeConfigId: row.id,
-      q: "",
       page: 1,
     }));
+    setSourceSearch("");
   }
 
   function submit(event: FormEvent) {
@@ -242,14 +239,8 @@ function RelinkPremiumUpgradeForm({
       toast.error("اختر مصدرًا صالحًا أولاً.");
       return;
     }
-    if (!sourceHasRequiredRelation(selectedSource)) {
-      toast.error(
-        "تعذر تحديد علاقة الخيار بالمنتج والمجموعة. حدّث قائمة المصادر وحاول مرة أخرى."
-      );
-      return;
-    }
-    if (!isSourceCompatibleWithConfig(selectedSource, row)) {
-      toast.error("المصدر المختار غير متوافق مع هوية الترقية الحالية");
+    if (selectedSource.selectable === false) {
+      toast.error("المصدر المحدد غير متاح للاشتراكات.");
       return;
     }
 
@@ -278,16 +269,25 @@ function RelinkPremiumUpgradeForm({
         <div className="space-y-2">
           <Label>المصدر</Label>
           <MenuSourcePicker
-            sources={compatibleSources}
+            sources={sources}
+            selectedSource={selectedSource}
             selectedRelationId={
               selectedSource ? getSourceRelationId(selectedSource) : ""
             }
-            search={sourceFilters.q}
+            search={sourceSearch}
             loading={sourcesQuery.isLoading || sourcesQuery.isFetching}
+            error={sourcesQuery.error}
+            page={sourceQueryFilters.page}
+            totalPages={sourceTotalPages}
             currentConfigId={row.id}
-            onSearchChange={(q) =>
-              setSourceFilters((current) => ({ ...current, q, page: 1 }))
+            onSearchChange={(value) => {
+              setSourceSearch(value);
+              setSourceFilters((current) => ({ ...current, page: 1 }));
+            }}
+            onPageChange={(page) =>
+              setSourceFilters((current) => ({ ...current, page }))
             }
+            onRetry={() => sourcesQuery.refetch()}
             onSelect={setSelectedSource}
           />
         </div>
@@ -326,6 +326,8 @@ function Summary({ row }: { row: PremiumUpgradeConfigDto }) {
     <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-3">
       <ReadOnlyItem label="الاسم" value={premiumRowName(row)} />
       <ReadOnlyItem label="المفتاح" value={row.key || row.premiumKey || "-"} />
+      <ReadOnlyItem label="النوع" value={premiumKindLabel(premiumRowKind(row))} />
+      <ReadOnlyItem label="المصدر" value={row.sourceId || "-"} />
       <ReadOnlyItem
         label="الصحة"
         value={premiumRowHealth(row) === "broken" ? "يحتاج إصلاح" : "جاهز"}

@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import type { PremiumUpgradeConfigDto } from "@/types/premiumUpgradeTypes";
 import {
   premiumHealthLabel,
-  premiumIssueMessage,
   premiumRowHealth,
 } from "@/utils/fetchPremiumUpgrades";
 import { cn } from "@/lib/utils";
@@ -14,15 +13,10 @@ export function HealthBadge({ row }: { row: PremiumUpgradeConfigDto }) {
 
   if (health === "broken") {
     return (
-      <div className="space-y-1">
-        <Badge variant="destructive">
-          <CircleAlert className="size-3" />
-          {premiumHealthLabel(health)}
-        </Badge>
-        <p className="max-w-[220px] whitespace-normal text-xs text-muted-foreground">
-          {premiumIssueMessage(row.issueCode)}
-        </p>
-      </div>
+      <Badge variant="destructive">
+        <CircleAlert className="size-3" />
+        {premiumHealthLabel(health)}
+      </Badge>
     );
   }
 

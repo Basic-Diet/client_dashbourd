@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link2, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,10 @@ import type {
   PremiumUpgradeConfigDto,
   PremiumUpgradeListFilters,
 } from "@/types/premiumUpgradeTypes";
-import { defaultPremiumUpgradeListFilters } from "@/utils/fetchPremiumUpgrades";
+import {
+  defaultPremiumUpgradeListFilters,
+  normalizePremiumUpgradeRow,
+} from "@/utils/fetchPremiumUpgrades";
 import {
   usePremiumUpgradeInvalidation,
   usePremiumUpgradesQuery,
@@ -35,7 +38,10 @@ export function PremiumMealsPage() {
   const listQuery = usePremiumUpgradesQuery(filters);
   const { invalidatePremiumUpgrades } = usePremiumUpgradeInvalidation();
 
-  const rows = listQuery.data?.data ?? [];
+  const rows = useMemo(
+    () => (listQuery.data?.data ?? []).map(normalizePremiumUpgradeRow),
+    [listQuery.data?.data]
+  );
   const total = listQuery.data?.meta?.total ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(total / filters.limit));
 
@@ -55,8 +61,7 @@ export function PremiumMealsPage() {
                 الوجبات المميزة
               </h1>
               <p className="max-w-4xl text-sm leading-6 text-muted-foreground">
-                إدارة ترقيات الوجبات المميزة من مصادر المنتجات والخيارات. يتم
-                عرض البيانات الفنية داخل التفاصيل فقط.
+                إدارة ترقيات الوجبات وربطها بمنتجات وخيارات المنيو الحالية.
               </p>
             </div>
           </div>
@@ -74,7 +79,7 @@ export function PremiumMealsPage() {
             </Button>
             <Button type="button" onClick={() => setCandidateOpen(true)}>
               <Link2 data-icon="inline-start" />
-              إضافة ترقية
+              إضافة ترقية مميزة
             </Button>
           </div>
         </div>
@@ -85,10 +90,13 @@ export function PremiumMealsPage() {
       <PremiumUpgradesTable
         rows={rows}
         loading={listQuery.isLoading}
+        fetching={listQuery.isFetching}
+        error={listQuery.error}
         filters={filters}
         total={total}
         totalPages={totalPages}
         onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+        onRetry={() => listQuery.refetch()}
         onEdit={setEditingRow}
         onRelink={setRelinkRow}
         onArchive={setArchiveRow}

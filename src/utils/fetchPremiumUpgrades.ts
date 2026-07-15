@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 
 import api from "@/lib/apis";
+import { parseApiError } from "@/lib/apiErrors";
 import { halalaToRiyal, riyalToHalala } from "@/utils/price";
 import type {
   PremiumUpgradeArchivePayload,
@@ -38,7 +39,7 @@ export const defaultPremiumUpgradeSourceFilters: PremiumUpgradeSourceFilters = {
   kind: "product",
   status: "active",
   page: 1,
-  limit: 50,
+  limit: 20,
 };
 
 const premiumErrorMessages: Record<string, string> = {
@@ -146,15 +147,7 @@ export function buildCreatePremiumUpgradePayload(form: {
 }): PremiumUpgradeCreatePayload {
   return {
     kind: form.kind,
-    sourceId: form.selectedSource.sourceId,
-    sourceProductId:
-      form.selectedSource.kind === "product"
-        ? form.selectedSource.sourceProductId ?? form.selectedSource.sourceId
-        : form.selectedSource.sourceProductId ?? null,
-    sourceGroupId:
-      form.selectedSource.kind === "product"
-        ? null
-        : form.selectedSource.sourceGroupId ?? null,
+    sourceId: form.selectedSource.id || form.selectedSource.sourceId,
     upgradeDeltaHalala: riyalToHalala(form.upgradePriceSarInput),
     currency: form.currency,
     isActive: Boolean(form.isActive),
@@ -173,23 +166,16 @@ export function buildRelinkPremiumUpgradePayload({
   return {
     expectedRevision: row.revision ?? 0,
     kind: selectedSource.kind === "product" ? "product" : "option",
-    sourceId: selectedSource.sourceId,
-    sourceProductId:
-      selectedSource.kind === "product"
-        ? selectedSource.sourceProductId ?? selectedSource.sourceId
-        : selectedSource.sourceProductId ?? null,
-    sourceGroupId:
-      selectedSource.kind === "product"
-        ? null
-        : selectedSource.sourceGroupId ?? null,
+    sourceId: selectedSource.id || selectedSource.sourceId,
   };
 }
 
 export function showPremiumUpgradeError(error: unknown) {
   const code = getPremiumUpgradeErrorCode(error);
+  const parsed = parseApiError(error);
   toast.error(
     (code && premiumErrorMessages[code]) ||
-      getApiErrorMessage(error) ||
+      parsed.message ||
       "حدث خطأ غير متوقع. حدّث البيانات وحاول مرة أخرى."
   );
 }
@@ -227,9 +213,9 @@ export function premiumRowKey(row: PremiumUpgradeConfigDto) {
 }
 
 export function premiumRowKind(row: PremiumUpgradeConfigDto): PremiumUpgradeKind {
-  if (row.kind === "product" || row.sourceType === "menu_product") {
-    return "product";
-  }
+  if (row.kind === "product") return "product";
+  if (row.kind === "option") return "option";
+  if (row.sourceType === "menu_product") return "product";
   return "option";
 }
 
@@ -283,6 +269,45 @@ export function premiumRowStatus(row: PremiumUpgradeConfigDto): string {
   if (row.isEnabled === false) return "disabled";
   if (row.isVisible === false) return "hidden";
   return "active";
+}
+
+export function premiumEditStateFromRow(row: PremiumUpgradeConfigDto) {
+  const status = premiumRowStatus(row);
+  if (status === "active") return { isActive: true, isVisible: true };
+  if (status === "hidden") return { isActive: true, isVisible: false };
+  if (status === "disabled") {
+    return {
+      isActive: false,
+      isVisible: row.isVisible !== undefined ? row.isVisible !== false : false,
+    };
+  }
+  return {
+    isActive: row.isEnabled !== false,
+    isVisible: row.isVisible !== false,
+  };
+}
+
+export function normalizePremiumUpgradeRow(
+  row: PremiumUpgradeConfigDto
+): PremiumUpgradeConfigDto {
+  const priceHalala = premiumPriceHalala(row);
+  return {
+    ...row,
+    key: row.key || row.premiumKey || row.sourceKey || "",
+    name: row.name ?? row.sourceName ?? "",
+    kind: row.kind === "product" || row.kind === "option" ? row.kind : premiumRowKind(row),
+    sourceId: row.sourceId || null,
+    priceHalala,
+    priceSar:
+      row.priceSar !== null && row.priceSar !== undefined
+        ? Number(row.priceSar)
+        : halalaToRiyal(priceHalala),
+    currency: row.currency || "SAR",
+    status: premiumRowStatus(row),
+    health: premiumRowHealth(row),
+    issueCode: row.issueCode || null,
+    sortOrder: Number(row.sortOrder || 0),
+  };
 }
 
 export function premiumPriceHalala(row: PremiumUpgradeConfigDto) {
@@ -363,6 +388,13 @@ export function sourceConflictMessage(
   return null;
 }
 
+export function isSourceSelectable(
+  source: PremiumUpgradeSourceDto,
+  currentConfigId?: string
+) {
+  return !sourceConflictMessage(source, currentConfigId);
+}
+
 export function sourceRelationContext(source: PremiumUpgradeSourceDto) {
   const product =
     source.sourceProductKey ||
@@ -418,13 +450,4 @@ function formatSourceContextValue(value: PremiumUpgradeSourceDto["group"]) {
 function halalaFromSar(value: unknown) {
   const amount = Number(value);
   return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
-}
-
-function getApiErrorMessage(error: unknown): string | null {
-  return (
-    (error as { normalizedMessage?: string })?.normalizedMessage ||
-    (error as { response?: { data?: { message?: string } } })?.response?.data
-      ?.message ||
-    null
-  );
 }
