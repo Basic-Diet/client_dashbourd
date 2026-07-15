@@ -2,12 +2,8 @@ import type {
   MealBuilderHydratedItem,
   MealBuilderSection,
 } from "@/types/mealBuilderTypes";
-import type {
-  MenuProduct,
-} from "@/types/menuTypes";
-import type {
-  MealBuilderVisualItem,
-} from "./mealBuilderVisualModel";
+import type { MenuProduct } from "@/types/menuTypes";
+import type { MealBuilderVisualItem } from "./mealBuilderVisualModel";
 
 export function mealBuilderErrorMessage(
   error: unknown,
@@ -32,7 +28,8 @@ export function mealBuilderErrorMessage(
   ];
 
   const resolved = candidates.find(
-    (value): value is string => typeof value === "string" && value.trim().length > 0
+    (value): value is string =>
+      typeof value === "string" && value.trim().length > 0
   );
 
   return resolved?.trim() || fallback;
@@ -44,7 +41,6 @@ export function isMealBuilderCandidateSelectable(
   return Boolean(
     item.id &&
       item.eligible === true &&
-      item.linked !== false &&
       item.available !== false &&
       item.active !== false &&
       item.visible !== false &&
@@ -91,7 +87,9 @@ export function explicitProductIdsForSection(
     ...(section.items ?? []).filter((item) => item.type?.includes("product")),
   ]
     .map((item) => item.productId || item.id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
+    .filter(
+      (id): id is string => typeof id === "string" && id.length > 0
+    );
 
   if (hydratedIds.length) return uniqueIds(hydratedIds);
   if (section.selectedProductIds.length) {
@@ -182,7 +180,9 @@ export function canMoveMealBuilderItem(
   );
 }
 
-export function isAutomaticMealBuilderItem(item: MealBuilderVisualItem): boolean {
+export function isAutomaticMealBuilderItem(
+  item: MealBuilderVisualItem
+): boolean {
   return item.automatic === true || item.sourceSectionIndex < 0;
 }
 
