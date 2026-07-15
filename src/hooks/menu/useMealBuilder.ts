@@ -73,7 +73,13 @@ export const mealBuilderReadinessQueryOptions = () =>
 export const mealBuilderHydratedQueryOptions = (enabled = true) =>
   queryOptions({
     queryKey: [MEAL_BUILDER_HYDRATED_KEY],
-    queryFn: getMealBuilderHydratedDraft,
+    queryFn: async () => {
+      const hydrated = await getMealBuilderHydratedDraft();
+      if (hydrated.data.draft) return hydrated;
+
+      await getMealBuilderDraft();
+      return getMealBuilderHydratedDraft();
+    },
     enabled,
     staleTime: 1000 * 20,
   });
