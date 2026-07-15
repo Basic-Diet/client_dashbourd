@@ -593,7 +593,7 @@ function SimpleWorkspace({
             <MealBuilderSimpleCard
               key={card.key}
               card={card}
-              readOnly={card.key === "premium"}
+              readOnly={card.key === "premium" || loading}
               onEdit={() => setCardEditorKey(card.key)}
             />
           ))}
