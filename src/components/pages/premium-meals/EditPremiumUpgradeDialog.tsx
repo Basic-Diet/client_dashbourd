@@ -19,21 +19,26 @@ import type {
   PremiumUpgradeSourceFilters,
 } from "@/types/premiumUpgradeTypes";
 import {
+  usePremiumUpgradeDetailQuery,
   usePremiumUpgradeSourcesQuery,
   useUpdatePremiumUpgradeMutation,
 } from "@/hooks/usePremiumUpgradesQuery";
+import { parseApiError } from "@/lib/apiErrors";
 import {
   buildRelinkPremiumUpgradePayload,
   defaultPremiumUpgradeSourceFilters,
   getSourceRelationId,
+  premiumDetailCurrency,
+  premiumDetailRevision,
+  premiumDetailSortOrder,
+  premiumDetailUpgradeDeltaSar,
   premiumEditStateFromRow,
   premiumDisplayName,
   premiumKindLabel,
-  premiumPriceSar,
   premiumRowHealth,
   premiumRowKind,
   premiumRowName,
-  sourceRelationContext,
+  sourceGroupName,
 } from "@/utils/fetchPremiumUpgrades";
 import { useDebounce } from "@/hooks/useDebounce";
 import { isValidRiyalInput, riyalToHalala } from "@/utils/price";
@@ -54,6 +59,8 @@ export function EditPremiumUpgradeDialog({
   onSaved: () => void;
 }) {
   const isRelink = mode === "relink";
+  const detailQuery = usePremiumUpgradeDetailQuery(row?.id ?? null);
+  const detail = detailQuery.data?.data ?? null;
 
   return (
     <Dialog open={Boolean(row)} onOpenChange={(next) => !next && onClose()}>
@@ -70,20 +77,30 @@ export function EditPremiumUpgradeDialog({
         </DialogHeader>
 
         {row ? (
+          detailQuery.isLoading ? (
+            <DialogLoading />
+          ) : detailQuery.isError ? (
+            <DialogError error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
+          ) : detail ? (
           isRelink ? (
             <RelinkPremiumUpgradeForm
-              key={row.id}
-              row={row}
+              key={`${detail.id}-${detail.revision ?? "detail"}`}
+              row={detail}
               onClose={onClose}
               onSaved={onSaved}
             />
           ) : (
             <EditPremiumUpgradeForm
-              key={row.id}
-              row={row}
+              key={`${detail.id}-${detail.revision ?? "detail"}`}
+              row={detail}
               onClose={onClose}
               onSaved={onSaved}
             />
+          )
+          ) : (
+            <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+              لا توجد بيانات لهذا السجل.
+            </div>
           )
         ) : null}
       </DialogContent>
@@ -101,12 +118,13 @@ function EditPremiumUpgradeForm({
   onSaved: () => void;
 }) {
   const editState = premiumEditStateFromRow(row);
+  const revision = premiumDetailRevision(row);
   const [form, setForm] = useState({
-    upgradePriceSarInput: String(premiumPriceSar(row)),
-    currency: "SAR" as const,
+    upgradePriceSarInput: String(premiumDetailUpgradeDeltaSar(row)),
+    currency: premiumDetailCurrency(row),
     isActive: editState.isActive,
     isVisible: editState.isVisible,
-    sortOrder: String(row.sortOrder ?? 0),
+    sortOrder: String(premiumDetailSortOrder(row)),
   });
   const updateMutation = useUpdatePremiumUpgradeMutation(onSaved);
 
@@ -124,16 +142,19 @@ function EditPremiumUpgradeForm({
       return;
     }
 
-    updateMutation.mutate({
-      id: row.id,
-      payload: {
-        expectedRevision: row.revision ?? 0,
+    const payload = {
         upgradeDeltaHalala: riyalToHalala(form.upgradePriceSarInput),
         currency: form.currency,
         isActive: form.isActive,
         isVisible: form.isVisible,
         sortOrder,
-      },
+      };
+    updateMutation.mutate({
+      id: row.id,
+      payload:
+        revision !== undefined
+          ? { ...payload, expectedRevision: revision }
+          : payload,
     });
   }
 
@@ -300,8 +321,8 @@ function RelinkPremiumUpgradeForm({
             value={premiumDisplayName(selectedSource.name)}
           />
           <ReadOnlyItem
-            label="العلاقة"
-            value={sourceRelationContext(selectedSource) || getSourceRelationId(selectedSource)}
+            label="المجموعة"
+            value={sourceGroupName(selectedSource) || "-"}
           />
         </div>
       ) : null}
@@ -318,6 +339,27 @@ function RelinkPremiumUpgradeForm({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function DialogLoading() {
+  return (
+    <div className="space-y-3">
+      <div className="h-16 rounded-lg bg-muted/70" />
+      <div className="h-28 rounded-lg bg-muted/50" />
+    </div>
+  );
+}
+
+function DialogError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const parsed = parseApiError(error);
+  return (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+      <p className="font-medium">{parsed.message}</p>
+      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onRetry}>
+        إعادة المحاولة
+      </Button>
+    </div>
   );
 }
 

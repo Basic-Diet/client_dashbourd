@@ -23,7 +23,7 @@ import {
   defaultPremiumUpgradeSourceFilters,
   getSourceRelationId,
   premiumDisplayName,
-  sourceRelationContext,
+  sourceGroupName,
 } from "@/utils/fetchPremiumUpgrades";
 import { isValidRiyalInput } from "@/utils/price";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -204,7 +204,7 @@ function CandidateLinkDialogContent({
                   label="مفتاح المصدر"
                   value={form.selectedSource.key || form.selectedSource.sourceId}
                 />
-                <ReadOnlyItem label="المجموعة" value={sourceRelationContext(form.selectedSource) || "-"} />
+                <ReadOnlyItem label="المجموعة" value={sourceGroupName(form.selectedSource) || "-"} />
               </div>
             ) : null}
           </section>

@@ -14,12 +14,13 @@ import type { PremiumUpgradeConfigDto } from "@/types/premiumUpgradeTypes";
 import { usePremiumUpgradeDetailQuery } from "@/hooks/usePremiumUpgradesQuery";
 import {
   formatPremiumSar,
-  premiumDisplayName,
+  premiumDetailHealthCode,
+  premiumDetailHealthStatus,
+  premiumDetailUpgradeDeltaHalala,
+  premiumDetailUpgradeDeltaSar,
   premiumHealthLabel,
   premiumIssueMessage,
   premiumKindLabel,
-  premiumPriceSar,
-  premiumRowHealth,
   premiumRowKey,
   premiumRowKind,
   premiumRowName,
@@ -89,58 +90,55 @@ function DetailContent({ detail }: { detail: PremiumUpgradeConfigDto }) {
   const pricing = asRecord(detail.pricing);
   const display = asRecord(detail.display);
   const behavior = asRecord(detail.behavior);
-  const health = asRecord(detail.health);
   const compatibility = asRecord(detail.compatibility);
+  const healthStatus = premiumDetailHealthStatus(detail);
+  const healthCode = premiumDetailHealthCode(detail);
 
   return (
     <>
       <DetailSection title="المصدر">
         <DetailItem label="الاسم" value={premiumRowName(detail)} />
-        <DetailItem label="المفتاح" value={premiumRowKey(detail)} />
-        <DetailItem label="النوع" value={premiumKindLabel(premiumRowKind(detail))} />
-        <DetailItem label="معرف المصدر" value={detail.sourceId || readString(source.id) || "-"} />
-        <DetailItem label="اسم المصدر" value={premiumDisplayName(source.name as never)} />
+        <DetailItem label="المفتاح" value={readString(source.key) || premiumRowKey(detail)} />
+        <DetailItem label="النوع" value={premiumKindLabel(readString(source.type) === "menu_product" ? "product" : premiumRowKind(detail))} />
+        <DetailItem label="معرف المصدر" value={readString(source.id) || detail.sourceId || "-"} />
+        <DetailItem label="معرف المنتج" value={readString(source.productId) || "-"} />
+        <DetailItem label="معرف المجموعة" value={readString(source.groupId) || "-"} />
+        <DetailItem label="مفتاح المجموعة" value={readString(source.groupKey) || "-"} />
       </DetailSection>
 
       <DetailSection title="التسعير">
-        <DetailItem label="فرق سعر الترقية" value={formatPremiumSar(premiumPriceSar(detail))} />
-        <DetailItem label="العملة" value={detail.currency || readString(pricing.currency) || "SAR"} />
+        <DetailItem label="فرق سعر الترقية" value={formatPremiumSar(premiumDetailUpgradeDeltaSar(detail))} />
+        <DetailItem label="العملة" value={readString(pricing.currency) || detail.currency || "SAR"} />
         <DetailItem
           label="القيمة بالهللة"
-          value={detail.priceHalala ?? detail.upgradeDeltaHalala ?? readNumber(pricing.priceHalala) ?? "-"}
+          value={premiumDetailUpgradeDeltaHalala(detail)}
         />
       </DetailSection>
 
       <DetailSection title="العرض والحالة">
         <DetailItem label="الحالة" value={premiumStatusLabel(premiumRowStatus(detail))} />
-        <DetailItem label="نشط" value={yesNo(detail.isEnabled ?? display.isEnabled)} />
-        <DetailItem label="ظاهر للعميل" value={yesNo(detail.isVisible ?? display.isVisible)} />
-        <DetailItem label="الترتيب" value={detail.sortOrder ?? readNumber(display.sortOrder) ?? 0} />
+        <DetailItem label="نشط" value={yesNo(display.enabled ?? detail.isEnabled)} />
+        <DetailItem label="ظاهر للعميل" value={yesNo(display.visible ?? detail.isVisible)} />
+        <DetailItem label="الترتيب" value={readNumber(display.sortOrder) ?? detail.sortOrder ?? 0} />
       </DetailSection>
 
       <DetailSection title="سلوك الترقية">
-        <DetailItem label="تستهلك وجبة موجودة" value={yesNo(behavior.consumesExistingMealSlot)} />
-        <DetailItem label="تضيف وجبة جديدة" value={yesNo(behavior.doesAddMeal)} />
-        <DetailItem label="مصدر الحد" value={translateText(readString(behavior.limitSource))} />
+        <DetailItem label="تستهلك وجبة من الاشتراك" value={yesNo(behavior.consumesMealSlot ?? behavior.consumesExistingMealSlot)} />
       </DetailSection>
 
       <DetailSection title="صحة الربط">
-        <DetailItem label="الصحة" value={premiumHealthLabel(premiumRowHealth(detail))} />
-        <DetailItem label="التحذير" value={premiumRowHealth(detail) === "broken" ? premiumIssueMessage(detail.issueCode) : "-"} />
-        <DetailItem label="جاهز للاستخدام" value={yesNo(health.status === "ready" || premiumRowHealth(detail) === "ready")} />
+        <DetailItem label="الصحة" value={premiumHealthLabel(healthStatus)} />
+        <DetailItem label="التحذير" value={healthStatus === "broken" ? premiumIssueMessage(healthCode) : "-"} />
+        <DetailItem label="رسالة الربط" value={readString(asRecord(detail.health).message) || "-"} />
       </DetailSection>
 
       <DetailSection title="التوافق">
         <DetailItem label="مفاتيح متوافقة" value={formatList(compatibility.compatibilityKeys)} />
-        <DetailItem label="بدائل مقترحة" value={formatList(detail.repair?.compatibleSourceSuggestions?.map((source) => premiumDisplayName(source.name)))} />
         <DetailItem label="إعادة الربط متاحة" value={yesNo(detail.repair?.canRelink)} />
       </DetailSection>
 
       <DetailSection title="معلومات النسخة">
         <DetailItem label="رقم النسخة" value={detail.revision ?? "-"} />
-        <DetailItem label="تاريخ الإنشاء" value={formatDate(readString(detail.createdAt))} />
-        <DetailItem label="آخر تحديث" value={formatDate(readString(detail.updatedAt))} />
-        <DetailItem label="تاريخ الأرشفة" value={formatDate(readString(detail.archivedAt))} />
       </DetailSection>
 
       <details className="rounded-lg border">
@@ -150,10 +148,10 @@ function DetailContent({ detail }: { detail: PremiumUpgradeConfigDto }) {
         <div className="grid gap-3 p-3 text-sm sm:grid-cols-2">
           <DetailItem label="id" value={detail.id} />
           <DetailItem label="revision" value={detail.revision ?? "-"} />
-          <DetailItem label="issueCode" value={detail.issueCode || "-"} />
-          <DetailItem label="sourceId" value={detail.sourceId || "-"} />
-          <DetailItem label="sourceProductId" value={readString(detail.sourceProductId) || "-"} />
-          <DetailItem label="sourceGroupId" value={readString(detail.sourceGroupId) || "-"} />
+          <DetailItem label="health.code" value={healthCode || "-"} />
+          <DetailItem label="source.id" value={readString(source.id) || detail.sourceId || "-"} />
+          <DetailItem label="source.productId" value={readString(source.productId) || "-"} />
+          <DetailItem label="source.groupId" value={readString(source.groupId) || "-"} />
         </div>
       </details>
     </>
@@ -246,23 +244,7 @@ function formatValue(value: string | number | boolean | null | undefined) {
   return String(value);
 }
 
-function formatDate(value?: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("ar-SA", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
 function formatList(value: unknown) {
   if (!Array.isArray(value) || value.length === 0) return "-";
   return value.map((item) => String(item)).join("، ");
-}
-
-function translateText(value?: string) {
-  if (!value) return "-";
-  if (value === "subscription_total_meals") return "إجمالي وجبات الاشتراك";
-  return value;
 }

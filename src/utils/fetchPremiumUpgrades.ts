@@ -163,11 +163,16 @@ export function buildRelinkPremiumUpgradePayload({
   row: PremiumUpgradeConfigDto;
   selectedSource: PremiumUpgradeSourceDto;
 }): PremiumUpgradeUpdatePayload {
-  return {
-    expectedRevision: row.revision ?? 0,
+  const payload: PremiumUpgradeUpdatePayload = {
     kind: selectedSource.kind === "product" ? "product" : "option",
     sourceId: selectedSource.id || selectedSource.sourceId,
   };
+  if (row.revision !== undefined) payload.expectedRevision = row.revision;
+  if (selectedSource.kind === "option") {
+    payload.sourceProductId = selectedSource.sourceProductId ?? null;
+    payload.sourceGroupId = selectedSource.sourceGroupId ?? null;
+  }
+  return payload;
 }
 
 export function showPremiumUpgradeError(error: unknown) {
@@ -272,6 +277,19 @@ export function premiumRowStatus(row: PremiumUpgradeConfigDto): string {
 }
 
 export function premiumEditStateFromRow(row: PremiumUpgradeConfigDto) {
+  const display = readRecord(row.display);
+  if (display.enabled !== undefined || display.visible !== undefined) {
+    return {
+      isActive:
+        display.enabled !== undefined
+          ? Boolean(display.enabled)
+          : row.isEnabled !== false,
+      isVisible:
+        display.visible !== undefined
+          ? Boolean(display.visible)
+          : row.isVisible !== false,
+    };
+  }
   const status = premiumRowStatus(row);
   if (status === "active") return { isActive: true, isVisible: true };
   if (status === "hidden") return { isActive: true, isVisible: false };
@@ -285,6 +303,50 @@ export function premiumEditStateFromRow(row: PremiumUpgradeConfigDto) {
     isActive: row.isEnabled !== false,
     isVisible: row.isVisible !== false,
   };
+}
+
+export function premiumDetailRevision(row: PremiumUpgradeConfigDto) {
+  return Number.isInteger(row.revision) ? row.revision : undefined;
+}
+
+export function premiumDetailSortOrder(row: PremiumUpgradeConfigDto) {
+  const display = readRecord(row.display);
+  const sortOrder = Number(display.sortOrder ?? row.sortOrder ?? 0);
+  return Number.isFinite(sortOrder) ? sortOrder : 0;
+}
+
+export function premiumDetailCurrency(row: PremiumUpgradeConfigDto) {
+  const pricing = readRecord(row.pricing);
+  return String(pricing.currency || row.currency || "SAR").toUpperCase() as "SAR";
+}
+
+export function premiumDetailUpgradeDeltaSar(row: PremiumUpgradeConfigDto) {
+  const pricing = readRecord(row.pricing);
+  if (pricing.upgradeDeltaSar !== undefined && pricing.upgradeDeltaSar !== null) {
+    const amount = Number(pricing.upgradeDeltaSar);
+    if (Number.isFinite(amount)) return amount;
+  }
+  return premiumPriceSar(row);
+}
+
+export function premiumDetailUpgradeDeltaHalala(row: PremiumUpgradeConfigDto) {
+  const pricing = readRecord(row.pricing);
+  if (pricing.upgradeDeltaHalala !== undefined && pricing.upgradeDeltaHalala !== null) {
+    const amount = Number(pricing.upgradeDeltaHalala);
+    if (Number.isFinite(amount)) return amount;
+  }
+  return premiumPriceHalala(row);
+}
+
+export function premiumDetailHealthStatus(row: PremiumUpgradeConfigDto): PremiumUpgradeHealth {
+  const health = readRecord(row.health);
+  if (health.status === "ready" || health.status === "broken") return health.status;
+  return premiumRowHealth(row);
+}
+
+export function premiumDetailHealthCode(row: PremiumUpgradeConfigDto) {
+  const health = readRecord(row.health);
+  return typeof health.code === "string" && health.code ? health.code : row.issueCode || null;
 }
 
 export function normalizePremiumUpgradeRow(
@@ -413,6 +475,10 @@ export function sourceRelationContext(source: PremiumUpgradeSourceDto) {
     .join(" — ");
 }
 
+export function sourceGroupName(source: PremiumUpgradeSourceDto) {
+  return formatSourceContextValue(source.group);
+}
+
 export function buildListParams(filters: PremiumUpgradeListFilters) {
   const params: Record<string, string | number> = {
     page: filters.page,
@@ -450,4 +516,10 @@ function formatSourceContextValue(value: PremiumUpgradeSourceDto["group"]) {
 function halalaFromSar(value: unknown) {
   const amount = Number(value);
   return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }

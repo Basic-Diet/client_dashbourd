@@ -22,7 +22,15 @@ export type PremiumUpgradeConfigDto = {
   priceSar?: number | null;
   currency?: "SAR" | string | null;
   status?: PremiumUpgradeStatus | string | null;
-  health?: PremiumUpgradeHealth | string | null;
+  health?:
+    | PremiumUpgradeHealth
+    | string
+    | {
+        status?: PremiumUpgradeHealth | string | null;
+        code?: string | null;
+        message?: string | null;
+      }
+    | null;
   issueCode?: string | null;
   sortOrder?: number | null;
 
@@ -178,9 +186,11 @@ export type PremiumUpgradeCreatePayload = {
 };
 
 export type PremiumUpgradeUpdatePayload = {
-  expectedRevision: number;
+  expectedRevision?: number;
   kind?: PremiumUpgradeKind;
   sourceId?: string;
+  sourceProductId?: string | null;
+  sourceGroupId?: string | null;
   upgradeDeltaHalala?: number;
   currency?: "SAR";
   isActive?: boolean;

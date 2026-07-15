@@ -14,8 +14,12 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { PremiumUpgradeConfigDto } from "@/types/premiumUpgradeTypes";
-import { useArchivePremiumUpgradeMutation } from "@/hooks/usePremiumUpgradesQuery";
-import { premiumRowName } from "@/utils/fetchPremiumUpgrades";
+import {
+  useArchivePremiumUpgradeMutation,
+  usePremiumUpgradeDetailQuery,
+} from "@/hooks/usePremiumUpgradesQuery";
+import { parseApiError } from "@/lib/apiErrors";
+import { premiumDetailRevision, premiumRowName } from "@/utils/fetchPremiumUpgrades";
 
 export function ArchivePremiumUpgradeDialog({
   row,
@@ -26,6 +30,9 @@ export function ArchivePremiumUpgradeDialog({
   onClose: () => void;
   onArchived: () => void;
 }) {
+  const detailQuery = usePremiumUpgradeDetailQuery(row?.id ?? null);
+  const detail = detailQuery.data?.data ?? null;
+
   return (
     <Dialog open={Boolean(row)} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="w-[calc(100%-1.5rem)] max-w-md" dir="rtl">
@@ -36,12 +43,22 @@ export function ArchivePremiumUpgradeDialog({
           </DialogDescription>
         </DialogHeader>
         {row ? (
+          detailQuery.isLoading ? (
+            <div className="h-24 rounded-lg bg-muted/60" />
+          ) : detailQuery.isError ? (
+            <ArchiveError error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
+          ) : detail ? (
           <ArchivePremiumUpgradeForm
-            key={row.id}
-            row={row}
+            key={`${detail.id}-${detail.revision ?? "detail"}`}
+            row={detail}
             onClose={onClose}
             onArchived={onArchived}
           />
+          ) : (
+            <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+              لا توجد بيانات لهذا السجل.
+            </div>
+          )
         ) : null}
       </DialogContent>
     </Dialog>
@@ -59,6 +76,7 @@ function ArchivePremiumUpgradeForm({
 }) {
   const [reason, setReason] = useState("");
   const archiveMutation = useArchivePremiumUpgradeMutation(onArchived);
+  const revision = premiumDetailRevision(row);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -66,9 +84,13 @@ function ArchivePremiumUpgradeForm({
       toast.error("اكتب سبب الأرشفة بوضوح.");
       return;
     }
+    const payload = { reason: reason.trim() };
     archiveMutation.mutate({
       id: row.id,
-      payload: { expectedRevision: row.revision, reason: reason.trim() },
+      payload:
+        revision !== undefined
+          ? { ...payload, expectedRevision: revision }
+          : payload,
     });
   }
 
@@ -99,5 +121,17 @@ function ArchivePremiumUpgradeForm({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function ArchiveError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const parsed = parseApiError(error);
+  return (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+      <p className="font-medium">{parsed.message}</p>
+      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onRetry}>
+        إعادة المحاولة
+      </Button>
+    </div>
   );
 }
