@@ -276,6 +276,41 @@ export function premiumRowStatus(row: PremiumUpgradeConfigDto): string {
   return "active";
 }
 
+export function premiumDetailStatus(
+  compactRow: PremiumUpgradeConfigDto | null | undefined,
+  detailRow: PremiumUpgradeConfigDto
+): PremiumUpgradeStatus {
+  if (compactRow?.status === "archived") return "archived";
+  if (compactRow?.status) return compactRow.status as PremiumUpgradeStatus;
+
+  const display = readRecord(detailRow.display);
+  const enabled = display.enabled ?? detailRow.isEnabled;
+  const visible = display.visible ?? detailRow.isVisible;
+
+  if (enabled === false) return "disabled";
+  if (enabled === true && visible === false) return "hidden";
+  return "active";
+}
+
+export const premiumDetailStatusVerification = Object.freeze({
+  archived: premiumDetailStatus(
+    { id: "archived", status: "archived" },
+    { id: "archived", display: { enabled: true, visible: true } }
+  ),
+  disabled: premiumDetailStatus(null, {
+    id: "disabled",
+    display: { enabled: false, visible: true },
+  }),
+  hidden: premiumDetailStatus(null, {
+    id: "hidden",
+    display: { enabled: true, visible: false },
+  }),
+  active: premiumDetailStatus(null, {
+    id: "active",
+    display: { enabled: true, visible: true },
+  }),
+});
+
 export function premiumEditStateFromRow(row: PremiumUpgradeConfigDto) {
   const display = readRecord(row.display);
   if (display.enabled !== undefined || display.visible !== undefined) {

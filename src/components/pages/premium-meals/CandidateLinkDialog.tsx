@@ -151,8 +151,7 @@ function CandidateLinkDialogContent({
       <DialogHeader className="border-b px-5 py-4 text-right">
         <DialogTitle>إضافة ترقية مميزة</DialogTitle>
         <DialogDescription>
-          اختر مصدر الترقية الكامل. خيارات الوجبات تحفظ علاقة الخيار بالمنتج
-          والمجموعة حتى لا يتم ربط مصدر خاطئ.
+          اختر نوع الترقية ثم حدد العنصر المطلوب من المنيو.
         </DialogDescription>
       </DialogHeader>
 

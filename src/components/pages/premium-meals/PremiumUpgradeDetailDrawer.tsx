@@ -16,6 +16,7 @@ import {
   formatPremiumSar,
   premiumDetailHealthCode,
   premiumDetailHealthStatus,
+  premiumDetailStatus,
   premiumDetailUpgradeDeltaHalala,
   premiumDetailUpgradeDeltaSar,
   premiumHealthLabel,
@@ -24,7 +25,6 @@ import {
   premiumRowKey,
   premiumRowKind,
   premiumRowName,
-  premiumRowStatus,
   premiumStatusLabel,
 } from "@/utils/fetchPremiumUpgrades";
 
@@ -36,7 +36,9 @@ export function PremiumUpgradeDetailDrawer({
   onClose: () => void;
 }) {
   const detailQuery = usePremiumUpgradeDetailQuery(row?.id ?? null);
-  const detail = detailQuery.data?.data ?? row;
+  const detail = detailQuery.data?.data && row
+    ? { ...row, ...detailQuery.data.data }
+    : row;
 
   return (
     <Drawer
@@ -73,7 +75,7 @@ export function PremiumUpgradeDetailDrawer({
           ) : detailQuery.isError ? (
             <DetailError error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
           ) : detail ? (
-            <DetailContent detail={detail} />
+            <DetailContent compactRow={row} detail={detail} />
           ) : (
             <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
               لا توجد بيانات لهذا السجل.
@@ -85,7 +87,13 @@ export function PremiumUpgradeDetailDrawer({
   );
 }
 
-function DetailContent({ detail }: { detail: PremiumUpgradeConfigDto }) {
+function DetailContent({
+  compactRow,
+  detail,
+}: {
+  compactRow: PremiumUpgradeConfigDto | null;
+  detail: PremiumUpgradeConfigDto;
+}) {
   const source = asRecord(detail.source);
   const pricing = asRecord(detail.pricing);
   const display = asRecord(detail.display);
@@ -116,7 +124,7 @@ function DetailContent({ detail }: { detail: PremiumUpgradeConfigDto }) {
       </DetailSection>
 
       <DetailSection title="العرض والحالة">
-        <DetailItem label="الحالة" value={premiumStatusLabel(premiumRowStatus(detail))} />
+        <DetailItem label="الحالة" value={premiumStatusLabel(premiumDetailStatus(compactRow, detail))} />
         <DetailItem label="نشط" value={yesNo(display.enabled ?? detail.isEnabled)} />
         <DetailItem label="ظاهر للعميل" value={yesNo(display.visible ?? detail.isVisible)} />
         <DetailItem label="الترتيب" value={readNumber(display.sortOrder) ?? detail.sortOrder ?? 0} />
