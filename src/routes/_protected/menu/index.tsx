@@ -3,7 +3,7 @@ import { BookOpen, CheckCircle2, FileText, Layers } from "lucide-react";
 
 import { MenuAuditLogTab } from "@/components/pages/menu/audit/MenuAuditLogTab";
 import { MenuCategoriesTab } from "@/components/pages/menu/categories/MenuCategoriesTab";
-import { MealBuilderPage } from "@/components/pages/menu/meal-builder/MealBuilderPage";
+import { MealBuilderSimplePage } from "@/components/pages/menu/meal-builder/MealBuilderSimplePage";
 import { MenuPublishDialog } from "@/components/pages/menu/MenuPublishDialog";
 import { MenuValidationDialog } from "@/components/pages/menu/MenuValidationDialog";
 import { MenuOptionGroupsTab } from "@/components/pages/menu/option-groups/MenuOptionGroupsTab";
@@ -127,7 +127,7 @@ function MenuPage() {
           </div>
         </TabsContent>
         <TabsContent value="meal-builder" className="mt-5">
-          <MealBuilderPage />
+          <MealBuilderSimplePage />
         </TabsContent>
         <TabsContent value="preview" className="mt-5">
           <div className="grid gap-5">
