@@ -23,6 +23,7 @@ import {
 import type {
   MealBuilderConfig,
   MealBuilderDraftPayload,
+  MealBuilderLifecycleResponse,
   MealBuilderPickerParams,
 } from "@/types/mealBuilderTypes";
 import { mealBuilderErrorMessage } from "@/components/pages/menu/meal-builder/mealBuilderFrontendUtils";
@@ -56,7 +57,12 @@ export const mealBuilderQueryOptions = () =>
           ...response.data,
           metadata: response.data.metadata ?? {
             mode: draft ? "draft" : "published",
-            versionId: draft?.versionId ?? draft?.id ?? published?.versionId ?? published?.id ?? null,
+            versionId:
+              draft?.versionId ??
+              draft?.id ??
+              published?.versionId ??
+              published?.id ??
+              null,
             draftVersionId: draft?.versionId ?? draft?.id ?? null,
             versionNumber: draft?.versionNumber ?? published?.versionNumber ?? null,
             basedOnPublishedVersionId: draft?.basedOnPublishedVersionId ?? null,
@@ -76,14 +82,48 @@ export const mealBuilderQueryOptions = () =>
 export const mealBuilderPublishedQueryOptions = () =>
   queryOptions({
     queryKey: [MEAL_BUILDER_PUBLISHED_KEY],
-    queryFn: getPublishedMealBuilder,
+    queryFn: async (): Promise<MealBuilderLifecycleResponse> => {
+      const response = await getPublishedMealBuilder();
+      const config = response.data.config as VersionedMealBuilderConfig | null | undefined;
+      return {
+        ...response,
+        data: {
+          ...response.data,
+          versionId: config?.versionId ?? config?.id ?? null,
+          versionNumber: config?.versionNumber ?? null,
+          basedOnPublishedVersionId: config?.basedOnPublishedVersionId ?? null,
+          publishedAt: config?.publishedAt ?? null,
+          updatedAt: config?.updatedAt ?? null,
+        },
+      };
+    },
     staleTime: 1000 * 30,
   });
 
 export const mealBuilderDraftQueryOptions = (enabled = true) =>
   queryOptions({
     queryKey: [MEAL_BUILDER_DRAFT_KEY],
-    queryFn: getMealBuilderDraft,
+    queryFn: async (): Promise<MealBuilderLifecycleResponse> => {
+      const response = await getMealBuilderDraft();
+      const config = response.data as unknown as VersionedMealBuilderConfig;
+      return {
+        ...response,
+        data: {
+          config,
+          draft: config,
+          mode: config.mode ?? "draft",
+          versionId: config.versionId ?? config.id ?? null,
+          draftVersionId: config.versionId ?? config.id ?? null,
+          versionNumber: config.versionNumber ?? null,
+          basedOnPublishedVersionId: config.basedOnPublishedVersionId ?? null,
+          hasDraft: true,
+          hasUnpublishedChanges: config.hasUnpublishedChanges ?? true,
+          publishedAt: config.publishedAt ?? null,
+          updatedAt: config.updatedAt ?? null,
+          status: config.status ?? "draft",
+        },
+      };
+    },
     enabled,
     staleTime: 1000 * 20,
   });
@@ -214,6 +254,7 @@ function invalidateMealBuilderQueries(
 }
 
 type VersionedMealBuilderConfig = MealBuilderConfig & {
+  mode?: "published" | "draft" | string;
   versionId?: string | null;
   versionNumber?: number | string | null;
   basedOnPublishedVersionId?: string | null;
