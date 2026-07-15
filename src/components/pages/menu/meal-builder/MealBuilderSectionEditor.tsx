@@ -86,19 +86,43 @@ export function MealBuilderSectionEditor({
   );
 
   const readyProducts = useMemo(
-    () => products.filter(isCatalogItemReady),
-    [products]
+    () =>
+      products.filter(
+        (product) =>
+          product.id === section.productContextId || isCatalogItemReady(product)
+      ),
+    [products, section.productContextId]
   );
   const readyCategories = useMemo(
-    () => categories.filter(isCatalogItemReady),
-    [categories]
+    () =>
+      categories.filter(
+        (category) =>
+          category.id === section.sourceCategoryId || isCatalogItemReady(category)
+      ),
+    [categories, section.sourceCategoryId]
   );
-  const linkedGroupChoices = groups.filter(
-    (group) => linkedGroupIds.has(group.id) || group.id === section.sourceGroupId
-  );
-  const optionChoices = options
-    .filter((option) => relationOptionIds.has(option.id))
-    .filter((option) => matches(option, query));
+  const linkedGroupChoices = useMemo(() => {
+    const byId = new Map<string, MenuOptionGroup>();
+    groups.forEach((group) => {
+      if (linkedGroupIds.has(group.id) || group.id === section.sourceGroupId) {
+        byId.set(group.id, group);
+      }
+    });
+    linkedGroups.forEach((relation) => {
+      if (relation.group?.id) byId.set(relation.group.id, relation.group);
+    });
+    return Array.from(byId.values());
+  }, [groups, linkedGroupIds, linkedGroups, section.sourceGroupId]);
+  const optionChoices = useMemo(() => {
+    const byId = new Map(options.map((option) => [option.id, option]));
+    composerGroup?.options?.forEach((relation) => {
+      if (relation.option?.id) byId.set(relation.option.id, relation.option);
+    });
+    return Array.from(relationOptionIds)
+      .map((id) => byId.get(id))
+      .filter((option): option is MenuOption => Boolean(option))
+      .filter((option) => matches(option, query));
+  }, [composerGroup?.options, options, query, relationOptionIds]);
   const productChoices = products
     .filter((product) => {
       if (type === "product_category") {
@@ -661,9 +685,29 @@ function SwitchLine({
 function isCatalogItemReady(
   item: Partial<MenuProduct | MenuOption | MenuCategory | MenuOptionGroup>
 ) {
-  return (
-    item.isActive !== false &&
-    item.isVisible !== false &&
-    item.isAvailable !== false
-  );
+  if (
+    item.isActive === false ||
+    item.isVisible === false ||
+    item.isAvailable === false
+  ) {
+    return false;
+  }
+
+  if (
+    "availableForSubscription" in item &&
+    item.availableForSubscription === false
+  ) {
+    return false;
+  }
+
+  if (
+    "availableFor" in item &&
+    Array.isArray(item.availableFor) &&
+    item.availableFor.length > 0 &&
+    !item.availableFor.includes("subscription")
+  ) {
+    return false;
+  }
+
+  return true;
 }
