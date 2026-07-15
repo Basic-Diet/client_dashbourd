@@ -14,7 +14,7 @@ import {
   premiumDisplayName,
   premiumKindLabel,
   sourceConflictMessage,
-  sourceGroupName,
+  sourceRelationContext,
 } from "@/utils/fetchPremiumUpgrades";
 import { parseApiError } from "@/lib/apiErrors";
 import { cn } from "@/lib/utils";
@@ -77,7 +77,7 @@ export function MenuSourcePicker({
                   {premiumDisplayName(selected.name)}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {[selected.key, sourceGroupName(selected), premiumKindLabel(selected.kind)]
+                  {[selected.key, sourceRelationContext(selected), premiumKindLabel(selected.kind)]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
@@ -247,7 +247,7 @@ function SourceList({
                       {premiumDisplayName(source.name)}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {sourceGroupName(source) || source.key || ""}
+                      {sourceRelationContext(source) || source.key || ""}
                     </p>
                     {source.key ? (
                       <p className="truncate text-xs text-muted-foreground">

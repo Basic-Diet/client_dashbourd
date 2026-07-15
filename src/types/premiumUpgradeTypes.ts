@@ -178,6 +178,7 @@ export type PremiumUpgradeSourceFilters = {
 export type PremiumUpgradeCreatePayload = {
   kind: PremiumUpgradeKind;
   sourceId: string;
+  relationId?: string;
   upgradeDeltaHalala: number;
   currency: "SAR";
   isActive: boolean;
@@ -189,8 +190,7 @@ export type PremiumUpgradeUpdatePayload = {
   expectedRevision?: number;
   kind?: PremiumUpgradeKind;
   sourceId?: string;
-  sourceProductId?: string | null;
-  sourceGroupId?: string | null;
+  relationId?: string;
   upgradeDeltaHalala?: number;
   currency?: "SAR";
   isActive?: boolean;

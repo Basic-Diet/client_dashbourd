@@ -38,7 +38,8 @@ import {
   premiumRowHealth,
   premiumRowKind,
   premiumRowName,
-  sourceGroupName,
+  sourceHasRequiredRelation,
+  sourceRelationContext,
 } from "@/utils/fetchPremiumUpgrades";
 import { useDebounce } from "@/hooks/useDebounce";
 import { isValidRiyalInput, riyalToHalala } from "@/utils/price";
@@ -265,6 +266,13 @@ function RelinkPremiumUpgradeForm({
       return;
     }
 
+    if (!sourceHasRequiredRelation(selectedSource)) {
+      toast.error(
+        "تعذر تحديد علاقة هذا الخيار. حدّث قائمة المصادر واختر العنصر مرة أخرى."
+      );
+      return;
+    }
+
     updateMutation.mutate({
       id: row.id,
       payload: buildRelinkPremiumUpgradePayload({ row, selectedSource }),
@@ -321,8 +329,8 @@ function RelinkPremiumUpgradeForm({
             value={premiumDisplayName(selectedSource.name)}
           />
           <ReadOnlyItem
-            label="المجموعة"
-            value={sourceGroupName(selectedSource) || "-"}
+            label="السياق"
+            value={sourceRelationContext(selectedSource) || "-"}
           />
         </div>
       ) : null}

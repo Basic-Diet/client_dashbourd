@@ -23,7 +23,8 @@ import {
   defaultPremiumUpgradeSourceFilters,
   getSourceRelationId,
   premiumDisplayName,
-  sourceGroupName,
+  sourceHasRequiredRelation,
+  sourceRelationContext,
 } from "@/utils/fetchPremiumUpgrades";
 import { isValidRiyalInput } from "@/utils/price";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -127,6 +128,12 @@ function CandidateLinkDialogContent({
       toast.error("المصدر المحدد غير متاح للاشتراكات.");
       return;
     }
+    if (!sourceHasRequiredRelation(selectedSource)) {
+      toast.error(
+        "تعذر تحديد علاقة هذا الخيار. حدّث قائمة المصادر واختر العنصر مرة أخرى."
+      );
+      return;
+    }
     if (!isValidRiyalInput(form.upgradePriceSarInput)) {
       toast.error("سعر الترقية يجب أن يكون رقمًا غير سالب بالريال.");
       return;
@@ -203,7 +210,10 @@ function CandidateLinkDialogContent({
                   label="مفتاح المصدر"
                   value={form.selectedSource.key || form.selectedSource.sourceId}
                 />
-                <ReadOnlyItem label="المجموعة" value={sourceGroupName(form.selectedSource) || "-"} />
+                <ReadOnlyItem
+                  label="السياق"
+                  value={sourceRelationContext(form.selectedSource) || "-"}
+                />
               </div>
             ) : null}
           </section>

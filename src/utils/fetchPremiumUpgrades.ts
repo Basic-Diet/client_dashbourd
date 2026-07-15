@@ -45,6 +45,8 @@ export const defaultPremiumUpgradeSourceFilters: PremiumUpgradeSourceFilters = {
 const premiumErrorMessages: Record<string, string> = {
   PREMIUM_SOURCE_NOT_FOUND: "المصدر المحدد لم يعد موجودًا",
   PREMIUM_SOURCE_NOT_SELECTABLE: "المصدر المحدد غير متاح للاشتراكات",
+  PREMIUM_SOURCE_RELATION_AMBIGUOUS:
+    "هذا الخيار مرتبط بأكثر من وجبة. اختر العلاقة المحددة من قائمة المصادر.",
   PREMIUM_SOURCE_RELATION_INVALID:
     "علاقة الخيار بالمنتج أو المجموعة غير صالحة",
   PREMIUM_SOURCE_CONFLICT: "هذا المصدر مربوط بترقية مميزة أخرى",
@@ -145,15 +147,19 @@ export function buildCreatePremiumUpgradePayload(form: {
   isVisible: boolean;
   sortOrder: string;
 }): PremiumUpgradeCreatePayload {
-  return {
+  const payload: PremiumUpgradeCreatePayload = {
     kind: form.kind,
-    sourceId: form.selectedSource.id || form.selectedSource.sourceId,
+    sourceId: form.selectedSource.sourceId,
     upgradeDeltaHalala: riyalToHalala(form.upgradePriceSarInput),
     currency: form.currency,
     isActive: Boolean(form.isActive),
     isVisible: Boolean(form.isVisible),
     sortOrder: Number(form.sortOrder),
   };
+  if (form.kind === "option" && form.selectedSource.relationId) {
+    payload.relationId = form.selectedSource.relationId;
+  }
+  return payload;
 }
 
 export function buildRelinkPremiumUpgradePayload({
@@ -165,12 +171,11 @@ export function buildRelinkPremiumUpgradePayload({
 }): PremiumUpgradeUpdatePayload {
   const payload: PremiumUpgradeUpdatePayload = {
     kind: selectedSource.kind === "product" ? "product" : "option",
-    sourceId: selectedSource.id || selectedSource.sourceId,
+    sourceId: selectedSource.sourceId,
   };
   if (row.revision !== undefined) payload.expectedRevision = row.revision;
-  if (selectedSource.kind === "option") {
-    payload.sourceProductId = selectedSource.sourceProductId ?? null;
-    payload.sourceGroupId = selectedSource.sourceGroupId ?? null;
+  if (selectedSource.kind === "option" && selectedSource.relationId) {
+    payload.relationId = selectedSource.relationId;
   }
   return payload;
 }
@@ -179,10 +184,21 @@ export function showPremiumUpgradeError(error: unknown) {
   const code = getPremiumUpgradeErrorCode(error);
   const parsed = parseApiError(error);
   toast.error(
-    (code && premiumErrorMessages[code]) ||
+    premiumErrorMessageForCode(code) ||
       parsed.message ||
       "حدث خطأ غير متوقع. حدّث البيانات وحاول مرة أخرى."
   );
+}
+
+export function premiumErrorMessageForCode(code?: string | null) {
+  switch (code) {
+    case "PREMIUM_SOURCE_RELATION_AMBIGUOUS":
+      return "هذا الخيار مرتبط بأكثر من وجبة. اختر العلاقة المحددة من قائمة المصادر.";
+    case "PREMIUM_SOURCE_RELATION_INVALID":
+      return "ربط المصدر غير صحيح. حدّث قائمة المصادر واختر العنصر مرة أخرى.";
+    default:
+      return code ? premiumErrorMessages[code] : undefined;
+  }
 }
 
 export function getPremiumUpgradeErrorCode(error: unknown): string | null {
@@ -310,6 +326,96 @@ export const premiumDetailStatusVerification = Object.freeze({
     display: { enabled: true, visible: true },
   }),
 });
+
+export const premiumPayloadVerification = Object.freeze((() => {
+  const productCreate = buildCreatePremiumUpgradePayload({
+    kind: "product",
+    selectedSource: {
+      id: "product-source-row",
+      sourceId: "product-1",
+      kind: "product",
+      relationId: "",
+    },
+    upgradePriceSarInput: "25",
+    currency: "SAR",
+    isActive: true,
+    isVisible: true,
+    sortOrder: "10",
+  });
+  const optionCreate = buildCreatePremiumUpgradePayload({
+    kind: "option",
+    selectedSource: {
+      id: "option-source-row",
+      sourceId: "option-1",
+      kind: "option",
+      relationId: "relation-1",
+    },
+    upgradePriceSarInput: "25",
+    currency: "SAR",
+    isActive: true,
+    isVisible: true,
+    sortOrder: "10",
+  });
+  const productRelink = buildRelinkPremiumUpgradePayload({
+    row: { id: "config-1", revision: 3 },
+    selectedSource: {
+      id: "product-source-row",
+      sourceId: "product-1",
+      kind: "product",
+      relationId: "",
+      sourceProductId: "legacy-product",
+      sourceGroupId: "legacy-group",
+    },
+  });
+  const optionRelink = buildRelinkPremiumUpgradePayload({
+    row: { id: "config-1", revision: 3 },
+    selectedSource: {
+      id: "option-source-row",
+      sourceId: "option-1",
+      kind: "option",
+      relationId: "relation-1",
+      sourceProductId: "legacy-product",
+      sourceGroupId: "legacy-group",
+    },
+  });
+  const relationIdentities = [
+    getSourceRelationId({
+      id: "option-source-row-a",
+      sourceId: "option-1",
+      kind: "option",
+      relationId: "relation-a",
+    }),
+    getSourceRelationId({
+      id: "option-source-row-b",
+      sourceId: "option-1",
+      kind: "option",
+      relationId: "relation-b",
+    }),
+  ];
+
+  return {
+    productCreateOmitsRelationId: !("relationId" in productCreate),
+    optionCreateIncludesRelationId: optionCreate.relationId === "relation-1",
+    productRelinkOmitsRelationId: !("relationId" in productRelink),
+    optionRelinkIncludesRelationId: optionRelink.relationId === "relation-1",
+    relinkOmitsLegacyRelationFields:
+      !("sourceProductId" in optionRelink) && !("sourceGroupId" in optionRelink),
+    relationIdentitiesRemainDistinct:
+      relationIdentities[0] === "relation-a" &&
+      relationIdentities[1] === "relation-b",
+    missingOptionRelationBlocksSubmit: !sourceHasRequiredRelation({
+      id: "option-source-row",
+      sourceId: "option-1",
+      kind: "option",
+      relationId: "",
+    }),
+    ambiguousRelationMessage: premiumErrorMessageForCode(
+      "PREMIUM_SOURCE_RELATION_AMBIGUOUS"
+    ),
+    detailsStatusMapping: premiumDetailStatusVerification,
+    riyalConversionHalala: riyalToHalala("25"),
+  };
+})());
 
 export function premiumEditStateFromRow(row: PremiumUpgradeConfigDto) {
   const display = readRecord(row.display);
@@ -450,7 +556,7 @@ export function getSourceRelationId(source: PremiumUpgradeSourceDto) {
 
 export function sourceHasRequiredRelation(source: PremiumUpgradeSourceDto) {
   if (source.kind !== "option") return true;
-  return Boolean(source.sourceId && source.sourceProductId && source.sourceGroupId);
+  return Boolean(source.relationId);
 }
 
 export function isSourceCompatibleWithConfig(
