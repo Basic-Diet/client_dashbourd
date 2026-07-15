@@ -112,6 +112,13 @@ export interface MealBuilderHydratedItem {
   warnings?: MealBuilderCheck[];
   errors?: MealBuilderCheck[];
   state?: "selected" | "eligible" | "not_linked" | "unavailable" | "invalid" | string;
+  includedVia?: string | null;
+  automatic?: boolean;
+  action?: {
+    requiresBuilder?: boolean;
+    treatAsFullMeal?: boolean;
+    [key: string]: unknown;
+  };
   pricing?: Record<string, unknown>;
   relation?: Record<string, unknown> | null;
   imageUrl?: string | null;
@@ -184,6 +191,7 @@ export interface MealBuilderContract {
   revisionHash: string;
   publishedAt: string | null;
   sections: MealBuilderContractSection[];
+  premiumSection?: MealBuilderPremiumSection | null;
 }
 
 export interface MealBuilderPremiumSection {
