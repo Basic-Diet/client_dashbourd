@@ -377,7 +377,6 @@ function Summary({ row }: { row: PremiumUpgradeConfigDto }) {
       <ReadOnlyItem label="الاسم" value={premiumRowName(row)} />
       <ReadOnlyItem label="المفتاح" value={row.key || row.premiumKey || "-"} />
       <ReadOnlyItem label="النوع" value={premiumKindLabel(premiumRowKind(row))} />
-      <ReadOnlyItem label="المصدر" value={row.sourceId || "-"} />
       <ReadOnlyItem
         label="الصحة"
         value={premiumRowHealth(row) === "broken" ? "يحتاج إصلاح" : "جاهز"}
