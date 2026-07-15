@@ -21,6 +21,7 @@ import {
   validateMealBuilderDraft,
 } from "@/utils/fetchMealBuilder";
 import type {
+  MealBuilderConfig,
   MealBuilderDraftPayload,
   MealBuilderPickerParams,
 } from "@/types/mealBuilderTypes";
@@ -44,7 +45,31 @@ const mealBuilderInvalidateKeys = [
 export const mealBuilderQueryOptions = () =>
   queryOptions({
     queryKey: [MEAL_BUILDER_KEY],
-    queryFn: getMealBuilder,
+    queryFn: async () => {
+      const response = await getMealBuilder();
+      const draft = response.data.draft as VersionedMealBuilderConfig | null;
+      const published = response.data.published as VersionedMealBuilderConfig | null;
+
+      return {
+        ...response,
+        data: {
+          ...response.data,
+          metadata: response.data.metadata ?? {
+            mode: draft ? "draft" : "published",
+            versionId: draft?.versionId ?? draft?.id ?? published?.versionId ?? published?.id ?? null,
+            draftVersionId: draft?.versionId ?? draft?.id ?? null,
+            versionNumber: draft?.versionNumber ?? published?.versionNumber ?? null,
+            basedOnPublishedVersionId: draft?.basedOnPublishedVersionId ?? null,
+            hasDraft: Boolean(draft),
+            hasUnpublishedChanges:
+              draft?.hasUnpublishedChanges ?? Boolean(draft),
+            publishedAt: published?.publishedAt ?? null,
+            updatedAt: draft?.updatedAt ?? published?.updatedAt ?? null,
+            status: draft?.status ?? published?.status ?? null,
+          },
+        },
+      };
+    },
     staleTime: 1000 * 30,
   });
 
@@ -187,3 +212,10 @@ function invalidateMealBuilderQueries(
     queryClient.invalidateQueries({ queryKey });
   });
 }
+
+type VersionedMealBuilderConfig = MealBuilderConfig & {
+  versionId?: string | null;
+  versionNumber?: number | string | null;
+  basedOnPublishedVersionId?: string | null;
+  hasUnpublishedChanges?: boolean;
+};
