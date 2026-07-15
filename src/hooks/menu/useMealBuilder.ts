@@ -1,4 +1,11 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+
 import { useMutationWithToast } from "@/hooks/useMutationWithToast";
 import {
   createMealBuilderDraft,
@@ -17,6 +24,7 @@ import type {
   MealBuilderDraftPayload,
   MealBuilderPickerParams,
 } from "@/types/mealBuilderTypes";
+import { mealBuilderErrorMessage } from "@/components/pages/menu/meal-builder/mealBuilderFrontendUtils";
 
 export const MEAL_BUILDER_KEY = "dashboard.meal-builder";
 export const MEAL_BUILDER_PUBLISHED_KEY = "dashboard.meal-builder.published";
@@ -103,7 +111,9 @@ export const useMealBuilderReadinessQuery = () =>
 export const useCreateMealBuilderDraftMutation = () =>
   useMutationWithToast({
     mutationFn: createMealBuilderDraft,
-    successMessage: "تم فتح المسودة",
+    successMessage: "تم إنشاء المسودة",
+    errorMessage: (error) =>
+      mealBuilderErrorMessage(error, "تعذر إنشاء مسودة منشئ الوجبات"),
     invalidateKeys: mealBuilderInvalidateKeys,
   });
 
@@ -111,6 +121,8 @@ export const useSaveMealBuilderDraftMutation = () =>
   useMutationWithToast({
     mutationFn: updateMealBuilderDraft,
     successMessage: "تم حفظ المسودة",
+    errorMessage: (error) =>
+      mealBuilderErrorMessage(error, "تعذر حفظ مسودة منشئ الوجبات"),
     invalidateKeys: mealBuilderInvalidateKeys,
   });
 
@@ -118,24 +130,34 @@ export const useResetMealBuilderDraftMutation = () =>
   useMutationWithToast({
     mutationFn: resetMealBuilderDraft,
     successMessage: "تمت إعادة المسودة لتطابق آخر نسخة منشورة",
+    errorMessage: (error) =>
+      mealBuilderErrorMessage(error, "تعذر إعادة المسودة"),
     invalidateKeys: mealBuilderInvalidateKeys,
   });
 
 export const useValidateMealBuilderDraftMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutationWithToast({
+  return useMutation({
     mutationFn: (payload?: Partial<MealBuilderDraftPayload>) =>
       validateMealBuilderDraft(payload),
-    successMessage: (data) =>
-      data.data.ready
-        ? "المسودة جاهزة للنشر"
-        : "المسودة تحتوي على أخطاء ويجب إصلاحها قبل النشر",
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_KEY] });
-      queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_DRAFT_KEY] });
-      queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_HYDRATED_KEY] });
-      queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_READINESS_KEY] });
+    onSuccess: (response) => {
+      const validation = response.data;
+      if (validation.ready && validation.errors.length === 0) {
+        toast.success(
+          validation.warnings.length
+            ? "المسودة جاهزة للنشر مع وجود تنبيهات"
+            : "المسودة جاهزة للنشر"
+        );
+      } else {
+        toast.error("المسودة تحتوي على أخطاء ويجب إصلاحها قبل النشر");
+      }
+      invalidateMealBuilderQueries(queryClient);
+    },
+    onError: (error) => {
+      toast.error(
+        mealBuilderErrorMessage(error, "تعذر فحص مسودة منشئ الوجبات")
+      );
     },
   });
 };
@@ -144,8 +166,18 @@ export const usePublishMealBuilderDraftMutation = () =>
   useMutationWithToast({
     mutationFn: publishMealBuilderDraft,
     successMessage: "تم نشر المسودة",
+    errorMessage: (error) =>
+      mealBuilderErrorMessage(error, "تعذر نشر مسودة منشئ الوجبات"),
     invalidateKeys: [
       ...mealBuilderInvalidateKeys,
       ["menu.mealPlannerPreview"],
     ],
   });
+
+function invalidateMealBuilderQueries(
+  queryClient: ReturnType<typeof useQueryClient>
+) {
+  mealBuilderInvalidateKeys.forEach((queryKey) => {
+    queryClient.invalidateQueries({ queryKey });
+  });
+}
