@@ -676,16 +676,34 @@ function SimpleWorkspace({
     });
   }
 
-  function saveThenValidate(onValid?: () => void) {
+  function saveThenValidate({
+    onValid,
+    openWhenWarnings = false,
+  }: {
+    onValid?: () => void;
+    openWhenWarnings?: boolean;
+  } = {}) {
+    const validate = () =>
+      validateStoredDraft({
+        onValid,
+        openWhenWarnings,
+      });
+
     if (dirty) {
-      saveCurrent(() => validateStoredDraft({ onValid, openWhenWarnings: true }));
+      saveCurrent(validate);
       return;
     }
-    validateStoredDraft({ onValid, openWhenWarnings: true });
+    validate();
   }
 
   function publishFlow() {
-    saveThenValidate(() => setPublishOpen(true));
+    saveThenValidate({
+      openWhenWarnings: false,
+      onValid: () => {
+        setValidationOpen(false);
+        setPublishOpen(true);
+      },
+    });
   }
 
   return (
@@ -701,7 +719,7 @@ function SimpleWorkspace({
           onOpenDraft={() => undefined}
           onShowPublished={onShowPublished}
           onSave={() => saveCurrent()}
-          onValidate={() => saveThenValidate()}
+          onValidate={() => saveThenValidate({ openWhenWarnings: true })}
           onPublish={publishFlow}
           onReset={() => setResetOpen(true)}
           onNotes={() => setNotesOpen(true)}
@@ -872,15 +890,16 @@ function ValidationNotice({
             {validation.errors.length} أخطاء · {validation.warnings.length} تنبيهات
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onOpenDetails}
-          disabled={!onOpenDetails}
-        >
-          عرض التفاصيل
-        </Button>
+        {onOpenDetails ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onOpenDetails}
+          >
+            عرض التفاصيل
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -895,14 +914,8 @@ function ValidationNotice({
             : "المسودة جاهزة للنشر."}
         </span>
       </div>
-      {hasWarnings ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onOpenDetails}
-          disabled={!onOpenDetails}
-        >
+      {hasWarnings && onOpenDetails ? (
+        <Button type="button" size="sm" variant="outline" onClick={onOpenDetails}>
           عرض التفاصيل
         </Button>
       ) : null}
@@ -1171,7 +1184,12 @@ function PublishDialog({
   onPublish: () => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !pending) onClose();
+      }}
+    >
       <DialogContent className="w-[calc(100vw-1.5rem)] max-w-xl" dir="rtl">
         <DialogHeader className="text-right">
           <DialogTitle>نشر التغييرات للعميل؟</DialogTitle>
@@ -1189,7 +1207,7 @@ function PublishDialog({
             {pending ? <Loader2 className="size-4 animate-spin" /> : null}
             تأكيد النشر
           </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
             إلغاء
           </Button>
         </DialogFooter>
@@ -1244,7 +1262,12 @@ function ResetDialog({
   onReset: () => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !pending) onClose();
+      }}
+    >
       <DialogContent className="w-[calc(100vw-1.5rem)] max-w-xl" dir="rtl">
         <DialogHeader className="text-right">
           <DialogTitle>إلغاء تعديلات المسودة؟</DialogTitle>
@@ -1267,7 +1290,7 @@ function ResetDialog({
             {pending ? <Loader2 className="size-4 animate-spin" /> : null}
             تأكيد الإلغاء
           </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
             رجوع
           </Button>
         </DialogFooter>
