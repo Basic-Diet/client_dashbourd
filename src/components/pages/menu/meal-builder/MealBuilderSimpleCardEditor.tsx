@@ -390,16 +390,16 @@ export function MealBuilderSimpleCardEditor({
 
                 <div className="rounded-lg border bg-muted/10 px-3 py-2">
                   <p className="text-xs font-medium text-muted-foreground">
-                    خيارات التشخيص
+                    عرض عناصر إضافية
                   </p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <SwitchLine
-                      label="إظهار غير المتاح"
+                      label="إظهار العناصر غير المتاحة"
                       checked={includeUnavailable}
                       onChange={updateIncludeUnavailable}
                     />
                     <SwitchLine
-                      label="إظهار غير المرتبط"
+                      label="إظهار العناصر غير المرتبطة"
                       checked={includeNotLinked}
                       onChange={updateIncludeNotLinked}
                     />

@@ -222,16 +222,26 @@ export function MealBuilderSimplePage() {
   }
 
   async function retry() {
+    if (mode === "published") {
+      await Promise.all([
+        builderQuery.refetch(),
+        publishedQuery.refetch(),
+      ]);
+      return;
+    }
+
+    await builderQuery.refetch();
+    const draftResult = await draftQuery.refetch();
+    if (!draftResult.isSuccess) return;
+
+    const hydratedResult = await hydratedQuery.refetch();
+    if (!hydratedResult.isSuccess) return;
+
     await Promise.all([
-      builderQuery.refetch(),
-      publishedQuery.refetch(),
       productsQuery.refetch(),
       categoriesQuery.refetch(),
       groupsQuery.refetch(),
       optionsQuery.refetch(),
-      ...(mode === "draft"
-        ? [draftQuery.refetch(), hydratedQuery.refetch()]
-        : []),
     ]);
   }
 
@@ -271,11 +281,13 @@ export function MealBuilderSimplePage() {
             onRefresh={refresh}
             onShowPublished={showPublished}
             onDirtyChange={setDirty}
-            onPublished={() => {
+            onPublished={async () => {
               setDirty(false);
+              await Promise.all([
+                publishedQuery.refetch(),
+                builderQuery.refetch(),
+              ]);
               setMode("published");
-              publishedQuery.refetch();
-              builderQuery.refetch();
             }}
           />
         ) : (
@@ -341,7 +353,7 @@ function MealBuilderCommandBar({
   const metadata = commandBarMetadata(view, mode, hasDraft, dirty);
 
   return (
-    <Card className="sticky top-2 z-20 border-border/80 bg-background/95 shadow-sm backdrop-blur">
+    <Card className="border-border/80 bg-background/95 shadow-sm backdrop-blur lg:sticky lg:top-2 lg:z-20">
       <CardContent className="space-y-4 p-4 lg:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 space-y-3">
@@ -368,73 +380,68 @@ function MealBuilderCommandBar({
             </div>
           </div>
 
-          <div className="flex w-full flex-col gap-3 xl:w-auto xl:min-w-[22rem]">
-            <div className="grid grid-cols-2 rounded-lg border bg-muted/30 p-1">
-              <Button
-                type="button"
-                size="sm"
-                variant={mode === "published" ? "default" : "ghost"}
-                disabled={loading || pending}
-                onClick={onShowPublished}
-              >
-                <Eye data-icon="inline-start" /> النسخة المنشورة
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={mode === "draft" ? "default" : "ghost"}
-                disabled={loading || pending}
-                onClick={onOpenDraft}
-              >
-                <FileEdit data-icon="inline-start" /> المسودة
-              </Button>
-            </div>
-
+          <div className="flex w-full flex-col gap-3 xl:w-auto xl:min-w-[34rem]">
             {isDraft ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button type="button" disabled={pending || !dirty} onClick={onSave}>
-                  {saving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Save data-icon="inline-start" />
-                  )}
-                  حفظ المسودة
-                </Button>
-                <Button type="button" variant="outline" disabled={pending} onClick={onValidate}>
-                  {validating ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 data-icon="inline-start" />
-                  )}
-                  فحص المسودة
-                </Button>
-                <Button
-                  type="button"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700"
-                  disabled={pending}
-                  onClick={onPublish}
-                >
-                  {publishing ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send data-icon="inline-start" />
-                  )}
-                  نشر المسودة
-                </Button>
-                <Button type="button" variant="outline" disabled={pending} onClick={onNotes}>
-                  <StickyNote data-icon="inline-start" />
-                  ملاحظات النسخة
-                </Button>
-                <Button type="button" variant="destructive" disabled={pending} onClick={onReset}>
-                  {resetting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RotateCcw data-icon="inline-start" />
-                  )}
-                  إلغاء التعديلات
-                </Button>
-                <RefreshButton loading={loading} onRefresh={onRefresh} />
-              </div>
+              <>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Button type="button" disabled={pending || !dirty} onClick={onSave}>
+                    {saving ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Save data-icon="inline-start" />
+                    )}
+                    حفظ المسودة
+                  </Button>
+                  <Button type="button" variant="outline" disabled={pending} onClick={onValidate}>
+                    {validating ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 data-icon="inline-start" />
+                    )}
+                    فحص المسودة
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    disabled={pending}
+                    onClick={onPublish}
+                  >
+                    {publishing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Send data-icon="inline-start" />
+                    )}
+                    نشر المسودة
+                  </Button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                  <Button type="button" variant="outline" disabled={pending} onClick={onNotes}>
+                    <StickyNote data-icon="inline-start" />
+                    ملاحظات النسخة
+                  </Button>
+                  <Button type="button" variant="outline" disabled={pending} onClick={onShowPublished}>
+                    <Eye data-icon="inline-start" />
+                    عرض النسخة المنشورة
+                  </Button>
+                  <RefreshButton loading={loading} onRefresh={onRefresh} />
+                </div>
+                <div className="flex justify-start border-t pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={onReset}
+                    className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    {resetting ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <RotateCcw data-icon="inline-start" />
+                    )}
+                    إلغاء التعديلات
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 <Button type="button" disabled={loading} onClick={onOpenDraft}>
@@ -443,8 +450,7 @@ function MealBuilderCommandBar({
                 </Button>
                 <RefreshButton loading={loading} onRefresh={onRefresh} />
               </div>
-            )}
-          </div>
+            )}          </div>
         </div>
       </CardContent>
     </Card>
@@ -580,7 +586,6 @@ function SimpleWorkspace({
   onDirtyChange: (dirty: boolean) => void;
   onPublished: () => void;
 }) {
-  const queryClient = useQueryClient();
   const saveDraft = useSaveMealBuilderDraftMutation();
   const validateDraft = useValidateMealBuilderDraftMutation();
   const publishDraft = usePublishMealBuilderDraftMutation();
@@ -594,6 +599,7 @@ function SimpleWorkspace({
   const [publishOpen, setPublishOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
   const [validation, setValidation] =
     useState<MealBuilderValidation | null>(initialValidation);
 
@@ -620,6 +626,7 @@ function SimpleWorkspace({
 
   function markChanged() {
     setValidation(null);
+    setValidationOpen(false);
     onDirtyChange(true);
   }
 
@@ -647,40 +654,38 @@ function SimpleWorkspace({
     });
   }
 
-  function validateCurrent({
+  function validateStoredDraft({
     onValid,
+    openWhenWarnings = false,
   }: {
     onValid?: () => void;
+    openWhenWarnings?: boolean;
   } = {}) {
-    const runValidation = () =>
-      validateDraft.mutate(undefined, {
-        onSuccess: (response) => {
-          setValidation(response.data);
-          if (!response.data.ready || response.data.errors.length > 0) {
-            return;
-          }
-          onValid?.();
-        },
-      });
+    validateDraft.mutate(undefined, {
+      onSuccess: (response) => {
+        setValidation(response.data);
+        if (!response.data.ready || response.data.errors.length > 0) {
+          setValidationOpen(true);
+          return;
+        }
+        if (openWhenWarnings && response.data.warnings.length > 0) {
+          setValidationOpen(true);
+        }
+        onValid?.();
+      },
+    });
+  }
 
+  function saveThenValidate(onValid?: () => void) {
     if (dirty) {
-      saveCurrent(runValidation);
+      saveCurrent(() => validateStoredDraft({ onValid, openWhenWarnings: true }));
       return;
     }
-    runValidation();
+    validateStoredDraft({ onValid, openWhenWarnings: true });
   }
 
   function publishFlow() {
-    const validateSaved = () =>
-      validateCurrent({
-        onValid: () => setPublishOpen(true),
-      });
-
-    if (dirty) {
-      saveCurrent(validateSaved);
-      return;
-    }
-    validateSaved();
+    saveThenValidate(() => setPublishOpen(true));
   }
 
   return (
@@ -696,7 +701,7 @@ function SimpleWorkspace({
           onOpenDraft={() => undefined}
           onShowPublished={onShowPublished}
           onSave={() => saveCurrent()}
-          onValidate={() => validateCurrent()}
+          onValidate={() => saveThenValidate()}
           onPublish={publishFlow}
           onReset={() => setResetOpen(true)}
           onNotes={() => setNotesOpen(true)}
@@ -707,7 +712,11 @@ function SimpleWorkspace({
           pending={pending}
         />
 
-        <ValidationNotice validation={validation} dirty={dirty} />
+        <ValidationNotice
+          validation={validation}
+          dirty={dirty}
+          onOpenDetails={() => setValidationOpen(true)}
+        />
         <PremiumNotice premiumSection={premiumSection} />
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -740,14 +749,24 @@ function SimpleWorkspace({
       ) : null}
 
       <NotesDialog
+        key={`${notesOpen ? "open" : "closed"}:${notes}`}
         open={notesOpen}
         notes={notes}
         pending={pending}
         onClose={() => setNotesOpen(false)}
-        onChange={(nextNotes) => {
-          setNotes(nextNotes);
-          markChanged();
+        onApply={(nextNotes) => {
+          if (nextNotes !== notes) {
+            setNotes(nextNotes);
+            markChanged();
+          }
+          setNotesOpen(false);
         }}
+      />
+
+      <ValidationDetailsDialog
+        open={validationOpen}
+        validation={validation}
+        onClose={() => setValidationOpen(false)}
       />
 
       <PublishDialog
@@ -785,10 +804,8 @@ function SimpleWorkspace({
                 setValidation(resetView.validation);
               }
               onDirtyChange(false);
+              setValidationOpen(false);
               setResetOpen(false);
-              queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_KEY] });
-              queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_DRAFT_KEY] });
-              queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_HYDRATED_KEY] });
             },
           })
         }
@@ -825,9 +842,11 @@ function CardsGrid({
 function ValidationNotice({
   validation,
   dirty,
+  onOpenDetails,
 }: {
   validation: MealBuilderValidation | null;
   dirty: boolean;
+  onOpenDetails?: () => void;
 }) {
   if (dirty) {
     return (
@@ -839,45 +858,106 @@ function ValidationNotice({
   }
 
   if (!validation) return null;
-  const grouped = groupValidationIssues(validation);
+  const hasErrors = validation.errors.length > 0;
+  const hasWarnings = validation.warnings.length > 0;
 
-  if (validation.errors.length) {
+  if (hasErrors) {
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-        <p className="font-medium">
-          توجد {validation.errors.length} مشاكل تمنع النشر.
-        </p>
-        <p className="mt-1">{mealBuilderIssueText(validation.errors[0])}</p>
-        <div className="mt-3 rounded-md border border-destructive/20 bg-background/80 p-3 text-foreground">
-          <p className="cursor-pointer font-medium text-destructive">
-            عرض الأخطاء
+      <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="font-medium">
+            المسودة تحتوي على أخطاء ويجب إصلاحها قبل النشر
           </p>
-          <ValidationIssueGroups groups={grouped} />
+          <p className="text-xs text-muted-foreground">
+            {validation.errors.length} أخطاء · {validation.warnings.length} تنبيهات
+          </p>
         </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onOpenDetails}
+          disabled={!onOpenDetails}
+        >
+          عرض التفاصيل
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+    <div className="flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-2">
-      <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-      {validation.warnings.length
-        ? `جاهزة للنشر مع ${validation.warnings.length} ملاحظات غير مانعة.`
-        : "المسودة جاهزة للنشر."}
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+        <span>
+          {hasWarnings
+            ? "المسودة جاهزة للنشر مع وجود ملاحظات"
+            : "المسودة جاهزة للنشر."}
+        </span>
       </div>
-      {validation.warnings.length ? (
-        <div className="mt-3 rounded-md border border-emerald-200 bg-background/80 p-3 text-foreground">
-          <p className="cursor-pointer font-medium text-amber-700">
-            عرض التنبيهات
-          </p>
-          <ValidationIssueGroups groups={grouped} />
-        </div>
+      {hasWarnings ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onOpenDetails}
+          disabled={!onOpenDetails}
+        >
+          عرض التفاصيل
+        </Button>
       ) : null}
     </div>
   );
 }
 
+function ValidationDetailsDialog({
+  open,
+  validation,
+  onClose,
+}: {
+  open: boolean;
+  validation: MealBuilderValidation | null;
+  onClose: () => void;
+}) {
+  const groups = validation ? groupValidationIssues(validation) : [];
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent
+        className="grid max-h-[85dvh] w-[calc(100vw-1.5rem)] max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
+        dir="rtl"
+      >
+        <DialogHeader className="border-b px-5 py-4 text-right">
+          <DialogTitle>نتيجة فحص المسودة</DialogTitle>
+          <DialogDescription>
+            راجع الأخطاء والتنبيهات المرتبطة ببطاقات منشئ الوجبات.
+          </DialogDescription>
+          {validation ? (
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Badge variant={validation.ready ? "default" : "outline"}>
+                {validation.ready ? "جاهزة" : "غير جاهزة"}
+              </Badge>
+              <Badge variant={validation.errors.length ? "destructive" : "secondary"}>
+                {validation.errors.length} أخطاء مانعة
+              </Badge>
+              <Badge variant="secondary">
+                {validation.warnings.length} تنبيهات
+              </Badge>
+            </div>
+          ) : null}
+        </DialogHeader>
+        <div className="min-h-0 overflow-y-auto px-5 py-4">
+          <ValidationIssueGroups groups={groups} />
+        </div>
+        <DialogFooter className="border-t px-5 py-3 sm:justify-start">
+          <Button type="button" variant="outline" onClick={onClose}>
+            إغلاق
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 type ValidationIssueGroup = {
   key: string;
   label: string;
@@ -1034,14 +1114,16 @@ function NotesDialog({
   notes,
   pending,
   onClose,
-  onChange,
+  onApply,
 }: {
   open: boolean;
   notes: string;
   pending: boolean;
   onClose: () => void;
-  onChange: (notes: string) => void;
+  onApply: (notes: string) => void;
 }) {
+  const [draftNotes, setDraftNotes] = useState(notes);
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent className="w-[calc(100vw-1.5rem)] max-w-xl" dir="rtl">
@@ -1055,19 +1137,19 @@ function NotesDialog({
           <Label htmlFor="meal-builder-version-notes">ملاحظات النسخة</Label>
           <Textarea
             id="meal-builder-version-notes"
-            value={notes}
+            value={draftNotes}
             disabled={pending}
-            onChange={(event) => onChange(event.target.value)}
+            onChange={(event) => setDraftNotes(event.target.value)}
             className="min-h-32 text-right"
             placeholder="مثال: تحديث خيارات الساندويتش"
           />
         </div>
         <DialogFooter className="gap-2 sm:justify-start">
-          <Button type="button" onClick={onClose} disabled={pending}>
-            حفظ الملاحظات
+          <Button type="button" onClick={() => onApply(draftNotes)} disabled={pending}>
+            تطبيق الملاحظات
           </Button>
           <Button type="button" variant="outline" onClick={onClose}>
-            إغلاق
+            إلغاء
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -43,6 +43,7 @@ function MenuPage() {
       className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 lg:px-6"
       dir="rtl"
     >
+      {!isMealBuilderTab ? (
       <header className="flex flex-col gap-5 rounded-lg border bg-card p-5 shadow-xs lg:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex gap-4">
@@ -92,6 +93,7 @@ function MenuPage() {
           </>
         ) : null}
       </header>
+      ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl">
         <div className="overflow-x-auto pb-1">
