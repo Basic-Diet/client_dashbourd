@@ -156,6 +156,28 @@ export function MealBuilderSimplePage() {
     groups: groupsQuery.data?.data.items ?? [],
     options: optionsQuery.data?.data.items ?? [],
   };
+  const editableCatalogReady =
+    !loadEditableCatalog ||
+    (productsQuery.isSuccess &&
+      categoriesQuery.isSuccess &&
+      groupsQuery.isSuccess &&
+      optionsQuery.isSuccess);
+  const draftWorkspaceReady =
+    mode === "draft" &&
+    Boolean(activeView.config) &&
+    draftQuery.isSuccess &&
+    hydratedQuery.isSuccess &&
+    editableCatalogReady;
+  const draftLoadingStage: DraftLoadingStage | null =
+    mode !== "draft" || draftWorkspaceReady
+      ? null
+      : !draftQuery.isSuccess
+        ? "opening"
+        : !hydratedQuery.isSuccess
+          ? "hydrating"
+          : !editableCatalogReady
+            ? "catalog"
+            : null;
 
   const loading =
     publishedQuery.isLoading ||
@@ -247,7 +269,7 @@ export function MealBuilderSimplePage() {
 
   return (
     <div className="grid gap-4" dir="rtl">
-      {mode !== "draft" || !activeView.config ? (
+      {mode !== "draft" || !draftWorkspaceReady ? (
         <MealBuilderCommandBar
           mode={mode}
           view={activeView}
@@ -262,10 +284,8 @@ export function MealBuilderSimplePage() {
 
       {loadError ? (
         <LoadError error={loadError} onRetry={retry} />
-      ) : mode === "draft" &&
-        (draftQuery.isLoading ||
-          (draftQuery.isSuccess && hydratedQuery.isLoading)) ? (
-        <DraftLoadingState hydrated={draftQuery.isSuccess} />
+      ) : draftLoadingStage ? (
+        <DraftLoadingState stage={draftLoadingStage} />
       ) : activeView.config ? (
         mode === "draft" ? (
           <SimpleWorkspace
@@ -350,6 +370,9 @@ function MealBuilderCommandBar({
   pending?: boolean;
 }) {
   const isDraft = mode === "draft";
+  const draftActionsReady =
+    isDraft &&
+    Boolean(onSave && onValidate && onPublish && onReset && onNotes);
   const metadata = commandBarMetadata(view, mode, hasDraft, dirty);
 
   return (
@@ -381,10 +404,14 @@ function MealBuilderCommandBar({
           </div>
 
           <div className="flex w-full flex-col gap-3 xl:w-auto xl:min-w-[34rem]">
-            {isDraft ? (
+            {draftActionsReady ? (
               <>
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <Button type="button" disabled={pending || !dirty} onClick={onSave}>
+                  <Button
+                    type="button"
+                    disabled={loading || pending || !dirty || !onSave}
+                    onClick={onSave}
+                  >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
@@ -392,7 +419,12 @@ function MealBuilderCommandBar({
                     )}
                     حفظ المسودة
                   </Button>
-                  <Button type="button" variant="outline" disabled={pending} onClick={onValidate}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loading || pending || !onValidate}
+                    onClick={onValidate}
+                  >
                     {validating ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
@@ -403,7 +435,7 @@ function MealBuilderCommandBar({
                   <Button
                     type="button"
                     className="bg-emerald-600 text-white hover:bg-emerald-700"
-                    disabled={pending}
+                    disabled={loading || pending || !onPublish}
                     onClick={onPublish}
                   >
                     {publishing ? (
@@ -415,11 +447,21 @@ function MealBuilderCommandBar({
                   </Button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                  <Button type="button" variant="outline" disabled={pending} onClick={onNotes}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loading || pending || !onNotes}
+                    onClick={onNotes}
+                  >
                     <StickyNote data-icon="inline-start" />
                     ملاحظات النسخة
                   </Button>
-                  <Button type="button" variant="outline" disabled={pending} onClick={onShowPublished}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={onShowPublished}
+                  >
                     <Eye data-icon="inline-start" />
                     عرض النسخة المنشورة
                   </Button>
@@ -429,7 +471,7 @@ function MealBuilderCommandBar({
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={pending}
+                    disabled={loading || pending || !onReset}
                     onClick={onReset}
                     className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
                   >
@@ -442,6 +484,25 @@ function MealBuilderCommandBar({
                   </Button>
                 </div>
               </>
+            ) : isDraft ? (
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <div className="flex min-h-10 items-center gap-2 rounded-md border border-dashed px-3 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                  <span>جاري تجهيز المسودة وأدوات التعديل...</span>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loading}
+                    onClick={onShowPublished}
+                  >
+                    <Eye data-icon="inline-start" />
+                    عرض النسخة المنشورة
+                  </Button>
+                  <RefreshButton loading={loading} onRefresh={onRefresh} />
+                </div>
+              </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 <Button type="button" disabled={loading} onClick={onOpenDraft}>
@@ -450,7 +511,8 @@ function MealBuilderCommandBar({
                 </Button>
                 <RefreshButton loading={loading} onRefresh={onRefresh} />
               </div>
-            )}          </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -546,14 +608,21 @@ function PublishedView({
   );
 }
 
-function DraftLoadingState({ hydrated }: { hydrated: boolean }) {
+type DraftLoadingStage = "opening" | "hydrating" | "catalog";
+
+function DraftLoadingState({ stage }: { stage: DraftLoadingStage }) {
+  const message =
+    stage === "opening"
+      ? "جاري فتح مسودة العمل..."
+      : stage === "hydrating"
+        ? "جاري تحميل بيانات المسودة..."
+        : "جاري تجهيز عناصر التعديل...";
+
   return (
     <Card className="border-border/80 shadow-none">
       <CardContent className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
         <Loader2 className="size-4 shrink-0 animate-spin" />
-        {hydrated
-          ? "جاري تحميل بيانات المسودة التفصيلية..."
-          : "جاري فتح مسودة العمل..."}
+        {message}
       </CardContent>
     </Card>
   );
