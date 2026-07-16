@@ -102,11 +102,24 @@ type NormalizedMealBuilderView = {
   updatedAt: string | null;
 };
 
-export function MealBuilderSimplePage() {
+export type MealBuilderNavigationState = {
+  dirty: boolean;
+  pending: boolean;
+  draftWorkspaceReady: boolean;
+};
+
+export function MealBuilderSimplePage({
+  externalNavigationBlocked = false,
+  onNavigationStateChange,
+}: {
+  externalNavigationBlocked?: boolean;
+  onNavigationStateChange?: (state: MealBuilderNavigationState) => void;
+}) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<PageMode>("published");
   const [dirty, setDirty] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [mutationPending, setMutationPending] = useState(false);
 
   const builderQuery = useMealBuilderQuery();
   const publishedQuery = useMealBuilderPublishedQuery();
@@ -209,6 +222,24 @@ export function MealBuilderSimplePage() {
     state?.metadata?.hasDraft || state?.draft || draftView.config
   );
 
+  useEffect(() => {
+    onNavigationStateChange?.({
+      dirty,
+      pending: mutationPending,
+      draftWorkspaceReady,
+    });
+  }, [dirty, draftWorkspaceReady, mutationPending, onNavigationStateChange]);
+
+  useEffect(() => {
+    return () => {
+      onNavigationStateChange?.({
+        dirty: false,
+        pending: false,
+        draftWorkspaceReady: false,
+      });
+    };
+  }, [onNavigationStateChange]);
+
   async function refresh() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_KEY] }),
@@ -301,6 +332,7 @@ export function MealBuilderSimplePage() {
             onRefresh={refresh}
             onShowPublished={showPublished}
             onDirtyChange={setDirty}
+            onPendingChange={setMutationPending}
             onPublished={async () => {
               setDirty(false);
               await Promise.all([
@@ -322,7 +354,7 @@ export function MealBuilderSimplePage() {
       )}
 
       <DiscardDraftDialog
-        open={discardOpen}
+        open={discardOpen && !externalNavigationBlocked}
         onClose={() => setDiscardOpen(false)}
         onConfirm={confirmShowPublished}
       />
@@ -373,7 +405,13 @@ function MealBuilderCommandBar({
   const draftActionsReady =
     isDraft &&
     Boolean(onSave && onValidate && onPublish && onReset && onNotes);
-  const metadata = commandBarMetadata(view, mode, hasDraft, dirty);
+  const metadata = commandBarMetadata(
+    view,
+    mode,
+    hasDraft,
+    dirty,
+    draftActionsReady
+  );
 
   return (
     <Card className="border-border/80 bg-background/95 shadow-sm backdrop-blur lg:sticky lg:top-2 lg:z-20">
@@ -385,11 +423,13 @@ function MealBuilderCommandBar({
               <Badge variant={isDraft ? "secondary" : "default"}>
                 {isDraft ? "المسودة" : "النسخة المنشورة"}
               </Badge>
-              {dirty ? (
+              {!isDraft ? null : !draftActionsReady ? (
+                <Badge variant="outline">جاري التجهيز</Badge>
+              ) : dirty ? (
                 <Badge variant="destructive">تغييرات غير محفوظة</Badge>
-              ) : isDraft ? (
+              ) : (
                 <Badge variant="outline">محفوظة</Badge>
-              ) : null}
+              )}
             </div>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               {isDraft
@@ -550,9 +590,16 @@ function commandBarMetadata(
   view: NormalizedMealBuilderView,
   mode: PageMode,
   hasDraft: boolean,
-  dirty: boolean
+  dirty: boolean,
+  draftActionsReady: boolean
 ) {
   if (mode === "draft") {
+    if (!draftActionsReady) {
+      return [["حالة المسودة", "جاري التجهيز"]] satisfies Array<
+        [string, string | number]
+      >;
+    }
+
     return [
       ["رقم النسخة", view.versionNumber ?? "-"],
       ["مبنية على آخر نسخة منشورة", view.basedOnPublishedVersionId ? "نعم" : "غير محدد"],
@@ -640,6 +687,7 @@ function SimpleWorkspace({
   onRefresh,
   onShowPublished,
   onDirtyChange,
+  onPendingChange,
   onPublished,
 }: {
   draft: MealBuilderConfig;
@@ -653,6 +701,7 @@ function SimpleWorkspace({
   onRefresh: () => void;
   onShowPublished: () => void;
   onDirtyChange: (dirty: boolean) => void;
+  onPendingChange: (pending: boolean) => void;
   onPublished: () => void;
 }) {
   const saveDraft = useSaveMealBuilderDraftMutation();
@@ -684,14 +733,22 @@ function SimpleWorkspace({
   const payload = { sections: toBackendSections(sections), notes };
 
   useEffect(() => {
+    onPendingChange(pending);
+  }, [onPendingChange, pending]);
+
+  useEffect(() => {
+    return () => onPendingChange(false);
+  }, [onPendingChange]);
+
+  useEffect(() => {
     const onLeave = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
+      if (!dirty && !pending) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", onLeave);
     return () => window.removeEventListener("beforeunload", onLeave);
-  }, [dirty]);
+  }, [dirty, pending]);
 
   function markChanged() {
     setValidation(null);
