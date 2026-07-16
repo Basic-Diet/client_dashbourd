@@ -6,6 +6,7 @@ import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import { useCreateSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
 import { fetchSubscriptionQuote } from "@/utils/fetchSubscriptionsData";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, FileCheck2 } from "lucide-react";
 
@@ -80,6 +81,7 @@ export function CreateSubscriptionFormContent({
 }: CreateSubscriptionFormContentProps) {
   const form = useCreateSubscriptionForm(userId || "");
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isQuoting, setIsQuoting] = useState(false);
   const { mutateAsync, isPending } = useCreateSubscriptionMutation();
   const isSubmitting = isPending || isQuoting;
@@ -103,6 +105,28 @@ export function CreateSubscriptionFormContent({
         "success"
       );
 
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] }),
+        queryClient.invalidateQueries({ queryKey: ["subscriptions-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["subscriptions-search"] }),
+        ...(userId
+          ? [
+              queryClient.invalidateQueries({
+                queryKey: ["user-details", userId],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ["user-subscriptions", userId],
+              }),
+            ]
+          : []),
+      ]);
+
+      if (userId) {
+        navigate({ to: "/users/$userId", params: { userId } });
+        return;
+      }
+
       if (subscriptionId) {
         navigate({
           to: "/subscriptions/$subscriptionId",
@@ -111,11 +135,7 @@ export function CreateSubscriptionFormContent({
         return;
       }
 
-      if (userId) {
-        navigate({ to: "/users/$userId", params: { userId } });
-      } else {
-        navigate({ to: "/subscriptions" });
-      }
+      navigate({ to: "/subscriptions" });
     } catch (error: unknown) {
       setIsQuoting(false);
       ToastMessage(

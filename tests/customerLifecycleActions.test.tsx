@@ -1,0 +1,92 @@
+// @vitest-environment jsdom
+
+import assert from "node:assert/strict";
+import type { ReactNode } from "react";
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, test, vi } from "vitest";
+
+import { UserActionsCell } from "../src/components/pages/users/user-actions-cell";
+import { UserRoles } from "../src/types/auth";
+import type { User } from "../src/types/userTypes";
+
+const authState = vi.hoisted(() => ({
+  role: "cashier",
+}));
+
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { role: authState.role } }),
+}));
+
+vi.mock("@/hooks/useUsersQuery", () => ({
+  useUpdateUserMutation: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/components/global/ToastMessage", () => ({
+  ToastMessage: vi.fn(),
+}));
+
+vi.mock("@/components/pages/users/reset-password-dialog", () => ({
+  ResetPasswordDialog: () => null,
+}));
+
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({
+    to,
+    children,
+  }: {
+    to: string;
+    children: ReactNode;
+  }) => <a href={to}>{children}</a>,
+}));
+
+afterEach(() => {
+  cleanup();
+  authState.role = UserRoles.CASHIER;
+});
+
+const activeUser: User = {
+  id: "customer-1",
+  appUserId: "app-customer-1",
+  fullName: "Customer One",
+  phone: "+966500000001",
+  phoneE164: "+966500000001",
+  email: "customer@example.com",
+  role: "client",
+  isActive: true,
+  forcePasswordChange: false,
+  fcmTokens: [],
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  subscriptionsCount: 0,
+  activeSubscriptionsCount: 0,
+  canResetPassword: true,
+};
+
+test("cashier sees customer lifecycle actions in users table menu", async () => {
+  render(<UserActionsCell user={activeUser} />);
+
+  await userEvent.click(screen.getByRole("button"));
+
+  assert.equal(screen.getAllByRole("link").length, 2);
+  const menuItems = await screen.findAllByRole("menuitem");
+  assert.equal(menuItems.length, 2);
+  assert.equal(screen.getByRole("link", { name: /عرض/ }).getAttribute("href"), "/users/$userId");
+  assert.equal(
+    screen.getByRole("link", { name: /إنشاء اشتراك/ }).getAttribute("href"),
+    "/users/$userId/create-subscription"
+  );
+});
+
+test("non lifecycle roles only see view and create-subscription shortcuts", async () => {
+  authState.role = UserRoles.COURIER;
+  render(<UserActionsCell user={activeUser} />);
+
+  await userEvent.click(screen.getByRole("button"));
+
+  assert.equal(screen.getAllByRole("link").length, 2);
+  assert.equal(screen.queryAllByRole("menuitem").length, 0);
+});

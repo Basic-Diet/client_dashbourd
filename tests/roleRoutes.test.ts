@@ -8,6 +8,7 @@ import {
   SUPERADMIN_ROUTES,
   canRoleAccessRoute,
 } from "../src/constants/routes";
+import { canManageCustomerLifecycle } from "../src/lib/customerLifecyclePermissions";
 import { UserRoles, type UserRole } from "../src/types/auth";
 import { test } from "vitest";
 
@@ -97,8 +98,32 @@ test("roleRoutes.test", () => {
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/operations"), true);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/one-time-orders"), true);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/users"), true);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/users/create"), true);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/users/user-1"), true);
+  assert.equal(
+    canRoleAccessRoute(UserRoles.CASHIER, "/users/user-1/create-subscription"),
+    true
+  );
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/subscriptions"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/subscriptions/create"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/packages"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/dashboard-users"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/settings"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/addons"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/promo-codes"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/zones"), false);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/payments"), false);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/accounting"), false);
   assert.equal(canRoleAccessRoute("unknown" as UserRole, "/dashboard"), false);
   assert.equal(canRoleAccessRoute(undefined, "/dashboard"), false);
+});
+
+test("customer lifecycle helper allows only customer-management roles", () => {
+  assert.equal(canManageCustomerLifecycle(UserRoles.SUPERADMIN), true);
+  assert.equal(canManageCustomerLifecycle(UserRoles.ADMIN), true);
+  assert.equal(canManageCustomerLifecycle(UserRoles.CASHIER), true);
+  assert.equal(canManageCustomerLifecycle(UserRoles.KITCHEN), false);
+  assert.equal(canManageCustomerLifecycle(UserRoles.COURIER), false);
+  assert.equal(canManageCustomerLifecycle("unknown"), false);
+  assert.equal(canManageCustomerLifecycle(undefined), false);
 });

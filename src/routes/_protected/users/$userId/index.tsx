@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { userDetailsQueryOptions } from "@/hooks/useUsersQuery";
-import { UserRoles } from "@/types/auth";
+import { canManageCustomerLifecycle } from "@/lib/customerLifecyclePermissions";
 
 export const Route = createFileRoute("/_protected/users/$userId/")({
   loader: ({ context, params }) => {
@@ -45,8 +45,7 @@ function UserDetailsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const user = response.data;
   const canResetPassword =
-    (sessionUser?.role === UserRoles.ADMIN ||
-      sessionUser?.role === UserRoles.SUPERADMIN) &&
+    canManageCustomerLifecycle(sessionUser?.role) &&
     user.isActive &&
     user.canResetPassword !== false;
 
