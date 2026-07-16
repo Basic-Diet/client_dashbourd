@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import { Button } from "@/components/ui/button";
 import useCreateSubscriptionForm from "@/hooks/useCreateSubscriptionForm";
@@ -6,7 +6,6 @@ import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import { useCreateSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
 import { fetchSubscriptionQuote } from "@/utils/fetchSubscriptionsData";
-import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, FileCheck2 } from "lucide-react";
 
@@ -81,12 +80,14 @@ export function CreateSubscriptionFormContent({
 }: CreateSubscriptionFormContentProps) {
   const form = useCreateSubscriptionForm(userId || "");
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const requestInFlightRef = useRef(false);
   const [isQuoting, setIsQuoting] = useState(false);
   const { mutateAsync, isPending } = useCreateSubscriptionMutation();
   const isSubmitting = isPending || isQuoting;
 
   const onSubmit = async (data: CreateSubscriptionSchemaType) => {
+    if (requestInFlightRef.current || isSubmitting) return;
+    requestInFlightRef.current = true;
     const payload = buildSubscriptionPayload(data);
 
     try {
@@ -104,23 +105,6 @@ export function CreateSubscriptionFormContent({
           : "تم إنشاء الاشتراك بنجاح",
         "success"
       );
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["users"] }),
-        queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] }),
-        queryClient.invalidateQueries({ queryKey: ["subscriptions-summary"] }),
-        queryClient.invalidateQueries({ queryKey: ["subscriptions-search"] }),
-        ...(userId
-          ? [
-              queryClient.invalidateQueries({
-                queryKey: ["user-details", userId],
-              }),
-              queryClient.invalidateQueries({
-                queryKey: ["user-subscriptions", userId],
-              }),
-            ]
-          : []),
-      ]);
 
       if (userId) {
         navigate({ to: "/users/$userId", params: { userId } });
@@ -142,6 +126,8 @@ export function CreateSubscriptionFormContent({
         getApiErrorMessage(error) || "حدث خطأ أثناء إنشاء الاشتراك",
         "error"
       );
+    } finally {
+      requestInFlightRef.current = false;
     }
   };
 

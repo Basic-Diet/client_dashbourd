@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_protected/users/create")({
   component: RouteComponent,
 });
 
-function RouteComponent() {
+export function RouteComponent() {
   const { user } = useAuth();
   const canCreate = canManageCustomerLifecycle(user?.role);
 

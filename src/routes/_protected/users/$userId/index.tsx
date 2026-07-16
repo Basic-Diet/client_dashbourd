@@ -40,14 +40,18 @@ export const Route = createFileRoute("/_protected/users/$userId/")({
 
 function UserDetailsPage() {
   const { userId } = Route.useParams();
+
+  return <UserDetailsPageContent userId={userId} />;
+}
+
+export function UserDetailsPageContent({ userId }: { userId: string }) {
   const { data: response } = useSuspenseQuery(userDetailsQueryOptions(userId));
   const { user: sessionUser } = useAuth();
   const [resetOpen, setResetOpen] = useState(false);
   const user = response.data;
+  const canManageLifecycle = canManageCustomerLifecycle(sessionUser?.role);
   const canResetPassword =
-    canManageCustomerLifecycle(sessionUser?.role) &&
-    user.isActive &&
-    user.canResetPassword !== false;
+    canManageLifecycle && user.isActive && user.canResetPassword !== false;
 
   return (
     <div className="flex-1 space-y-6 px-4 pt-4 lg:px-6" dir="rtl">
@@ -86,12 +90,14 @@ function UserDetailsPage() {
               إعادة تعيين كلمة المرور
             </Button>
           ) : null}
-          <Button asChild>
-            <Link to="/users/$userId/create-subscription" params={{ userId }}>
-              <PlusCircleIcon className="ml-1 size-4" />
-              إنشاء اشتراك
-            </Link>
-          </Button>
+          {canManageLifecycle ? (
+            <Button asChild>
+              <Link to="/users/$userId/create-subscription" params={{ userId }}>
+                <PlusCircleIcon className="ml-1 size-4" />
+                إنشاء اشتراك
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 

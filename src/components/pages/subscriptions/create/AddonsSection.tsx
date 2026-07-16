@@ -7,18 +7,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAddonsQuery } from "@/hooks/useAddonsQuery";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { ShoppingBag, Check } from "lucide-react";
 import { useFieldArray, type UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import type { Addon } from "@/types/addonTypes";
+import { CatalogErrorState } from "./CatalogErrorState";
 
 interface AddonsSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
 }
 
 export function AddonsSection({ form }: AddonsSectionProps) {
-  const { data: addonsResponse, isLoading } = useAddonsQuery();
+  const {
+    data: addonsResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useAddonsQuery();
   const allAddons = addonsResponse?.data?.filter((a) => a.isActive) || [];
+  const addonErrorMessage = isError ? getApiErrorMessage(error) : undefined;
   const selectedPlanId = form.watch("planId");
 
   const getSubscriptionAddons = () => allAddons;
@@ -66,6 +75,13 @@ export function AddonsSection({ form }: AddonsSectionProps) {
           <div className="flex items-center justify-center py-8">
             <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
+        ) : isError ? (
+          <CatalogErrorState
+            title="تعذر تحميل الإضافات"
+            description="الإضافات اختيارية، لكن لا يمكن عرضها الآن. حاول مرة أخرى إذا أراد العميل إضافة منتجات للاشتراك."
+            errorMessage={addonErrorMessage}
+            onRetry={() => void refetch()}
+          />
         ) : (
           <>
             {getSubscriptionAddons().length > 0 && (

@@ -81,16 +81,18 @@ export function UserActionsCell({ user }: UserActionsCellProps) {
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild>
-            <Link
-              to="/users/$userId/create-subscription"
-              params={{ userId: user.id }}
-              className="flex items-center gap-2"
-            >
-              <PlusCircleIcon className="size-4" />
-              إنشاء اشتراك
-            </Link>
-          </DropdownMenuItem>
+          {canManageLifecycle ? (
+            <DropdownMenuItem asChild>
+              <Link
+                to="/users/$userId/create-subscription"
+                params={{ userId: user.id }}
+                className="flex items-center gap-2"
+              >
+                <PlusCircleIcon className="size-4" />
+                إنشاء اشتراك
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
 
           {canResetPassword ? (
             <DropdownMenuItem

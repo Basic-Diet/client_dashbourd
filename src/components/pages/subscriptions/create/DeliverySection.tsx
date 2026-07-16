@@ -16,18 +16,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useDeliveryOptionsQuery } from "@/hooks/useDeliveryOptionsQuery";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { Truck, MapPin, Store } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import type { DeliveryMethod, DeliveryArea, DeliverySlotOption } from "@/types/deliveryTypes";
+import { CatalogErrorState } from "./CatalogErrorState";
 
 interface DeliverySectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
 }
 
 export function DeliverySection({ form }: DeliverySectionProps) {
-  const { data: deliveryResponse, isLoading } = useDeliveryOptionsQuery();
+  const {
+    data: deliveryResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useDeliveryOptionsQuery();
   const deliveryData = deliveryResponse?.data;
+  const deliveryErrorMessage = isError ? getApiErrorMessage(error) : undefined;
 
   const methods = deliveryData?.methods || [];
   const areas = deliveryData?.areas?.filter((a) => a.isActive) || [];
@@ -42,6 +51,20 @@ export function DeliverySection({ form }: DeliverySectionProps) {
   const isDelivery = selectedMethodId === "delivery";
   const isPickup = selectedMethodId === "pickup";
   const slots = selectedMethod?.slots || [];
+
+  useEffect(() => {
+    if (isError) {
+      form.setError("delivery.type", {
+        type: "catalog",
+        message: "تعذر تحميل إعدادات التوصيل والاستلام المطلوبة لإنشاء الاشتراك.",
+      });
+      return;
+    }
+
+    if (form.formState.errors.delivery?.type?.type === "catalog") {
+      form.clearErrors("delivery.type");
+    }
+  }, [form, form.formState.errors.delivery?.type?.type, isError]);
 
   useEffect(() => {
     if (!isPickup || !firstPickupLocationId) return;
@@ -68,6 +91,13 @@ export function DeliverySection({ form }: DeliverySectionProps) {
           <div className="flex items-center justify-center py-8">
             <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
+        ) : isError ? (
+          <CatalogErrorState
+            title="تعذر تحميل بيانات التوصيل والاستلام"
+            description="لا يمكن إنشاء الاشتراك قبل تحميل إعدادات التوصيل والمناطق وفروع الاستلام. حاول مرة أخرى."
+            errorMessage={deliveryErrorMessage}
+            onRetry={() => void refetch()}
+          />
         ) : (
           <>
             {/* Method selection */}

@@ -15,10 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/apis";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Plus, Trash2 } from "lucide-react";
 import { useFieldArray, type UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
+import { CatalogErrorState } from "./CatalogErrorState";
 
 interface PremiumMealsSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
@@ -46,11 +48,18 @@ const getMealName = (meal: BuilderPremiumMeal) =>
   typeof meal.name === "string" ? meal.name : meal.name.ar || meal.name.en || "";
 
 export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
-  const { data: premiumResponse, isLoading } = useQuery({
+  const {
+    data: premiumResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["builder-premium-meals"],
     queryFn: fetchBuilderPremiumMeals,
     staleTime: 1000 * 60 * 2,
   });
+  const premiumErrorMessage = isError ? getApiErrorMessage(error) : undefined;
   const premiumMeals =
     premiumResponse?.data.filter((meal) => meal.isActive !== false) || [];
 
@@ -82,6 +91,7 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
             size="sm"
             className="gap-1.5"
             onClick={() => append({ premiumMealId: "", qty: 1 })}
+            disabled={isLoading || isError}
           >
             <Plus className="size-3.5" />
             إضافة وجبة
@@ -94,6 +104,13 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
           <div className="flex items-center justify-center py-8">
             <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
+        ) : isError ? (
+          <CatalogErrorState
+            title="تعذر تحميل الوجبات المميزة"
+            description="الوجبات المميزة اختيارية، لكن لا يمكن عرضها الآن. حاول مرة أخرى إذا أراد العميل إضافتها."
+            errorMessage={premiumErrorMessage}
+            onRetry={() => void refetch()}
+          />
         ) : fields.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 py-8 text-center">
             <Sparkles className="mx-auto mb-2 size-8 text-muted-foreground/40" />

@@ -165,6 +165,7 @@ export const useCreateSubscriptionMutation = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
       queryClient.invalidateQueries({ queryKey: ["subscriptions-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-search"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
 
       const userId =

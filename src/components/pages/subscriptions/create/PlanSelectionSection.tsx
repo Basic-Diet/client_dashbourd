@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -15,18 +16,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePackagesQuery } from "@/hooks/usePackagesQuery";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { Package, CalendarDays } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import type { Package as PackageType, GramsOption, MealOption } from "@/types/packageTypes";
+import { CatalogErrorState } from "./CatalogErrorState";
 
 interface PlanSelectionSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
 }
 
 export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
-  const { data: packagesResponse } = usePackagesQuery();
+  const {
+    data: packagesResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = usePackagesQuery();
   const packages = packagesResponse?.data || [];
+  const packageErrorMessage = isError ? getApiErrorMessage(error) : undefined;
 
   const selectedPlanId = form.watch("planId");
   const selectedPackage = packages.find(
@@ -42,6 +52,20 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
   const mealsOptions =
     selectedGramsOption?.mealsOptions?.filter((m: MealOption) => m.isActive) || [];
 
+  useEffect(() => {
+    if (isError) {
+      form.setError("planId", {
+        type: "catalog",
+        message: "تعذر تحميل الباقات المطلوبة لإنشاء الاشتراك.",
+      });
+      return;
+    }
+
+    if (form.formState.errors.planId?.type === "catalog") {
+      form.clearErrors("planId");
+    }
+  }, [form, form.formState.errors.planId?.type, isError]);
+
   return (
     <Card>
       <CardHeader>
@@ -54,6 +78,19 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
         <CardDescription>اختر الباقة وحدد تفاصيل الاشتراك</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : isError ? (
+          <CatalogErrorState
+            title="تعذر تحميل الباقات"
+            description="لا يمكن إنشاء الاشتراك قبل تحميل الباقات المتاحة. حاول مرة أخرى."
+            errorMessage={packageErrorMessage}
+            onRetry={() => void refetch()}
+          />
+        ) : (
+          <>
         {/* Package Selector */}
         <div className="space-y-1.5">
           <Label className="text-sm font-medium">الباقة</Label>
@@ -168,6 +205,8 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
             </p>
           )}
         </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

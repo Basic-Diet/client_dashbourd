@@ -126,4 +126,5 @@ test("customer lifecycle helper allows only customer-management roles", () => {
   assert.equal(canManageCustomerLifecycle(UserRoles.COURIER), false);
   assert.equal(canManageCustomerLifecycle("unknown"), false);
   assert.equal(canManageCustomerLifecycle(undefined), false);
+  assert.equal(canManageCustomerLifecycle(null), false);
 });
