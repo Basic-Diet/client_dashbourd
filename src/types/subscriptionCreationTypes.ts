@@ -8,7 +8,6 @@ export type DashboardSubscriptionSelectionPayload = {
     | {
         type: "pickup";
         pickupLocationId: string;
-        window?: string;
       }
     | {
         type: "delivery";
@@ -37,6 +36,12 @@ export type DashboardSubscriptionSelectionPayload = {
   promoCode?: string;
 };
 
+export type SubscriptionCreationCustomerSummary = {
+  id: string;
+  name: string;
+  phone?: string;
+};
+
 export type DashboardSubscriptionCashCreatePayload =
   DashboardSubscriptionSelectionPayload & {
     payment: {
@@ -49,22 +54,48 @@ export type DashboardSubscriptionCashCreatePayload =
   };
 
 export type DashboardQuoteLineItem = {
+  kind?: string;
+  type?: string;
   key?: string;
   code?: string;
   label?: string;
   amountHalala?: number;
   valueHalala?: number;
+  totalHalala?: number;
+  priceHalala?: number;
   currency?: string;
 };
 
 export type DashboardSelectionItem = {
+  kind?: string;
+  type?: string;
   key?: string;
+  premiumKey?: string;
+  addonId?: string;
+  addonPlanId?: string;
   label?: string;
-  name?: string;
+  name?: string | { ar?: string; en?: string };
   value?: string | number;
   qty?: number;
+  quantity?: number;
+  quantityPerDay?: number;
+  billingMode?: string;
+  billingUnit?: string;
+  selectedOptions?: {
+    grams?: number;
+    mealsPerDay?: number;
+    startDate?: string;
+    daysCount?: number;
+  };
   amountHalala?: number;
+  priceHalala?: number;
   totalHalala?: number;
+  unitExtraFeeHalala?: number;
+  unitPriceHalala?: number;
+  unitPlanPriceHalala?: number;
+  priceLabel?: string;
+  totalLabel?: string;
+  unitPriceLabel?: string;
   currency?: string;
 };
 

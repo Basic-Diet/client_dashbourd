@@ -4,7 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   formatHalalaAsSar,
+  getLocalizedLabel,
+  getQuoteLineItemAmount,
   getQuotePricingTotalHalala,
+  isTotalQuoteLineItem,
+  isVatQuoteLineItem,
   resolveQuoteLineItems,
   resolveQuoteSections,
 } from "@/utils/fetchSubscriptionCreation";
@@ -13,6 +17,7 @@ import type {
   DashboardSelectionItem,
   DashboardSubscriptionQuoteResponse,
   DashboardSubscriptionSelectionPayload,
+  SubscriptionCreationCustomerSummary,
 } from "@/types/subscriptionCreationTypes";
 import { AlertCircle, CheckCircle2, Loader2, ReceiptText } from "lucide-react";
 
@@ -20,6 +25,8 @@ type SubscriptionQuoteReviewProps = {
   quote: DashboardSubscriptionQuoteResponse;
   quotedSelection: DashboardSubscriptionSelectionPayload;
   stale: boolean;
+  requoteRequired: boolean;
+  customerSummary: SubscriptionCreationCustomerSummary | null;
   cashConfirmed: boolean;
   createPending: boolean;
   createError: string | null;
@@ -51,15 +58,62 @@ const readDisplay = (value: unknown) => {
 };
 
 const lineAmount = (item: DashboardQuoteLineItem) =>
-  item.amountHalala ?? item.valueHalala;
+  getQuoteLineItemAmount(item);
 
 const itemAmount = (item: DashboardSelectionItem) =>
-  item.totalHalala ?? item.amountHalala;
+  item.totalHalala ?? item.amountHalala ?? item.priceHalala;
+
+function renderSelectionDetails(item: DashboardSelectionItem, currency: string) {
+  const identity =
+    getLocalizedLabel(item.name) ||
+    readString(item.label) ||
+    readString(item.premiumKey) ||
+    readString(item.addonPlanId) ||
+    readString(item.addonId) ||
+    readString(item.key) ||
+    readString(item.type) ||
+    readString(item.kind) ||
+    readDisplay(item.value) ||
+    "تفاصيل";
+  const selected = asRecord(item.selectedOptions);
+  const details: string[] = [];
+
+  if (selected.grams !== undefined) details.push(`${selected.grams} جرام`);
+  if (selected.mealsPerDay !== undefined) details.push(`${selected.mealsPerDay} وجبة يومياً`);
+  if (selected.daysCount !== undefined) details.push(`${selected.daysCount} يوم`);
+  if (selected.startDate) details.push(String(selected.startDate));
+
+  const qty = item.qty ?? item.quantity;
+  if (qty !== undefined) details.push(`x${qty}`);
+  if (item.quantityPerDay !== undefined) details.push(`${item.quantityPerDay} يومياً`);
+  if (item.billingUnit) details.push(item.billingUnit);
+  if (item.billingMode) details.push(item.billingMode);
+
+  const unitLabel =
+    readString(item.unitPriceLabel) ||
+    readString(item.priceLabel) ||
+    (item.unitExtraFeeHalala !== undefined
+      ? formatHalalaAsSar(Number(item.unitExtraFeeHalala), currency)
+      : item.unitPriceHalala !== undefined
+        ? formatHalalaAsSar(Number(item.unitPriceHalala), currency)
+        : item.unitPlanPriceHalala !== undefined
+          ? formatHalalaAsSar(Number(item.unitPlanPriceHalala), currency)
+          : "");
+  const totalLabel =
+    readString(item.totalLabel) ||
+    (itemAmount(item) !== undefined
+      ? formatHalalaAsSar(Number(itemAmount(item)), item.currency || currency)
+      : "");
+
+  return { identity, details, unitLabel, totalLabel };
+}
 
 export function SubscriptionQuoteReview({
   quote,
   quotedSelection,
   stale,
+  requoteRequired,
+  customerSummary,
   cashConfirmed,
   createPending,
   createError,
@@ -71,9 +125,17 @@ export function SubscriptionQuoteReview({
     quote.data.pricing?.currency || quote.data.currency || quote.data.subscriptionPrice?.currency || "SAR";
   const sections = resolveQuoteSections(quote);
   const lineItems = resolveQuoteLineItems(quote);
+  const ordinaryLineItems = lineItems.filter(
+    (item) => !isVatQuoteLineItem(item) && !isTotalQuoteLineItem(item)
+  );
+  const vatLineItem = lineItems.find(isVatQuoteLineItem);
+  const totalLineItem = lineItems.find(isTotalQuoteLineItem);
+  const vatAmount =
+    vatLineItem ? lineAmount(vatLineItem) : quote.data.pricing?.vatHalala;
   const plan = asRecord(quote.data.plan);
   const planName = readDisplay(plan.name) || readDisplay(quote.data.plan) || quotedSelection.planId;
-  const customerLabel = quotedSelection.userId;
+  const customerLabel = customerSummary?.name || quotedSelection.userId;
+  const createBlocked = stale || requoteRequired;
 
   return (
     <Card className="border-primary/30 bg-primary/5">
@@ -85,7 +147,17 @@ export function SubscriptionQuoteReview({
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <SummaryItem label="العميل" value={customerLabel} />
+          <SummaryItem
+            label="العميل"
+            value={customerLabel}
+            hint={
+              customerSummary?.phone
+                ? customerSummary.phone
+                : customerSummary?.name
+                  ? quotedSelection.userId
+                  : undefined
+            }
+          />
           <SummaryItem label="الباقة" value={planName} />
           <SummaryItem label="الجرامات" value={`${quotedSelection.grams}`} />
           <SummaryItem label="عدد الوجبات يومياً" value={`${quotedSelection.mealsPerDay}`} />
@@ -109,21 +181,27 @@ export function SubscriptionQuoteReview({
                 </p>
                 <div className="mt-2 space-y-2">
                   {(section.items || []).length ? (
-                    section.items?.map((item, itemIndex) => (
-                      <div key={itemIndex} className="text-xs text-muted-foreground">
-                        <div className="flex justify-between gap-3">
-                          <span>{item.label || item.name || item.key || "عنصر"}</span>
-                          <span>
-                            {item.qty ? `x${item.qty}` : readDisplay(item.value)}
-                          </span>
-                        </div>
-                        {itemAmount(item) !== undefined ? (
-                          <div className="mt-1 text-left font-medium text-foreground">
-                            {formatHalalaAsSar(Number(itemAmount(item)), item.currency || currency)}
+                    section.items?.map((item, itemIndex) => {
+                      const rendered = renderSelectionDetails(item, currency);
+                      return (
+                        <div key={itemIndex} className="text-xs text-muted-foreground">
+                          <div className="flex justify-between gap-3">
+                            <span>{rendered.identity}</span>
+                            <span>{rendered.details.join(" · ")}</span>
                           </div>
-                        ) : null}
-                      </div>
-                    ))
+                          {rendered.unitLabel ? (
+                            <div className="mt-1 text-left text-muted-foreground">
+                              {rendered.unitLabel}
+                            </div>
+                          ) : null}
+                          {rendered.totalLabel ? (
+                            <div className="mt-1 text-left font-medium text-foreground">
+                              {rendered.totalLabel}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-xs text-muted-foreground">لا توجد عناصر</p>
                   )}
@@ -136,7 +214,7 @@ export function SubscriptionQuoteReview({
         <div className="rounded-lg border bg-card p-4">
           <p className="mb-3 text-sm font-semibold">تفاصيل السعر من الخادم</p>
           <div className="space-y-2">
-            {lineItems.map((item, index) => (
+            {ordinaryLineItems.map((item, index) => (
               <div key={`${item.key || item.code || index}`} className="flex justify-between gap-4 text-sm">
                 <span className="text-muted-foreground">{item.label || item.key || "بند"}</span>
                 <span className="font-medium">
@@ -146,13 +224,18 @@ export function SubscriptionQuoteReview({
                 </span>
               </div>
             ))}
-            {quote.data.pricing?.vatPercentage !== undefined ? (
+            {vatAmount !== undefined ? (
               <div className="flex justify-between gap-4 text-sm">
                 <span className="text-muted-foreground">
-                  ضريبة القيمة المضافة ({quote.data.pricing.vatPercentage}%)
+                  {vatLineItem?.label ||
+                    `ضريبة القيمة المضافة${
+                      quote.data.pricing?.vatPercentage !== undefined
+                        ? ` (${quote.data.pricing.vatPercentage}%)`
+                        : ""
+                    }`}
                 </span>
                 <span className="font-medium">
-                  {formatHalalaAsSar(Number(quote.data.pricing.vatHalala || 0), currency)}
+                  {formatHalalaAsSar(Number(vatAmount), vatLineItem?.currency || currency)}
                 </span>
               </div>
             ) : null}
@@ -161,7 +244,9 @@ export function SubscriptionQuoteReview({
                 <span>الإجمالي النهائي</span>
                 <span>
                   {total.ok
-                    ? formatHalalaAsSar(total.totalHalala, currency)
+                    ? totalLineItem && lineAmount(totalLineItem) !== undefined
+                      ? formatHalalaAsSar(Number(lineAmount(totalLineItem)), totalLineItem.currency || currency)
+                      : formatHalalaAsSar(total.totalHalala, currency)
                     : "غير صالح"}
                 </span>
               </div>
@@ -185,6 +270,15 @@ export function SubscriptionQuoteReview({
           </Alert>
         ) : null}
 
+        {requoteRequired ? (
+          <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-800">
+            <AlertCircle className="size-4" />
+            <AlertDescription>
+              تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {createError ? (
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
@@ -195,8 +289,10 @@ export function SubscriptionQuoteReview({
         <label className="flex items-start gap-3 rounded-lg border bg-card p-3 text-sm">
           <Checkbox
             checked={cashConfirmed}
-            disabled={stale || createPending || !total.ok}
-            onCheckedChange={(checked) => onCashConfirmedChange(checked === true)}
+            disabled={createBlocked || createPending || !total.ok}
+            onCheckedChange={(checked) => {
+              if (!createBlocked) onCashConfirmedChange(checked === true);
+            }}
           />
           <span>أؤكد أنه تم استلام المبلغ النقدي كاملاً</span>
         </label>
@@ -204,7 +300,7 @@ export function SubscriptionQuoteReview({
         <Button
           type="button"
           className="w-full gap-2 md:w-auto"
-          disabled={!cashConfirmed || stale || createPending || !total.ok}
+          disabled={!cashConfirmed || createBlocked || createPending || !total.ok}
           onClick={onCreate}
         >
           {createPending ? (
@@ -224,11 +320,24 @@ export function SubscriptionQuoteReview({
   );
 }
 
-function SummaryItem({ label, value }: { label: string; value: string }) {
+function SummaryItem({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-lg border bg-card p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 break-words text-sm font-semibold">{value}</p>
+      {hint ? (
+        <p className="mt-1 break-words text-xs text-muted-foreground" dir="ltr">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

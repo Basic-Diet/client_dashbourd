@@ -11,6 +11,7 @@ import { CreateSubscriptionFormContent } from "../src/components/pages/subscript
 const apiPostMock = vi.fn();
 const navigateMock = vi.fn();
 const toastMock = vi.fn();
+let authRole = "admin";
 
 vi.mock("@/lib/apis", () => ({
   default: {
@@ -33,15 +34,26 @@ vi.mock("@/components/global/ToastMessage", () => ({
   ToastMessage: (...args: unknown[]) => toastMock(...args),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({
+    user: { id: "staff-1", role: authRole },
+  }),
+}));
+
 vi.mock("../src/components/pages/subscriptions/create/UserSelectionSection", () => ({
   UserSelectionSection: ({
     form,
+    onCustomerSelect,
   }: {
     form: UseFormReturn<CreateSubscriptionSchemaType>;
+    onCustomerSelect?: (customer: { id: string; name: string; phone?: string }) => void;
   }) => (
     <button
       type="button"
-      onClick={() => form.setValue("userId", "user-1", { shouldValidate: true, shouldDirty: true })}
+      onClick={() => {
+        form.setValue("userId", "user-1", { shouldValidate: true, shouldDirty: true });
+        onCustomerSelect?.({ id: "user-1", name: "Sara Customer", phone: "+966500000001" });
+      }}
     >
       اختر العميل
     </button>
@@ -233,13 +245,59 @@ const quoteResponse = {
       ],
     },
     selectionSections: [
-      { key: "subscription_meals", title: "وجبات الاشتراك", items: [{ label: "وجبات", value: 2 }] },
-      { key: "premium_meals", title: "الوجبات المميزة", items: [{ label: "Chicken", qty: 2 }] },
-      { key: "addon_subscriptions", title: "إضافات الاشتراك", items: [{ label: "Juice", qty: 3 }] },
+      {
+        key: "subscription_meals",
+        title: "وجبات الاشتراك",
+        items: [
+          {
+            kind: "subscription_meals",
+            type: "base_subscription",
+            selectedOptions: {
+              grams: 200,
+              mealsPerDay: 2,
+              startDate: "2026-07-20",
+              daysCount: 20,
+            },
+            totalLabel: "100 SAR",
+          },
+        ],
+      },
+      {
+        key: "premium_meals",
+        title: "الوجبات المميزة",
+        items: [
+          {
+            premiumKey: "premium-chicken",
+            name: { ar: "دجاج مميز", en: "Premium Chicken" },
+            qty: 2,
+            unitExtraFeeHalala: 1000,
+            priceLabel: "10 SAR",
+            totalLabel: "20 SAR",
+          },
+        ],
+      },
+      {
+        key: "addon_subscriptions",
+        title: "إضافات الاشتراك",
+        items: [
+          {
+            addonPlanId: "addon-juice",
+            name: { ar: "عصير" },
+            quantityPerDay: 3,
+            billingUnit: "daily",
+            billingMode: "per_day",
+            unitPriceLabel: "10 SAR",
+            totalLabel: "30 SAR",
+          },
+        ],
+      },
     ],
     lineItems: [
       { key: "subscription", label: "اشتراك", amountHalala: 10000, currency: "SAR" },
       { key: "discount", label: "خصم", amountHalala: -500, currency: "SAR" },
+      { key: "premium", label: "رسوم الوجبات المميزة", amountHalala: 2000, currency: "SAR" },
+      { key: "addons", label: "رسوم الإضافات", amountHalala: 3000, currency: "SAR" },
+      { key: "delivery", label: "توصيل", amountHalala: 0, currency: "SAR" },
       { key: "vat", label: "ضريبة", amountHalala: 1500, currency: "SAR" },
       { key: "total", label: "الإجمالي", amountHalala: 16000, currency: "SAR" },
     ],
@@ -256,14 +314,20 @@ const createResponse = {
   },
 };
 
-function renderPage(userId?: string) {
+function renderPage(
+  userId?: string,
+  customerSummary?: { id: string; name: string; phone?: string }
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <CreateSubscriptionFormContent userId={userId} />
+      <CreateSubscriptionFormContent
+        userId={userId}
+        customerSummary={customerSummary}
+      />
     </QueryClientProvider>
   );
   return { ...view, queryClient, invalidateSpy };
@@ -279,6 +343,7 @@ beforeEach(() => {
   apiPostMock.mockReset();
   navigateMock.mockReset();
   toastMock.mockReset();
+  authRole = "admin";
 });
 
 afterEach(() => {
@@ -339,11 +404,39 @@ describe("subscription creation page", () => {
     await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
 
     expect(await screen.findByText("وجبات الاشتراك")).toBeInTheDocument();
+    expect(screen.getByText("Sara Customer")).toBeInTheDocument();
+    expect(screen.getByText("+966500000001")).toBeInTheDocument();
     expect(screen.getByText("الوجبات المميزة")).toBeInTheDocument();
     expect(screen.getByText("إضافات الاشتراك")).toBeInTheDocument();
+    expect(screen.getByText(/200 جرام/)).toBeInTheDocument();
+    expect(screen.getByText("دجاج مميز")).toBeInTheDocument();
+    expect(screen.getByText("عصير")).toBeInTheDocument();
     expect(screen.getByText("خصم")).toBeInTheDocument();
-    expect(screen.getByText(/ضريبة القيمة المضافة/)).toBeInTheDocument();
+    expect(screen.getAllByText(/ضريبة/)).toHaveLength(1);
+    expect(screen.getAllByText("الإجمالي النهائي")).toHaveLength(1);
+    expect(screen.getAllByText("خصم")).toHaveLength(1);
+    expect(screen.getAllByText("توصيل")).toHaveLength(1);
+    expect(screen.getAllByText("رسوم الوجبات المميزة")).toHaveLength(1);
+    expect(screen.getAllByText("رسوم الإضافات")).toHaveLength(1);
     expect(screen.getAllByText("160 SAR").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders the preloaded customer summary on the user-scoped creation route", async () => {
+    apiPostMock.mockResolvedValueOnce({ data: quoteResponse });
+    renderPage("user-99", {
+      id: "user-99",
+      name: "Noura User",
+      phone: "+966500000099",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "اختر الباقة" }));
+    await user.click(screen.getByRole("button", { name: "استلام من الفرع" }));
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+
+    expect(await screen.findByText("Noura User")).toBeInTheDocument();
+    expect(screen.getByText("+966500000099")).toBeInTheDocument();
+    expect(apiPostMock.mock.calls[0][1]).toMatchObject({ userId: "user-99" });
   });
 
   it("requires cash confirmation before create", async () => {
@@ -416,6 +509,55 @@ describe("subscription creation page", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["payments-list"] });
   });
 
+  it("cashier create success navigates to the customer page and never subscription details", async () => {
+    authRole = "cashier";
+    apiPostMock
+      .mockResolvedValueOnce({ data: quoteResponse })
+      .mockResolvedValueOnce({ data: createResponse });
+    renderPage();
+    const user = userEvent.setup();
+
+    await fillValidPickup(user);
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await screen.findByText("مراجعة السعر والدفع النقدي");
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith({
+        to: "/users/$userId",
+        params: { userId: "user-1" },
+      })
+    );
+    expect(navigateMock).not.toHaveBeenCalledWith({
+      to: "/subscriptions/$subscriptionId",
+      params: { subscriptionId: "sub-1" },
+    });
+    expect(toastMock).toHaveBeenCalledWith("تم إنشاء الاشتراك بنجاح (SUB-001)", "success");
+  });
+
+  it("superadmin create success navigates to subscription details", async () => {
+    authRole = "superadmin";
+    apiPostMock
+      .mockResolvedValueOnce({ data: quoteResponse })
+      .mockResolvedValueOnce({ data: createResponse });
+    renderPage();
+    const user = userEvent.setup();
+
+    await fillValidPickup(user);
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await screen.findByText("مراجعة السعر والدفع النقدي");
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith({
+        to: "/subscriptions/$subscriptionId",
+        params: { subscriptionId: "sub-1" },
+      })
+    );
+  });
+
   it("marks quote stale after a quote-driving field changes and requires re-quote", async () => {
     apiPostMock
       .mockResolvedValueOnce({ data: quoteResponse })
@@ -460,6 +602,22 @@ describe("subscription creation page", () => {
           status: 400,
           data: { messageAr: "المبلغ المحصل لا يطابق إجمالي عرض السعر" },
         },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          ...quoteResponse,
+          data: {
+            ...quoteResponse.data,
+            pricing: { ...quoteResponse.data.pricing, totalHalala: 17000 },
+            totalHalala: 17000,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          ...createResponse,
+          data: { ...createResponse.data, id: "sub-2", displayId: "SUB-002" },
+        },
       });
     renderPage();
     const user = userEvent.setup();
@@ -471,8 +629,28 @@ describe("subscription creation page", () => {
     await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
 
     expect(await screen.findByText("المبلغ المحصل لا يطابق إجمالي عرض السعر")).toBeInTheDocument();
+    expect(screen.getByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.")).toBeInTheDocument();
     expect(screen.getByText("مراجعة السعر والدفع النقدي")).toBeInTheDocument();
+    const checkbox = screen.getByRole("checkbox");
+    const createButton = screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" });
+    expect(checkbox).toBeDisabled();
+    expect(createButton).toBeDisabled();
+
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(createButton);
+    expect(apiPostMock).toHaveBeenCalledTimes(2);
+
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" })).toBeDisabled();
+
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(4));
+    expect(apiPostMock.mock.calls[3][1]).toMatchObject({
+      payment: { collectedAmountHalala: 17000 },
+    });
   });
 
   it("rejects invalid premium and add-on quantities before quote", async () => {

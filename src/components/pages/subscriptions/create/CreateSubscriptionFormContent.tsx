@@ -14,13 +14,17 @@ import {
   buildDashboardSubscriptionSelectionPayload,
   buildCashCreatePayload,
   getQuotePricingTotalHalala,
+  isCollectedAmountMismatchError,
 } from "@/utils/fetchSubscriptionCreation";
 import type {
   DashboardSubscriptionQuoteResponse,
   DashboardSubscriptionSelectionPayload,
+  SubscriptionCreationCustomerSummary,
 } from "@/types/subscriptionCreationTypes";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, FileCheck2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { UserRoles } from "@/types/auth";
 
 import { UserSelectionSection } from "./UserSelectionSection";
 import { PlanSelectionSection } from "./PlanSelectionSection";
@@ -32,6 +36,7 @@ import { SubscriptionQuoteReview } from "./SubscriptionQuoteReview";
 interface CreateSubscriptionFormContentProps {
   /** Pre-set userId (when creating from user page). If provided, user selection is hidden. */
   userId?: string;
+  customerSummary?: SubscriptionCreationCustomerSummary;
 }
 
 type ApiRecord = Record<string, unknown>;
@@ -62,9 +67,11 @@ function readSubscriptionLabel(response: unknown) {
 
 export function CreateSubscriptionFormContent({
   userId,
+  customerSummary,
 }: CreateSubscriptionFormContentProps) {
   const form = useCreateSubscriptionForm(userId || "");
   const navigate = useNavigate();
+  const { user } = useAuth();
   const quoteMutation = useDashboardSubscriptionQuoteMutation();
   const createMutation = useDashboardSubscriptionCreateMutation();
   const quoteInFlightRef = useRef(false);
@@ -75,6 +82,13 @@ export function CreateSubscriptionFormContent({
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
+  const [requoteRequired, setRequoteRequired] = useState(false);
+  const [selectedCustomerSummary, setSelectedCustomerSummary] =
+    useState<SubscriptionCreationCustomerSummary | null>(
+      customerSummary ?? null
+    );
+  const [quotedCustomerSummary, setQuotedCustomerSummary] =
+    useState<SubscriptionCreationCustomerSummary | null>(null);
 
   const currentSelection = form.watch();
   const currentPayload = useMemo(() => {
@@ -87,6 +101,7 @@ export function CreateSubscriptionFormContent({
   const isQuoteStale =
     Boolean(quote && quotedSelection && currentPayload) &&
     JSON.stringify(currentPayload) !== JSON.stringify(quotedSelection);
+  const createBlocked = isQuoteStale || requoteRequired;
   const isSubmitting = quoteMutation.isPending || createMutation.isPending;
 
   useEffect(() => {
@@ -98,18 +113,27 @@ export function CreateSubscriptionFormContent({
   const onSubmit = async (data: CreateSubscriptionSchemaType) => {
     if (quoteInFlightRef.current || createMutation.isPending) return;
     const payload = buildDashboardSubscriptionSelectionPayload(data);
+    const matchingCustomer =
+      selectedCustomerSummary?.id === payload.userId
+        ? selectedCustomerSummary
+        : customerSummary?.id === payload.userId
+          ? customerSummary
+          : null;
 
     try {
       quoteInFlightRef.current = true;
       setQuoteError(null);
       setCreateError(null);
       setCashConfirmed(false);
+      setRequoteRequired(false);
       const response = await quoteMutation.mutateAsync(payload);
       setQuote(response);
       setQuotedSelection(payload);
+      setQuotedCustomerSummary(matchingCustomer);
     } catch (error: unknown) {
       setQuote(null);
       setQuotedSelection(null);
+      setQuotedCustomerSummary(null);
       setQuoteError(
         getApiErrorMessage(error) || "تعذر مراجعة السعر. تحقق من البيانات وحاول مرة أخرى."
       );
@@ -119,7 +143,7 @@ export function CreateSubscriptionFormContent({
   };
 
   const handleCreate = async () => {
-    if (!quote || !quotedSelection || createInFlightRef.current || isQuoteStale) return;
+    if (!quote || !quotedSelection || createInFlightRef.current || createBlocked) return;
     const total = getQuotePricingTotalHalala(quote);
     if (!total.ok) {
       setCreateError(total.message);
@@ -144,15 +168,22 @@ export function CreateSubscriptionFormContent({
       );
 
       if (subscriptionId) {
-        navigate({
-          to: "/subscriptions/$subscriptionId",
-          params: { subscriptionId },
-        });
+        if (user?.role === UserRoles.CASHIER) {
+          navigate({
+            to: "/users/$userId",
+            params: { userId: quotedSelection.userId },
+          });
+        } else {
+          navigate({
+            to: "/subscriptions/$subscriptionId",
+            params: { subscriptionId },
+          });
+        }
         return;
       }
 
-      if (userId) {
-        navigate({ to: "/users/$userId", params: { userId } });
+      if (quotedSelection.userId) {
+        navigate({ to: "/users/$userId", params: { userId: quotedSelection.userId } });
       } else {
         navigate({ to: "/subscriptions" });
       }
@@ -161,8 +192,9 @@ export function CreateSubscriptionFormContent({
         getApiErrorMessage(error) ||
         "تعذر إنشاء الاشتراك. احتفظنا بعرض السعر للمراجعة.";
       setCreateError(message);
-      if (message.includes("المبلغ") || message.toLowerCase().includes("amount")) {
+      if (isCollectedAmountMismatchError(error)) {
         setCashConfirmed(false);
+        setRequoteRequired(true);
       }
     } finally {
       createInFlightRef.current = false;
@@ -174,7 +206,12 @@ export function CreateSubscriptionFormContent({
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <fieldset disabled={createMutation.isPending} className="space-y-6">
           {/* Step 1: User selection (only if no userId provided) */}
-          {!userId && <UserSelectionSection form={form} />}
+          {!userId && (
+            <UserSelectionSection
+              form={form}
+              onCustomerSelect={setSelectedCustomerSummary}
+            />
+          )}
 
           {/* Step 2: Plan selection */}
           <PlanSelectionSection form={form} />
@@ -232,6 +269,8 @@ export function CreateSubscriptionFormContent({
             quote={quote}
             quotedSelection={quotedSelection}
             stale={isQuoteStale}
+            requoteRequired={requoteRequired}
+            customerSummary={quotedCustomerSummary}
             cashConfirmed={cashConfirmed}
             createPending={createMutation.isPending}
             createError={createError}

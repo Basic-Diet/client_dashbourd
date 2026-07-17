@@ -90,12 +90,48 @@ export function buildDashboardSubscriptionSelectionPayload(
       : {
           type: "pickup",
           pickupLocationId: data.delivery.pickupLocationId || "",
-          ...(deliveryWindow ? { window: deliveryWindow } : {}),
         },
     ...(premiumItems.length ? { premiumItems } : {}),
     ...(addons.length ? { addons } : {}),
     ...(data.promoCode?.trim() ? { promoCode: data.promoCode.trim() } : {}),
   };
+}
+
+export function isCollectedAmountMismatchError(error: unknown) {
+  const root = asRecord(error);
+  const response = asRecord(root.response);
+  const data = asRecord(response.data);
+  const nestedError = asRecord(data.error);
+  const code = (
+    readString(nestedError.code) ||
+    readString(data.code) ||
+    readString(data.errorCode) ||
+    readString(data.reason)
+  ).toUpperCase();
+  const message = [
+    nestedError.message,
+    nestedError.messageAr,
+    data.message,
+    data.messageAr,
+    data.error,
+  ]
+    .map(readString)
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    code === "COLLECTED_AMOUNT_MISMATCH" ||
+    code === "QUOTE_TOTAL_MISMATCH" ||
+    code === "PAYMENT_AMOUNT_MISMATCH" ||
+    message.includes("collected amount does not match quote total") ||
+    (message.includes("المبلغ") &&
+      message.includes("لا يطابق") &&
+      message.includes("عرض السعر")) ||
+    (message.includes("Ø§Ù„Ù…Ø¨Ù„Øº") &&
+      message.includes("Ù„Ø§ ÙŠØ·Ø§Ø¨Ù‚") &&
+      message.includes("Ø¹Ø±Ø¶ Ø§Ù„Ø³Ø¹Ø±"))
+  );
 }
 
 export function getQuotePricingTotalHalala(
@@ -219,6 +255,56 @@ export function resolveQuoteLineItems(
   );
 
   return rows;
+}
+
+export function getQuoteLineItemIdentity(item: DashboardQuoteLineItem) {
+  return (
+    readString(item.kind) ||
+    readString(item.type) ||
+    readString(item.key) ||
+    readString(item.code) ||
+    readString(item.label)
+  ).toLowerCase();
+}
+
+export function getQuoteLineItemAmount(item: DashboardQuoteLineItem) {
+  const amount =
+    item.amountHalala ??
+    item.valueHalala ??
+    item.totalHalala ??
+    item.priceHalala;
+  return amount === undefined || amount === null
+    ? undefined
+    : Number(amount);
+}
+
+export function isVatQuoteLineItem(item: DashboardQuoteLineItem) {
+  const identity = getQuoteLineItemIdentity(item);
+  return identity === "vat" || identity.includes("vat") || identity.includes("Ø¶Ø±ÙŠØ¨Ø©");
+}
+
+export function isTotalQuoteLineItem(item: DashboardQuoteLineItem) {
+  const identity = getQuoteLineItemIdentity(item);
+  return (
+    identity === "total" ||
+    identity === "grand_total" ||
+    identity === "final_total" ||
+    identity.includes("total") ||
+    identity.includes("Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ")
+  );
+}
+
+export function getLocalizedLabel(value: unknown) {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  const record = asRecord(value);
+  return (
+    readString(record.ar) ||
+    readString(record.en) ||
+    readString(record.label) ||
+    readString(record.name) ||
+    readString(record.title)
+  );
 }
 
 export function resolveQuoteSections(

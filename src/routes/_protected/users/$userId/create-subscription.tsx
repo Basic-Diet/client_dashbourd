@@ -24,7 +24,8 @@ function CreateSubscriptionPage() {
     userDetailsQueryOptions(userId)
   );
 
-  const userName = response?.data?.fullName || "";
+  const userName = response?.data?.fullName || response?.data?.phone || userId;
+  const userPhone = response?.data?.phone || response?.data?.phoneE164 || undefined;
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6" dir="rtl">
@@ -51,7 +52,14 @@ function CreateSubscriptionPage() {
         </div>
       </div>
 
-      <CreateSubscriptionFormContent userId={userId} />
+      <CreateSubscriptionFormContent
+        userId={userId}
+        customerSummary={{
+          id: userId,
+          name: userName,
+          phone: userPhone,
+        }}
+      />
     </div>
   );
 }

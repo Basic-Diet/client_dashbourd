@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it, vi } from "vitest";
 import {
   buildDashboardSubscriptionSelectionPayload,
@@ -105,7 +106,7 @@ describe("subscription creation contract", () => {
         type: "pickup",
         zoneId: "",
         pickupLocationId: "pickup-1",
-        slot: { type: "pickup", window: "", slotId: "" },
+        slot: { type: "pickup", window: "18:00-20:00", slotId: "stale-slot" },
       },
     });
 
@@ -117,6 +118,10 @@ describe("subscription creation contract", () => {
       startDate: "2026-07-20",
       delivery: { type: "pickup", pickupLocationId: "pickup-1" },
     });
+    assert.equal("window" in payload.delivery, false);
+    assert.equal("zoneId" in payload.delivery, false);
+    assert.equal("address" in payload.delivery, false);
+    assert.equal("slot" in payload.delivery, false);
   });
 
   it("prefers pricing total and rejects conflicting aliases", () => {
@@ -144,5 +149,17 @@ describe("subscription creation contract", () => {
       paidAt: "2026-07-17T00:00:00.000Z",
     });
     assert.equal(payload.source, "dashboard_cashier");
+  });
+
+  it("user compatibility component uses the canonical form and no direct create mutation", () => {
+    const source = readFileSync(
+      "src/components/pages/users/create-subscription-form.tsx",
+      "utf8"
+    );
+
+    assert.equal(source.includes("CreateSubscriptionFormContent"), true);
+    assert.equal(source.includes("useCreateSubscriptionMutation"), false);
+    assert.equal(source.includes("useCreateSubscriptionForm"), false);
+    assert.equal(source.includes("/api/dashboard/subscriptions"), false);
   });
 });

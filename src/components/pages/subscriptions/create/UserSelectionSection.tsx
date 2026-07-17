@@ -12,9 +12,11 @@ import { Users, Search, Check } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import type { User } from "@/types/userTypes";
+import type { SubscriptionCreationCustomerSummary } from "@/types/subscriptionCreationTypes";
 
 interface UserSelectionSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
+  onCustomerSelect?: (customer: SubscriptionCreationCustomerSummary) => void;
 }
 
 function getUserDisplayName(user: User) {
@@ -30,7 +32,7 @@ function getSearchText(user: User) {
   return [user.fullName, user.phone, user.email].filter(Boolean).join(" ").toLowerCase();
 }
 
-export function UserSelectionSection({ form }: UserSelectionSectionProps) {
+export function UserSelectionSection({ form, onCustomerSelect }: UserSelectionSectionProps) {
   const { data: usersResponse, isLoading } = useAllUsersQuery();
   const users = usersResponse?.data || [];
   const [search, setSearch] = useState("");
@@ -108,11 +110,17 @@ export function UserSelectionSection({ form }: UserSelectionSectionProps) {
                 <button
                   key={user.id}
                   type="button"
-                  onClick={() =>
-                    form.setValue("userId", user.coreUserId || user.id, {
+                  onClick={() => {
+                    const nextUserId = user.coreUserId || user.id;
+                    form.setValue("userId", nextUserId, {
                       shouldValidate: true,
-                    })
-                  }
+                    });
+                    onCustomerSelect?.({
+                      id: nextUserId,
+                      name: getUserDisplayName(user),
+                      phone: user.phone || user.phoneE164 || undefined,
+                    });
+                  }}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-right transition-all ${
                     isSelected
                       ? "bg-primary/10 ring-1 ring-primary/30"
