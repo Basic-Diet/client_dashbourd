@@ -54,6 +54,38 @@ export function OperationsOrderItemSummary({
         </div>
       ) : null}
 
+      {!compact ? (
+        <div className="mt-3 grid gap-1.5 text-xs">
+          {item.basePriceHalala !== null ? (
+            <div className="flex justify-between gap-3 rounded-md bg-muted/35 px-2 py-1.5">
+              <span>السعر الأساسي</span>
+              <span dir="ltr">{formatOperationsSar(item.basePriceHalala)}</span>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-3 rounded-md bg-muted/35 px-2 py-1.5">
+            <span>الاختيارات المدفوعة</span>
+            <span dir="ltr">{formatOperationsSar(item.optionsPriceHalala)}</span>
+          </div>
+          {item.unitPriceHalala !== null ? (
+            <div className="flex justify-between gap-3 rounded-md bg-muted/35 px-2 py-1.5">
+              <span>سعر الوحدة</span>
+              <span dir="ltr">{formatOperationsSar(item.unitPriceHalala)}</span>
+            </div>
+          ) : null}
+          {item.lineTotalHalala !== null ? (
+            <div className="flex justify-between gap-3 rounded-md bg-primary/10 px-2 py-1.5 font-bold text-primary">
+              <span>إجمالي الصنف</span>
+              <span dir="ltr">{formatOperationsSar(item.lineTotalHalala)}</span>
+            </div>
+          ) : null}
+          {item.vatIncluded ? (
+            <div className="rounded-md bg-emerald-500/10 px-2 py-1.5 font-semibold text-emerald-800 dark:text-emerald-300">
+              الضريبة مشمولة
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {!compact && item.notes ? (
         <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-800">
           ملاحظة: {item.notes}

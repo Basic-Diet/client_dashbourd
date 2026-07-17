@@ -1,4 +1,5 @@
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
+import type { PendingOperationsActions } from "@/hooks/useOperationsBoard";
 import { getCourierItems } from "@/lib/operationsBoard";
 import { OperationsQueueCharts } from "./OperationsQueueCharts";
 import { OperationsQueueTable } from "./OperationsQueueTable";
@@ -6,7 +7,7 @@ import { OperationsQueueTable } from "./OperationsQueueTable";
 interface OperationsCourierBoardProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
-  pendingActionKey?: string | null;
+  pendingActions?: PendingOperationsActions;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -18,7 +19,7 @@ interface OperationsCourierBoardProps {
 export function OperationsCourierBoard({
   items = [],
   isPending,
-  pendingActionKey,
+  pendingActions,
   onAction,
 }: OperationsCourierBoardProps) {
   const courierItems = getCourierItems(items);
@@ -33,7 +34,7 @@ export function OperationsCourierBoard({
       <OperationsQueueTable
         items={courierItems}
         isPending={isPending}
-        pendingActionKey={pendingActionKey}
+        pendingActions={pendingActions}
         onAction={onAction}
       />
     </div>

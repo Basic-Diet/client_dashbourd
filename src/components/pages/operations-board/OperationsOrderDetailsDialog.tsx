@@ -452,6 +452,9 @@ export function OperationsOrderDetailsDialog({
   const window = item.context.window || delivery?.window || item.delivery?.window || item.delivery?.deliveryWindow;
   const notes = asRecord(orderSummary)?.notes || item.notes || item.context.notes;
   const allergies = asRecord(orderSummary)?.allergies;
+  const oneTimePresentation = isOneTimeOrder(item)
+    ? buildOperationsOrderPresentation(item)
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -462,9 +465,15 @@ export function OperationsOrderDetailsDialog({
         <div className="border-b bg-muted/30 px-5 py-4 sm:px-6">
           <DialogHeader className="gap-2 pl-10 text-right">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="rounded-md">{sourceLabel(item)}</Badge>
-              <Badge variant="outline" className="rounded-md">{modeLabel(item.mode)}</Badge>
-              <Badge className="rounded-md">{item.statusLabel || item.status}</Badge>
+              <Badge variant="secondary" className="rounded-md">
+                {oneTimePresentation?.sourceLabel || sourceLabel(item)}
+              </Badge>
+              <Badge variant="outline" className="rounded-md">
+                {oneTimePresentation?.modeLabel || modeLabel(item.mode)}
+              </Badge>
+              <Badge className="rounded-md">
+                {oneTimePresentation?.statusLabel || item.statusLabel || item.status}
+              </Badge>
             </div>
             <DialogTitle className="text-xl font-bold">تفاصيل الطلب</DialogTitle>
             <DialogDescription className="text-right break-words">

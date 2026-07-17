@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { getApiErrorMessage } from "@/lib/apiErrors";
@@ -13,7 +13,6 @@ import {
   OPERATIONS_SCREENS,
   type OperationsScreen,
 } from "@/lib/operationsBoard";
-import { getOperationsActionKey } from "@/lib/operationsOrderPresentation";
 import type {
   DashboardOpsActionResponse,
   UnifiedQueueItem,
@@ -22,6 +21,11 @@ import {
   fetchDashboardOpsList,
   fetchDashboardOpsSearch,
 } from "@/utils/fetchDashboardOpsData";
+
+export type PendingOperationsActions = Record<
+  string,
+  { actionId: string; label: string }
+>;
 
 interface UseOperationsBoardParams {
   date?: string;
@@ -91,7 +95,8 @@ function excludeItems(
 export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
+  const pendingActionsRef = useRef<PendingOperationsActions>({});
+  const [pendingActions, setPendingActions] = useState<PendingOperationsActions>({});
   const role = user?.role;
   const { label: screenLabel, screens: visibleScreens } =
     getScreensForRole(role);
@@ -154,6 +159,7 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
     }: {
       item: UnifiedQueueItem;
       action: string;
+      orderId: string;
       actionLabel?: string;
       reason?: string;
       notes?: string;
@@ -178,10 +184,9 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
       });
       return data;
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       toast.success(`تم تنفيذ ${variables.actionLabel || variables.action} بنجاح`);
-      queryClient.invalidateQueries({ queryKey: ["operations-board", "queue"] });
-      queryClient.refetchQueries({
+      await queryClient.refetchQueries({
         queryKey: ["operations-board", "queue"],
         type: "active",
       });
@@ -189,8 +194,12 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
     onError: (error: unknown) => {
       toast.error(getApiErrorMessage(error) || "تعذر تنفيذ الإجراء");
     },
-    onSettled: () => {
-      setPendingActionKey(null);
+    onSettled: (_data, _error, variables) => {
+      if (!variables) return;
+      const next = { ...pendingActionsRef.current };
+      delete next[variables.orderId];
+      pendingActionsRef.current = next;
+      setPendingActions(next);
     },
   });
 
@@ -203,13 +212,19 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
     notes?: string,
     pickupCode?: string
   ) => {
-    const actionKey = getOperationsActionKey(item, action);
-    if (pendingActionKey === actionKey) return;
+    const orderId = item.id;
+    if (pendingActionsRef.current[orderId]) return;
 
-    setPendingActionKey(actionKey);
+    const next = {
+      ...pendingActionsRef.current,
+      [orderId]: { actionId: action, label: actionLabel || action },
+    };
+    pendingActionsRef.current = next;
+    setPendingActions(next);
     actionMutation.mutate({
       item,
       action,
+      orderId,
       actionLabel,
       reason,
       notes,
@@ -224,8 +239,8 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
     allItems,
     itemsByScreen,
     isLoading: queueQuery.isLoading,
-    isPending: actionMutation.isPending,
-    pendingActionKey,
+    isPending: Object.keys(pendingActions).length > 0,
+    pendingActions,
     requestAction,
     queueQuery,
     actionMutation,

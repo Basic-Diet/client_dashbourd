@@ -1,4 +1,5 @@
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
+import type { PendingOperationsActions } from "@/hooks/useOperationsBoard";
 import { getPickupItems } from "@/lib/operationsBoard";
 import { OperationsQueueCharts } from "./OperationsQueueCharts";
 import { OperationsQueueTable } from "./OperationsQueueTable";
@@ -6,7 +7,7 @@ import { OperationsQueueTable } from "./OperationsQueueTable";
 interface OperationsPickupBoardProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
-  pendingActionKey?: string | null;
+  pendingActions?: PendingOperationsActions;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -19,7 +20,7 @@ interface OperationsPickupBoardProps {
 export function OperationsPickupBoard({
   items = [],
   isPending,
-  pendingActionKey,
+  pendingActions,
   onAction,
   onFulfill,
 }: OperationsPickupBoardProps) {
@@ -35,7 +36,7 @@ export function OperationsPickupBoard({
       <OperationsQueueTable
         items={pickupItems}
         isPending={isPending}
-        pendingActionKey={pendingActionKey}
+        pendingActions={pendingActions}
         onAction={onAction}
         onFulfill={onFulfill}
       />

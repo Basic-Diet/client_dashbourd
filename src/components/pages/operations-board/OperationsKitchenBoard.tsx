@@ -10,13 +10,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
+import type { PendingOperationsActions } from "@/hooks/useOperationsBoard";
 import { OperationsQueueCharts } from "./OperationsQueueCharts";
 import { OperationsQueueTable } from "./OperationsQueueTable";
 
 interface OperationsKitchenBoardProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
-  pendingActionKey?: string | null;
+  pendingActions?: PendingOperationsActions;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -70,7 +71,7 @@ function matchesKitchenFilter(
 export function OperationsKitchenBoard({
   items = [],
   isPending,
-  pendingActionKey,
+  pendingActions,
   onAction,
 }: OperationsKitchenBoardProps) {
   const [statusFilter, setStatusFilter] = useState<KitchenStatusFilter>("all");
@@ -143,7 +144,7 @@ export function OperationsKitchenBoard({
       <OperationsQueueTable
         items={filteredItems}
         isPending={isPending}
-        pendingActionKey={pendingActionKey}
+        pendingActions={pendingActions}
         onAction={onAction}
       />
     </div>

@@ -35,10 +35,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { PendingOperationsActions } from "@/hooks/useOperationsBoard";
 import { safeText } from "@/lib/operationsBoard";
 import {
   buildOperationsOrderPresentation,
-  getOperationsActionKey,
+  formatOperationsSar,
 } from "@/lib/operationsOrderPresentation";
 import type { QueueAction, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
@@ -49,7 +50,7 @@ import { OperationsSelectionGroups } from "./OperationsSelectionGroups";
 interface OperationsQueueTableProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
-  pendingActionKey?: string | null;
+  pendingActions?: PendingOperationsActions;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -540,9 +541,9 @@ function getFulfillmentMeta(item: UnifiedQueueItem) {
 function isActionDisabled(
   item: UnifiedQueueItem,
   action: VisibleAction,
-  pendingActionKey?: string | null
+  pendingActions?: PendingOperationsActions
 ) {
-  if (pendingActionKey === getOperationsActionKey(item, action.id)) return true;
+  if (pendingActions?.[item.id]) return true;
   if (action.disabled) return true;
   if (isOneTimeOrder(item)) return false;
 
@@ -653,18 +654,26 @@ function searchableText(item: UnifiedQueueItem) {
 
 function ActionButtons({
   item,
-  pendingActionKey,
+  pendingActions,
   onAction,
   onFulfill,
   onDetails,
 }: {
   item: UnifiedQueueItem;
-  pendingActionKey?: string | null;
+  pendingActions?: PendingOperationsActions;
   onAction: OperationsQueueTableProps["onAction"];
   onFulfill?: OperationsQueueTableProps["onFulfill"];
   onDetails: (item: UnifiedQueueItem) => void;
 }) {
   const visibleActions = getVisibleActions(item);
+  const pendingAction = pendingActions?.[item.id];
+  const presentation = isOneTimeOrder(item)
+    ? buildOperationsOrderPresentation(item)
+    : null;
+  const detailsLabel =
+    presentation && presentation.uniqueSelectionCount > 0
+      ? `عرض التفاصيل الكاملة (${presentation.uniqueSelectionCount} اختياراً)`
+      : "عرض التفاصيل الكاملة";
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -674,9 +683,8 @@ function ActionButtons({
         </div>
       ) : null}
       {visibleActions.map((action) => {
-        const disabled = isActionDisabled(item, action, pendingActionKey);
-        const isThisPending =
-          pendingActionKey === getOperationsActionKey(item, action.id);
+        const disabled = isActionDisabled(item, action, pendingActions);
+        const isThisPending = pendingAction?.actionId === action.id;
         return (
           <Button
             key={action.id}
@@ -705,7 +713,9 @@ function ActionButtons({
             }}
           >
             {actionIcons[action.id]}
-            {isThisPending ? "جار التنفيذ..." : action.label}
+            {isThisPending && pendingAction
+              ? `جار ${pendingAction.label}...`
+              : action.label}
           </Button>
         );
       })}
@@ -716,7 +726,7 @@ function ActionButtons({
         onClick={() => onDetails(item)}
       >
         <Eye className="ml-1.5 h-3.5 w-3.5" />
-        تفاصيل كاملة
+        {detailsLabel}
       </Button>
     </div>
   );
@@ -800,16 +810,19 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
   );
 }
 
-function OneTimeOrderCardBody({
-  item,
-  onDetails,
-}: {
-  item: UnifiedQueueItem;
-  onDetails: (item: UnifiedQueueItem) => void;
-}) {
+function OneTimeOrderCardBody({ item }: { item: UnifiedQueueItem }) {
   const presentation = buildOperationsOrderPresentation(item);
-  const primaryItem = presentation.items[0];
-  const previewGroups = primaryItem?.selectionGroups || [];
+  const visibleItems = presentation.items.slice(0, 2);
+  const hiddenItems = presentation.items.slice(2);
+  const hiddenPaidSelections = hiddenItems.flatMap((presentedItem) =>
+    presentedItem.paidSelections.map((selection) => ({
+      itemName: presentedItem.name,
+      selection,
+    }))
+  );
+  const visibleItemsWithSelections = visibleItems.filter(
+    (presentedItem) => presentedItem.selectionGroups.length > 0
+  );
 
   return (
     <>
@@ -866,9 +879,40 @@ function OneTimeOrderCardBody({
       ) : null}
 
       <div className="grid gap-2">
-        <SectionHeader title="الصنف الأساسي" count={presentation.items.length} />
-        {primaryItem ? (
-          <OperationsOrderItemSummary item={primaryItem} compact />
+        <SectionHeader title="الأصناف" count={presentation.items.length} />
+        {visibleItems.length ? (
+          <>
+            {visibleItems.map((presentedItem) => (
+              <OperationsOrderItemSummary
+                key={presentedItem.key}
+                item={presentedItem}
+                compact
+              />
+            ))}
+            {hiddenItems.length ? (
+              <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground">
+                +{hiddenItems.length} أصناف أخرى
+              </div>
+            ) : null}
+            {hiddenPaidSelections.length ? (
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200">
+                <p className="mb-1 font-bold">اختيارات مدفوعة من أصناف أخرى</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {hiddenPaidSelections.map(({ itemName, selection }) => (
+                    <span
+                      key={`${itemName}-${selection.signature}`}
+                      className="rounded-md bg-background/70 px-2 py-1 font-semibold"
+                    >
+                      {itemName}: {selection.optionName}
+                      {selection.priceHalala > 0
+                        ? ` (${formatOperationsSar(selection.priceHalala)})`
+                        : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : (
           <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             لا توجد أصناف واضحة في الطلب الحالي.
@@ -878,17 +922,31 @@ function OneTimeOrderCardBody({
 
       <div className="grid gap-2">
         <SectionHeader title="مكونات الطلب" count={presentation.uniqueSelectionCount} />
-        <OperationsSelectionGroups groups={previewGroups} preview limit={4} />
-        {presentation.uniqueSelectionCount ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="justify-center text-xs font-semibold"
-            onClick={() => onDetails(item)}
-          >
-            عرض كل مكونات الطلب ({presentation.uniqueSelectionCount})
-          </Button>
+        {visibleItemsWithSelections.length ? (
+          visibleItemsWithSelections.map((presentedItem) => (
+            <div
+              key={`${presentedItem.key}-selection-preview`}
+              className="rounded-lg bg-muted/25 p-2"
+            >
+              <p className="mb-1 text-xs font-bold text-muted-foreground">
+                {presentedItem.name}
+              </p>
+              <OperationsSelectionGroups
+                groups={presentedItem.selectionGroups}
+                preview
+                limit={3}
+              />
+            </div>
+          ))
+        ) : (
+          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            لا توجد مكونات محددة لهذا الطلب.
+          </p>
+        )}
+        {hiddenItems.length ? (
+          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground">
+            تفاصيل مكونات الأصناف الأخرى متاحة في التفاصيل الكاملة.
+          </p>
         ) : null}
       </div>
     </>
@@ -897,13 +955,13 @@ function OneTimeOrderCardBody({
 
 function OperationsQueueCard({
   item,
-  pendingActionKey,
+  pendingActions,
   onAction,
   onFulfill,
   onDetails,
 }: {
   item: UnifiedQueueItem;
-  pendingActionKey?: string | null;
+  pendingActions?: PendingOperationsActions;
   onAction: OperationsQueueTableProps["onAction"];
   onFulfill?: OperationsQueueTableProps["onFulfill"];
   onDetails: (item: UnifiedQueueItem) => void;
@@ -986,7 +1044,7 @@ function OperationsQueueCard({
 
       <div className="flex flex-1 flex-col gap-3 p-3.5">
         {oneTimeOrder ? (
-          <OneTimeOrderCardBody item={item} onDetails={onDetails} />
+          <OneTimeOrderCardBody item={item} />
         ) : (
           <>
         <div className="rounded-xl border border-primary/10 bg-primary/5 p-3">
@@ -1094,7 +1152,7 @@ function OperationsQueueCard({
       <div className="border-t bg-muted/15 p-3.5">
         <ActionButtons
           item={item}
-          pendingActionKey={pendingActionKey}
+          pendingActions={pendingActions}
           onAction={onAction}
           onFulfill={onFulfill}
           onDetails={onDetails}
@@ -1207,7 +1265,7 @@ function CardsPagination({
 
 export function OperationsQueueTable({
   items = [],
-  pendingActionKey,
+  pendingActions,
   onAction,
   onFulfill,
 }: OperationsQueueTableProps) {
@@ -1277,7 +1335,7 @@ export function OperationsQueueTable({
               <OperationsQueueCard
                 key={item.id}
                 item={item}
-                pendingActionKey={pendingActionKey}
+                pendingActions={pendingActions}
                 onAction={onAction}
                 onFulfill={onFulfill}
                 onDetails={setDetailsItem}

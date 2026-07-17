@@ -29,12 +29,15 @@ export function OperationsBoard() {
     itemsByScreen,
     isLoading,
     isPending,
-    pendingActionKey,
+    pendingActions,
     requestAction,
   } = useOperationsBoard({ date, q: debouncedSearch });
   const { dialogState, openReasonDialog, openFulfillDialog, closeDialog } =
     useOperationsBoardDialog();
   const activeTab = getSafeOperationsTab(tabFromUrl, visibleScreens);
+  const dialogOrderPending = Boolean(
+    dialogState.item && pendingActions?.[dialogState.item.id]
+  );
 
   const handleTabChange = (value: string) => {
     if (value === activeTab) {
@@ -175,7 +178,7 @@ export function OperationsBoard() {
           <OperationsKitchenBoard
             items={itemsByScreen.kitchen ?? []}
             isPending={isPending}
-            pendingActionKey={pendingActionKey}
+            pendingActions={pendingActions}
             onAction={handleRequestAction}
           />
         </TabsContent>
@@ -183,7 +186,7 @@ export function OperationsBoard() {
           <OperationsPickupBoard
             items={itemsByScreen.pickup ?? []}
             isPending={isPending}
-            pendingActionKey={pendingActionKey}
+            pendingActions={pendingActions}
             onAction={handleRequestAction}
             onFulfill={openFulfillDialog}
           />
@@ -192,7 +195,7 @@ export function OperationsBoard() {
           <OperationsCourierBoard
             items={itemsByScreen.courier ?? []}
             isPending={isPending}
-            pendingActionKey={pendingActionKey}
+            pendingActions={pendingActions}
             onAction={handleRequestAction}
           />
         </TabsContent>
@@ -213,7 +216,7 @@ export function OperationsBoard() {
           if (!open) closeDialog();
         }}
         onSubmit={(values) => handleReasonConfirm(values.reason, values.notes)}
-        isPending={isPending}
+        isPending={dialogOrderPending}
       />
 
       <FulfillDialog
@@ -222,7 +225,7 @@ export function OperationsBoard() {
           if (!open) closeDialog();
         }}
         onSubmit={(values) => handleFulfillConfirm(values.pickupCode)}
-        isPending={isPending}
+        isPending={dialogOrderPending}
       />
     </div>
   );

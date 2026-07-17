@@ -3,6 +3,33 @@ import { isOneTimeOrder } from "@/types/dashboardOpsTypes";
 
 type RawRecord = Record<string, unknown>;
 
+const STATUS_LABELS_AR: Record<string, string> = {
+  pending_payment: "بانتظار الدفع",
+  confirmed: "مؤكد",
+  in_preparation: "قيد التحضير",
+  preparing: "قيد التحضير",
+  ready_for_pickup: "جاهز للاستلام",
+  ready_for_delivery: "جاهز للتوصيل",
+  out_for_delivery: "خرج للتوصيل",
+  fulfilled: "مكتمل",
+  cancelled: "ملغي",
+  canceled: "ملغي",
+  expired: "منتهي",
+  no_show: "لم يحضر",
+};
+
+const PAYMENT_LABELS_AR: Record<string, string> = {
+  paid: "مدفوع",
+  pending: "قيد الانتظار",
+  initiated: "بانتظار الدفع",
+  pending_payment: "بانتظار الدفع",
+  failed: "فشل الدفع",
+  cancelled: "ملغي",
+  refunded: "مسترجع",
+  partially_refunded: "مسترجع جزئياً",
+  not_required: "غير مطلوب",
+};
+
 export interface OperationsSelectedOption {
   signature: string;
   groupName: string;
@@ -23,9 +50,12 @@ export interface OperationsPresentedItem {
   name: string;
   quantity: number;
   notes: string | null;
-  lineTotalHalala: number | null;
   basePriceHalala: number | null;
   optionsPriceHalala: number;
+  unitPriceHalala: number | null;
+  lineTotalHalala: number | null;
+  currency: string;
+  vatIncluded: boolean | null;
   selectionGroups: OperationsSelectionGroup[];
   uniqueSelectionCount: number;
   paidSelections: OperationsSelectedOption[];
@@ -39,6 +69,8 @@ export interface OperationsPricingPresentation {
   discountHalala: number | null;
   vatHalala: number | null;
   totalHalala: number | null;
+  currency: string;
+  vatIncluded: boolean | null;
 }
 
 export interface OperationsFulfillmentPresentation {
@@ -56,8 +88,10 @@ export interface OperationsOrderPresentation {
   reference: string;
   sourceLabel: string;
   statusLabel: string;
+  rawStatus: string;
   modeLabel: string;
   paymentLabel: string;
+  rawPaymentStatus: string | null;
   totalLabel: string;
   items: OperationsPresentedItem[];
   itemCount: number;
@@ -95,6 +129,10 @@ function asNumber(value: unknown): number | null {
   return null;
 }
 
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
 function firstString(...values: unknown[]): string | null {
   for (const value of values) {
     const direct = asString(value);
@@ -104,6 +142,38 @@ function firstString(...values: unknown[]): string | null {
     if (localized) return localized;
   }
   return null;
+}
+
+function hasArabicText(value: string | null | undefined): boolean {
+  return Boolean(value && /[\u0600-\u06ff]/.test(value));
+}
+
+function isTechnicalEnum(value: string | null | undefined): boolean {
+  return Boolean(value && /^[a-z][a-z0-9_-]*$/i.test(value.trim()));
+}
+
+function enumKey(value: string | null | undefined): string {
+  return (value || "").trim().toLowerCase();
+}
+
+function normalizeOperationalLabel(
+  values: unknown[],
+  fallbackMap: Record<string, string>,
+  fallback = "غير محدد"
+): string {
+  const candidates = values
+    .map((value) => localizedText(value))
+    .filter((value): value is string => Boolean(value));
+  const arabicCandidate = candidates.find(hasArabicText);
+  if (arabicCandidate) return arabicCandidate;
+
+  for (const candidate of candidates) {
+    const mapped = fallbackMap[enumKey(candidate)];
+    if (mapped) return mapped;
+  }
+
+  const humanCandidate = candidates.find((candidate) => !isTechnicalEnum(candidate));
+  return humanCandidate || fallback;
 }
 
 function localizedText(value: unknown): string | null {
@@ -150,20 +220,68 @@ function readHalala(record: RawRecord | null, keys: string[]): number | null {
   return null;
 }
 
+function readNestedHalala(record: RawRecord | null, paths: string[]): number | null {
+  if (!record) return null;
+  for (const path of paths) {
+    const value = path.split(".").reduce<unknown>((current, key) => {
+      return asRecord(current)?.[key];
+    }, record);
+    const parsed = asNumber(value);
+    if (parsed !== null) return Math.round(parsed);
+  }
+  return null;
+}
+
+function readNestedString(record: RawRecord | null, paths: string[]): string | null {
+  if (!record) return null;
+  for (const path of paths) {
+    const value = path.split(".").reduce<unknown>((current, key) => {
+      return asRecord(current)?.[key];
+    }, record);
+    const parsed = asString(value);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function readNestedBoolean(record: RawRecord | null, paths: string[]): boolean | null {
+  if (!record) return null;
+  for (const path of paths) {
+    const value = path.split(".").reduce<unknown>((current, key) => {
+      return asRecord(current)?.[key];
+    }, record);
+    const parsed = asBoolean(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
 function readPriceHalala(record: RawRecord | null): number {
+  if (!record) return 0;
+
+  const quantity = asNumber(record.quantity) ?? asNumber(record.qty) ?? 1;
+  const total = readHalala(record, ["totalHalala", "totalPriceHalala"]);
+  if (total !== null) return total;
+
+  const extraPrice = readHalala(record, ["extraPriceHalala"]);
+  if (extraPrice !== null) return Math.round(extraPrice * quantity);
+
+  const unitPrice = readHalala(record, ["unitPriceHalala"]);
+  if (unitPrice !== null) return Math.round(unitPrice * quantity);
+
   return (
     readHalala(record, [
-      "priceHalala",
-      "extraPriceHalala",
       "extraFeeHalala",
+      "priceHalala",
       "optionsPriceHalala",
       "optionPriceHalala",
       "lineExtraHalala",
+      "extraWeightPriceHalala",
     ]) || 0
   );
 }
 
-function formatSar(value: number | null): string {
+function formatSarAr(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "غير محدد";
   return `${(value / 100).toFixed(2)} ر.س`;
 }
@@ -249,6 +367,7 @@ function getOptionSignature(option: RawRecord, optionName: string, groupName: st
   const quantity = asNumber(option.quantity) ?? asNumber(option.qty) ?? 1;
   const price = readPriceHalala(option);
   const weight =
+    asNumber(option.extraWeightUnitGrams) ??
     asNumber(option.extraWeightGrams) ??
     asNumber(option.weightGrams) ??
     asNumber(option.grams) ??
@@ -276,6 +395,7 @@ function normalizeSelectedOptions(options: unknown[]): OperationsSelectedOption[
     const quantity = asNumber(record.quantity) ?? asNumber(record.qty) ?? 1;
     const priceHalala = readPriceHalala(record);
     const weightGrams =
+      asNumber(record.extraWeightUnitGrams) ??
       asNumber(record.extraWeightGrams) ??
       asNumber(record.weightGrams) ??
       asNumber(record.grams) ??
@@ -337,6 +457,7 @@ function getItemName(rawItem: RawRecord, index: number): string {
 
 function getPresentedItems(raw: RawRecord, item: UnifiedQueueItem) {
   const rawItems = asArray(raw.items);
+  const orderPricing = asRecord(raw.pricing) || {};
   const kitchen = getKitchen(raw, item);
   const kitchenSlots = asArray(kitchen.meals).length
     ? asArray(kitchen.meals)
@@ -353,29 +474,47 @@ function getPresentedItems(raw: RawRecord, item: UnifiedQueueItem) {
     );
     const selectionGroups = groupSelectedOptions(selectedOptions);
     const paidSelections = selectedOptions.filter((option) => option.priceHalala > 0);
-    const basePriceHalala = readHalala(rawItem, [
+    const basePriceHalala = readNestedHalala(rawItem, [
+      "pricingSnapshot.basePriceHalala",
       "basePriceHalala",
+      "productSnapshot.priceHalala",
       "unitBasePriceHalala",
-      "itemPriceHalala",
-    ]);
-    const lineTotalHalala = readHalala(rawItem, [
-      "lineTotalHalala",
-      "totalHalala",
-      "subtotalHalala",
-      "priceHalala",
     ]);
     const optionsPriceHalala =
-      readHalala(rawItem, ["optionsPriceHalala", "extrasTotalHalala"]) ??
-      selectedOptions.reduce((sum, option) => sum + option.priceHalala, 0);
+      readNestedHalala(rawItem, [
+        "pricingSnapshot.optionsTotalHalala",
+        "optionsPriceHalala",
+        "extrasTotalHalala",
+      ]) ?? selectedOptions.reduce((sum, option) => sum + option.priceHalala, 0);
+    const unitPriceHalala = readNestedHalala(rawItem, [
+      "pricingSnapshot.unitPriceHalala",
+      "unitPriceHalala",
+      "unitPrice",
+    ]);
+    const lineTotalHalala = readNestedHalala(rawItem, [
+      "pricingSnapshot.lineTotalHalala",
+      "lineTotalHalala",
+      "totalHalala",
+    ]);
+    const currency =
+      readNestedString(rawItem, ["pricingSnapshot.currency", "currency"]) ||
+      asString(orderPricing.currency) ||
+      "SAR";
+    const vatIncluded =
+      readNestedBoolean(rawItem, ["pricingSnapshot.vatIncluded"]) ??
+      asBoolean(orderPricing.vatIncluded);
 
     return {
       key: firstString(rawItem.id, rawItem._id, rawItem.key) || `item-${index}`,
       name: getItemName(rawItem, index),
       quantity: asNumber(rawItem.quantity) ?? asNumber(rawItem.qty) ?? 1,
       notes: firstString(rawItem.notes, rawItem.comment),
-      lineTotalHalala,
       basePriceHalala,
       optionsPriceHalala,
+      unitPriceHalala,
+      lineTotalHalala,
+      currency,
+      vatIncluded,
       selectionGroups,
       uniqueSelectionCount: selectedOptions.length,
       paidSelections,
@@ -390,11 +529,18 @@ function readPricing(raw: RawRecord, items: OperationsPresentedItem[]) {
     (sum, entry) => sum + entry.optionsPriceHalala,
     0
   );
+  const derivedBaseItems = items.reduce((sum, entry) => {
+    return sum + (entry.basePriceHalala ?? 0) * entry.quantity;
+  }, 0);
+  const vatIncluded =
+    asBoolean(pricing.vatIncluded) ??
+    items.find((entry) => entry.vatIncluded !== null)?.vatIncluded ??
+    null;
 
   return {
     baseItemsHalala:
       readHalala(pricing, ["baseItemsHalala", "itemsTotalHalala", "itemsSubtotalHalala"]) ??
-      null,
+      (derivedBaseItems > 0 ? derivedBaseItems : null),
     optionsHalala:
       readHalala(pricing, ["optionsHalala", "optionsTotalHalala", "extrasTotalHalala"]) ??
       optionsTotal,
@@ -415,22 +561,67 @@ function readPricing(raw: RawRecord, items: OperationsPresentedItem[]) {
       readHalala(payment, ["amountHalala", "totalHalala"]) ??
       readHalala(raw, ["totalHalala", "amountHalala"]) ??
       null,
+    currency: asString(pricing.currency) || items[0]?.currency || "SAR",
+    vatIncluded,
   };
 }
 
-function getPaymentLabel(raw: RawRecord, item: UnifiedQueueItem): string {
+function getNormalizedPaymentLabel(raw: RawRecord, item: UnifiedQueueItem): string {
   const payment = asRecord(raw.payment) || {};
-  return (
-    firstString(
+  return normalizeOperationalLabel(
+    [
       asRecord(payment.paymentStatusLabel)?.ar,
       payment.paymentStatusLabel,
       payment.statusLabel,
       payment.paymentStatus,
       item.paymentStatus,
       item.payment?.paymentStatusLabel,
-      item.payment?.paymentStatus
-    ) || "غير محدد"
+      item.payment?.paymentStatus,
+    ],
+    PAYMENT_LABELS_AR
   );
+}
+
+function getRawPaymentStatus(raw: RawRecord, item: UnifiedQueueItem): string | null {
+  const payment = asRecord(raw.payment) || {};
+  return firstString(payment.paymentStatus, item.paymentStatus, item.payment?.paymentStatus);
+}
+
+function getNormalizedStatusLabel(raw: RawRecord, item: UnifiedQueueItem): string {
+  const source = asRecord(raw.source) || {};
+  return normalizeOperationalLabel(
+    [
+      asRecord(source.statusLabel)?.ar,
+      source.statusLabel,
+      item.ui?.label,
+      item.statusLabel,
+      source.status,
+      item.status,
+    ],
+    STATUS_LABELS_AR
+  );
+}
+
+function getOneTimeAddonCount(
+  raw: RawRecord,
+  item: UnifiedQueueItem,
+  orderSummary: RawRecord
+): number {
+  const summaryCount = asNumber(orderSummary.addonCount);
+  if (summaryCount !== null) return summaryCount;
+
+  const rawKitchenDetails = asRecord(raw.kitchenDetails);
+  const rawKitchen = asRecord(raw.kitchen);
+  const itemKitchenDetails = asRecord(item.kitchenDetails);
+  const sources = [
+    asArray(raw.addons),
+    asArray(rawKitchenDetails?.addons),
+    asArray(rawKitchen?.addons),
+    asArray(itemKitchenDetails?.addons),
+    asArray(item.addonSelections),
+  ];
+  const firstPopulated = sources.find((entries) => entries.length > 0);
+  return firstPopulated?.length || 0;
 }
 
 function getWindow(raw: RawRecord, item: UnifiedQueueItem): string | null {
@@ -543,17 +734,19 @@ export function buildOperationsOrderPresentation(
   const customerPhone =
     firstString(item.customer?.phone, asRecord(raw.customer)?.phone, raw.customerPhone) ||
     "غير محدد";
-  const statusLabel = firstString(item.ui?.label, item.statusLabel, item.status) || item.status;
+  const statusLabel = getNormalizedStatusLabel(raw, item);
+  const rawPaymentStatus = getRawPaymentStatus(raw, item);
   const actions = item.allowedActions || [];
-  const rawAddonCount =
-    asArray(raw.addons).length || asArray(item.addonSelections).length;
-  const addonCount = asNumber(orderSummary.addonCount) ?? rawAddonCount;
+  const addonCount = getOneTimeAddonCount(raw, item, orderSummary);
   const searchParts = [
     customerName,
     customerPhone,
     item.reference,
     item.orderNumber,
     statusLabel,
+    item.status,
+    rawPaymentStatus,
+    getNormalizedPaymentLabel(raw, item),
     fulfillment.modeLabel,
     fulfillment.destination,
     fulfillment.window,
@@ -575,9 +768,11 @@ export function buildOperationsOrderPresentation(
     reference: item.reference || item.orderNumber || "غير محدد",
     sourceLabel: isOneTimeOrder(item) ? "طلب فردي" : "اشتراك يومي",
     statusLabel,
+    rawStatus: item.status,
     modeLabel: fulfillment.modeLabel,
-    paymentLabel: getPaymentLabel(raw, item),
-    totalLabel: formatSar(pricing.totalHalala),
+    paymentLabel: getNormalizedPaymentLabel(raw, item),
+    rawPaymentStatus,
+    totalLabel: formatSarAr(pricing.totalHalala),
     items,
     itemCount:
       asNumber(orderSummary.itemCount) ||
@@ -594,4 +789,4 @@ export function buildOperationsOrderPresentation(
   };
 }
 
-export { formatSar as formatOperationsSar };
+export { formatSarAr as formatOperationsSar };
