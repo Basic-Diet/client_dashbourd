@@ -18,8 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { buildOperationsOrderPresentation } from "@/lib/operationsOrderPresentation";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
+import { OperationsOrderItemSummary } from "./OperationsOrderItemSummary";
+import { OperationsPricingSummary } from "./OperationsPricingSummary";
+import { OperationsSelectionGroups } from "./OperationsSelectionGroups";
 
 interface OperationsOrderDetailsDialogProps {
   item: UnifiedQueueItem | null;
@@ -346,6 +350,93 @@ function ActionsSummary({ item }: { item: UnifiedQueueItem }) {
   );
 }
 
+function OneTimeOrderDetailsContent({ item }: { item: UnifiedQueueItem }) {
+  const presentation = buildOperationsOrderPresentation(item);
+
+  return (
+    <>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Section title="العميل والطلب" icon={<User className="h-4 w-4" />}>
+          <DetailGrid
+            rows={[
+              { label: "الاسم", value: presentation.customerName, important: true },
+              { label: "الهاتف", value: presentation.customerPhone, ltr: true, important: true },
+              { label: "المرجع", value: presentation.reference, ltr: true },
+              { label: "الحالة", value: presentation.statusLabel },
+              { label: "نوع الطلب", value: presentation.sourceLabel },
+              { label: "طريقة الاستلام", value: presentation.modeLabel },
+            ]}
+          />
+        </Section>
+
+        <Section title="الدفع والتسعير" icon={<CreditCard className="h-4 w-4" />}>
+          <DetailGrid
+            rows={[
+              { label: "حالة الدفع", value: presentation.paymentLabel, important: true },
+              { label: "الإجمالي", value: presentation.totalLabel, important: true },
+            ]}
+          />
+          <div className="mt-3">
+            <OperationsPricingSummary pricing={presentation.pricing} />
+          </div>
+        </Section>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="space-y-4">
+          <Section
+            title={item.mode === "delivery" ? "التوصيل" : "الاستلام"}
+            icon={item.mode === "delivery" ? <Truck className="h-4 w-4" /> : <Store className="h-4 w-4" />}
+          >
+            <DetailGrid
+              rows={[
+                {
+                  label: item.mode === "delivery" ? "العنوان" : "الفرع",
+                  value: presentation.fulfillment.destination,
+                  important: true,
+                },
+                { label: "النافذة", value: presentation.fulfillment.window, important: true },
+              ]}
+            />
+          </Section>
+
+          <Section title="ملاحظات وحساسية" icon={<AlertTriangle className="h-4 w-4" />}>
+            <DetailGrid
+              rows={[
+                { label: "ملاحظات", value: presentation.fulfillment.notes },
+                { label: "حساسية", value: presentation.fulfillment.allergies },
+              ]}
+            />
+          </Section>
+
+          <Section title="الحالة والإجراءات" icon={<CheckCircle2 className="h-4 w-4" />}>
+            <DetailGrid rows={[{ label: "الحالة الحالية", value: presentation.statusLabel }]} />
+            <div className="mt-3">
+              <ActionsSummary item={item} />
+            </div>
+          </Section>
+        </div>
+
+        <Section title="الأصناف ومكونات التحضير" icon={<Utensils className="h-4 w-4" />}>
+          <div className="space-y-4">
+            {presentation.items.map((orderItem) => (
+              <div key={orderItem.key} className="space-y-3">
+                <OperationsOrderItemSummary item={orderItem} />
+                <OperationsSelectionGroups groups={orderItem.selectionGroups} />
+              </div>
+            ))}
+            {!presentation.items.length ? (
+              <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                لا توجد أصناف واضحة في الطلب الحالي.
+              </p>
+            ) : null}
+          </div>
+        </Section>
+      </div>
+    </>
+  );
+}
+
 export function OperationsOrderDetailsDialog({
   item,
   open,
@@ -383,6 +474,10 @@ export function OperationsOrderDetailsDialog({
         </div>
 
         <div className="custom-scrollbar min-h-0 overflow-y-auto px-5 py-4 sm:px-6">
+          {isOneTimeOrder(item) ? (
+            <OneTimeOrderDetailsContent item={item} />
+          ) : (
+            <>
           <div className="grid gap-4 xl:grid-cols-2">
             <Section title="العميل" icon={<User className="h-4 w-4" />}>
               <DetailGrid
@@ -447,6 +542,8 @@ export function OperationsOrderDetailsDialog({
             </div>
             يتم إخفاء الحقول الفارغة والبيانات الخام تلقائياً. الإجراءات نفسها تظل من الباكند فقط حسب allowedActions.
           </div>
+            </>
+          )}
 
           <div className="h-2" />
         </div>

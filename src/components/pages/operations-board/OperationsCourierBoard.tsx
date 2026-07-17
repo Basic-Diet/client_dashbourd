@@ -6,6 +6,7 @@ import { OperationsQueueTable } from "./OperationsQueueTable";
 interface OperationsCourierBoardProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
+  pendingActionKey?: string | null;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -17,6 +18,7 @@ interface OperationsCourierBoardProps {
 export function OperationsCourierBoard({
   items = [],
   isPending,
+  pendingActionKey,
   onAction,
 }: OperationsCourierBoardProps) {
   const courierItems = getCourierItems(items);
@@ -31,6 +33,7 @@ export function OperationsCourierBoard({
       <OperationsQueueTable
         items={courierItems}
         isPending={isPending}
+        pendingActionKey={pendingActionKey}
         onAction={onAction}
       />
     </div>

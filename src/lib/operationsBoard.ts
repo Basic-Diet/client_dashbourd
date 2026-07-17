@@ -272,7 +272,7 @@ function normalizeCustomer(raw: RawQueueRecord): UnifiedQueueItem["customer"] {
 
   return {
     id: asString(source?.id) || asString(raw.userId) || "",
-    name: safeText(source?.name ?? raw.customerName, "غير محدد"),
+    name: safeText(source?.name ?? raw.customerName, "عميل بدون اسم"),
     phone: asString(source?.phone) || asString(raw.customerPhone) || "",
   };
 }
@@ -456,15 +456,27 @@ export function normalizeOperationsQueueItem(
     context: {
       date: asString(sourceInfo?.date) || asString(context?.date) || asString(record.date),
       window:
-        asString(context?.window) ||
-        asString(delivery?.window) ||
-        asString(delivery?.deliveryWindow) ||
-        asString(record.deliveryWindow) ||
-        undefined,
+        mode === "pickup"
+          ? asString(pickup?.pickupWindow) ||
+            asString(pickup?.window) ||
+            asString(context?.window) ||
+            asString(delivery?.window) ||
+            asString(delivery?.deliveryWindow) ||
+            asString(record.deliveryWindow) ||
+            undefined
+          : asString(context?.window) ||
+            asString(delivery?.window) ||
+            asString(delivery?.deliveryWindow) ||
+            asString(record.deliveryWindow) ||
+            undefined,
       address: context?.address || delivery?.address,
       addressSummary,
       addressNotes,
-      branch: asString(context?.branch) || asString(pickup?.branchId) || asString(pickup?.locationId),
+      branch:
+        asString(context?.branch) ||
+        safeText(pickup?.branchName, "") ||
+        asString(pickup?.branchId) ||
+        asString(pickup?.locationId),
       pickupCode: asString(context?.pickupCode) || asString(pickup?.pickupCode),
       notes: asString(context?.notes) || asString(orderSummary?.notes) || asString(record.notes),
       mealCount:

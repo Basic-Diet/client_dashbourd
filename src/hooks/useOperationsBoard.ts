@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import api from "@/lib/apis";
 import {
   buildOperationsActionPayload,
@@ -11,6 +13,7 @@ import {
   OPERATIONS_SCREENS,
   type OperationsScreen,
 } from "@/lib/operationsBoard";
+import { getOperationsActionKey } from "@/lib/operationsOrderPresentation";
 import type {
   DashboardOpsActionResponse,
   UnifiedQueueItem,
@@ -50,15 +53,8 @@ const ACTIVE_PREPARATION_STATUSES = new Set([
   "in_preparation",
 ]);
 
-function getActionId(action: string | { id?: string }): string | undefined {
-  return typeof action === "string" ? action : action.id;
-}
-
 function hasPreparationAction(item: UnifiedQueueItem): boolean {
-  const actionIds = [
-    ...(item.allowedActions || []).map((action) => action.id),
-    ...(item.actions?.allowed || []).map(getActionId),
-  ];
+  const actionIds = (item.allowedActions || []).map((action) => action.id);
 
   return actionIds.some((id) => Boolean(id && PREPARATION_ACTIONS.has(id)));
 }
@@ -95,6 +91,7 @@ function excludeItems(
 export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const role = user?.role;
   const { label: screenLabel, screens: visibleScreens } =
     getScreensForRole(role);
@@ -157,6 +154,7 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
     }: {
       item: UnifiedQueueItem;
       action: string;
+      actionLabel?: string;
       reason?: string;
       notes?: string;
       pickupCode?: string;
@@ -181,31 +179,42 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
       return data;
     },
     onSuccess: (_data, variables) => {
-      toast.success(`تم تنفيذ ${variables.action} بنجاح`);
+      toast.success(`تم تنفيذ ${variables.actionLabel || variables.action} بنجاح`);
       queryClient.invalidateQueries({ queryKey: ["operations-board", "queue"] });
+      queryClient.refetchQueries({
+        queryKey: ["operations-board", "queue"],
+        type: "active",
+      });
     },
     onError: (error: unknown) => {
-      const err = error as {
-        response?: { data?: { message?: string } };
-        message?: string;
-      };
-      toast.error(
-        err?.response?.data?.message || err?.message || "تعذر تنفيذ الإجراء"
-      );
-      queryClient.invalidateQueries({ queryKey: ["operations-board", "queue"] });
+      toast.error(getApiErrorMessage(error) || "تعذر تنفيذ الإجراء");
+    },
+    onSettled: () => {
+      setPendingActionKey(null);
     },
   });
 
   const requestAction = (
     item: UnifiedQueueItem,
     action: string,
-    _actionLabel?: string,
+    actionLabel?: string,
     _isDangerous?: boolean,
     reason?: string,
     notes?: string,
     pickupCode?: string
   ) => {
-    actionMutation.mutate({ item, action, reason, notes, pickupCode });
+    const actionKey = getOperationsActionKey(item, action);
+    if (pendingActionKey === actionKey) return;
+
+    setPendingActionKey(actionKey);
+    actionMutation.mutate({
+      item,
+      action,
+      actionLabel,
+      reason,
+      notes,
+      pickupCode,
+    });
   };
 
   return {
@@ -216,6 +225,7 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
     itemsByScreen,
     isLoading: queueQuery.isLoading,
     isPending: actionMutation.isPending,
+    pendingActionKey,
     requestAction,
     queueQuery,
     actionMutation,

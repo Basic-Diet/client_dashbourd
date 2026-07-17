@@ -29,7 +29,7 @@ export const OpsCourierCard: React.FC<OpsCourierCardProps> = ({
   isPending,
 }) => {
   const customer = task.customer;
-  const reference = task.reference || task.entityId;
+  const reference = task.reference || task.orderNumber || "بدون مرجع";
 
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-md">
@@ -76,7 +76,7 @@ export const OpsCourierCard: React.FC<OpsCourierCardProps> = ({
         {task.notes && (
           <div className="flex items-start gap-2 text-sm text-muted-foreground">
             <FileText className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="line-clamp-2">{task.notes}</span>
+            <span className="break-words">{task.notes}</span>
           </div>
         )}
 

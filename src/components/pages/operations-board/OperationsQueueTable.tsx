@@ -36,13 +36,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { safeText } from "@/lib/operationsBoard";
+import {
+  buildOperationsOrderPresentation,
+  getOperationsActionKey,
+} from "@/lib/operationsOrderPresentation";
 import type { QueueAction, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
+import { OperationsOrderItemSummary } from "./OperationsOrderItemSummary";
 import { OperationsOrderDetailsDialog } from "./OperationsOrderDetailsDialog";
+import { OperationsSelectionGroups } from "./OperationsSelectionGroups";
 
 interface OperationsQueueTableProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
+  pendingActionKey?: string | null;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -532,16 +539,14 @@ function getFulfillmentMeta(item: UnifiedQueueItem) {
 
 function isActionDisabled(
   item: UnifiedQueueItem,
-  actionId: string,
-  isPending: boolean
+  action: VisibleAction,
+  pendingActionKey?: string | null
 ) {
-  if (isPending) return true;
+  if (pendingActionKey === getOperationsActionKey(item, action.id)) return true;
+  if (action.disabled) return true;
+  if (isOneTimeOrder(item)) return false;
 
-  if (item.actions?.disabled?.some((action) => action.id === actionId)) {
-    return true;
-  }
-
-  switch (actionId) {
+  switch (action.id) {
     case "prepare":
     case "start_preparation":
       return item.actions?.canPrepare === false;
@@ -575,6 +580,8 @@ function normalizeAction(action: QueueAction): VisibleAction | null {
     icon: action.icon || "",
     endpoint: action.endpoint,
     method: action.method,
+    disabled: action.disabled,
+    disabledReason: action.disabledReason,
     reason: action.reason,
     reasonLabel: action.reasonLabel,
     requiresReason: Boolean(action.requiresReason),
@@ -612,14 +619,12 @@ function getVisibleActions(item: UnifiedQueueItem) {
   (item.allowedActions || []).forEach((action) =>
     appendUniqueAction(result, action, seenIds, seenLabels)
   );
-  (item.actions?.disabled || []).forEach((action) =>
-    appendUniqueAction(result, action, seenIds, seenLabels)
-  );
 
   return result;
 }
 
 function searchableText(item: UnifiedQueueItem) {
+  const presentation = buildOperationsOrderPresentation(item);
   const details = getOrderDetails(item);
   const prep = [...details.meals, ...details.addons]
     .flatMap((line) => [line.name, line.notes, ...line.detailParts, ...line.badges])
@@ -638,6 +643,7 @@ function searchableText(item: UnifiedQueueItem) {
     item.orderSummary?.display?.titleAr,
     item.orderSummary?.display?.subtitleAr,
     getSelectionModeLabel(item),
+    presentation.searchText,
     prep,
   ]
     .filter(Boolean)
@@ -647,21 +653,30 @@ function searchableText(item: UnifiedQueueItem) {
 
 function ActionButtons({
   item,
-  isPending,
+  pendingActionKey,
   onAction,
   onFulfill,
   onDetails,
 }: {
   item: UnifiedQueueItem;
-  isPending: boolean;
+  pendingActionKey?: string | null;
   onAction: OperationsQueueTableProps["onAction"];
   onFulfill?: OperationsQueueTableProps["onFulfill"];
   onDetails: (item: UnifiedQueueItem) => void;
 }) {
+  const visibleActions = getVisibleActions(item);
+
   return (
     <div className="flex flex-wrap gap-2">
-      {getVisibleActions(item).map((action) => {
-        const disabled = isActionDisabled(item, action.id, isPending);
+      {!visibleActions.length && isOneTimeOrder(item) ? (
+        <div className="min-h-9 rounded-lg bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground">
+          لا توجد إجراءات متاحة من النظام الآن
+        </div>
+      ) : null}
+      {visibleActions.map((action) => {
+        const disabled = isActionDisabled(item, action, pendingActionKey);
+        const isThisPending =
+          pendingActionKey === getOperationsActionKey(item, action.id);
         return (
           <Button
             key={action.id}
@@ -690,7 +705,7 @@ function ActionButtons({
             }}
           >
             {actionIcons[action.id]}
-            {action.label}
+            {isThisPending ? "جار التنفيذ..." : action.label}
           </Button>
         );
       })}
@@ -711,7 +726,7 @@ function InfoPill({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <div className="flex min-h-8 items-center gap-1.5 rounded-lg bg-muted/45 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
       {icon}
-      <span className="line-clamp-1">{label}</span>
+      <span className="break-words">{label}</span>
     </div>
   );
 }
@@ -734,7 +749,7 @@ function MealCompactCard({ line }: { line: PrepLine }) {
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-foreground">{line.name}</p>
           {detailPreview.length ? (
-            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {detailPreview.join(" • ")}
             </p>
           ) : null}
@@ -785,19 +800,116 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
   );
 }
 
+function OneTimeOrderCardBody({
+  item,
+  onDetails,
+}: {
+  item: UnifiedQueueItem;
+  onDetails: (item: UnifiedQueueItem) => void;
+}) {
+  const presentation = buildOperationsOrderPresentation(item);
+  const primaryItem = presentation.items[0];
+  const previewGroups = primaryItem?.selectionGroups || [];
+
+  return (
+    <>
+      <div className="rounded-xl border border-primary/10 bg-primary/5 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+            <Flame className="h-4 w-4 text-primary" />
+            {presentation.itemCount} أصناف
+          </p>
+          <span className="text-xs text-muted-foreground">•</span>
+          <p className="text-sm font-bold text-foreground">
+            {presentation.uniqueSelectionCount} اختيار
+          </p>
+          <span className="text-xs text-muted-foreground">•</span>
+          <p className="text-sm font-bold text-foreground">
+            {presentation.paidSelections.length
+              ? `${presentation.paidSelections.length} اختيار مدفوع`
+              : "بدون اختيارات مدفوعة"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <SummaryMetric label="الأصناف" value={presentation.itemCount} />
+        <SummaryMetric label="الكمية" value={presentation.quantityCount} />
+        <SummaryMetric label="الاختيارات" value={presentation.uniqueSelectionCount} />
+        <SummaryMetric label="الإضافات" value={presentation.addonCount} />
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {presentation.fulfillment.window ? (
+          <InfoPill
+            icon={<Clock className="h-3.5 w-3.5" />}
+            label={presentation.fulfillment.window}
+          />
+        ) : null}
+        {presentation.fulfillment.destination ? (
+          <InfoPill
+            icon={<MapPin className="h-3.5 w-3.5" />}
+            label={presentation.fulfillment.destination}
+          />
+        ) : null}
+      </div>
+
+      {presentation.fulfillment.notes || presentation.fulfillment.allergies ? (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-800">
+          {presentation.fulfillment.notes ? (
+            <p>ملاحظات: {presentation.fulfillment.notes}</p>
+          ) : null}
+          {presentation.fulfillment.allergies ? (
+            <p>حساسية: {presentation.fulfillment.allergies}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="grid gap-2">
+        <SectionHeader title="الصنف الأساسي" count={presentation.items.length} />
+        {primaryItem ? (
+          <OperationsOrderItemSummary item={primaryItem} compact />
+        ) : (
+          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            لا توجد أصناف واضحة في الطلب الحالي.
+          </p>
+        )}
+      </div>
+
+      <div className="grid gap-2">
+        <SectionHeader title="مكونات الطلب" count={presentation.uniqueSelectionCount} />
+        <OperationsSelectionGroups groups={previewGroups} preview limit={4} />
+        {presentation.uniqueSelectionCount ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="justify-center text-xs font-semibold"
+            onClick={() => onDetails(item)}
+          >
+            عرض كل مكونات الطلب ({presentation.uniqueSelectionCount})
+          </Button>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 function OperationsQueueCard({
   item,
-  isPending,
+  pendingActionKey,
   onAction,
   onFulfill,
   onDetails,
 }: {
   item: UnifiedQueueItem;
-  isPending: boolean;
+  pendingActionKey?: string | null;
   onAction: OperationsQueueTableProps["onAction"];
   onFulfill?: OperationsQueueTableProps["onFulfill"];
   onDetails: (item: UnifiedQueueItem) => void;
 }) {
+  const presentation = buildOperationsOrderPresentation(item);
+  const oneTimeOrder = presentation.isOneTimeOrder;
   const orderDetails = getOrderDetails(item);
   const stats = getOrderStats(item, orderDetails);
   const mealLines = getFallbackMealLines(item, orderDetails, stats);
@@ -815,12 +927,14 @@ function OperationsQueueCard({
               {item.customer?.name?.charAt(0) || "?"}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-base font-bold">
-                {item.customer?.name || "عميل غير محدد"}
+              <p className="break-words text-base font-bold">
+                {oneTimeOrder
+                  ? presentation.customerName
+                  : item.customer?.name || "عميل بدون اسم"}
               </p>
               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground" dir="ltr">
                 <Phone className="h-3 w-3" />
-                {item.customer?.phone || "—"}
+                {oneTimeOrder ? presentation.customerPhone : item.customer?.phone || "—"}
               </p>
             </div>
           </div>
@@ -828,13 +942,15 @@ function OperationsQueueCard({
             variant="outline"
             className={`shrink-0 rounded-md ${getStatusClasses(item.status)}`}
           >
-            {item.ui?.label || item.statusLabel || item.status}
+            {oneTimeOrder
+              ? presentation.statusLabel
+              : item.ui?.label || item.statusLabel || item.status}
           </Badge>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge variant="secondary" className="rounded-lg px-2.5 py-1">
-            {getSourceLabel(item)}
+            {oneTimeOrder ? presentation.sourceLabel : getSourceLabel(item)}
           </Badge>
           <Badge
             variant="outline"
@@ -847,6 +963,19 @@ function OperationsQueueCard({
             {item.mode === "delivery" ? <Truck className="h-3 w-3" /> : <Store className="h-3 w-3" />}
             {getModeLabel(item.mode)}
           </Badge>
+          {oneTimeOrder ? (
+            <>
+              <Badge variant="outline" className="rounded-lg px-2.5 py-1">
+                {presentation.paymentLabel}
+              </Badge>
+              <Badge variant="outline" className="rounded-lg px-2.5 py-1" dir="ltr">
+                {presentation.totalLabel}
+              </Badge>
+              <Badge variant="outline" className="rounded-lg px-2.5 py-1" dir="ltr">
+                {presentation.reference}
+              </Badge>
+            </>
+          ) : null}
           {selectionMode ? (
             <Badge variant="outline" className="rounded-lg px-2.5 py-1">
               {selectionMode}
@@ -856,6 +985,10 @@ function OperationsQueueCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-3.5">
+        {oneTimeOrder ? (
+          <OneTimeOrderCardBody item={item} onDetails={onDetails} />
+        ) : (
+          <>
         <div className="rounded-xl border border-primary/10 bg-primary/5 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
@@ -954,12 +1087,14 @@ function OperationsQueueCard({
             </p>
           )}
         </div>
+          </>
+        )}
       </div>
 
       <div className="border-t bg-muted/15 p-3.5">
         <ActionButtons
           item={item}
-          isPending={isPending}
+          pendingActionKey={pendingActionKey}
           onAction={onAction}
           onFulfill={onFulfill}
           onDetails={onDetails}
@@ -1072,7 +1207,7 @@ function CardsPagination({
 
 export function OperationsQueueTable({
   items = [],
-  isPending,
+  pendingActionKey,
   onAction,
   onFulfill,
 }: OperationsQueueTableProps) {
@@ -1142,7 +1277,7 @@ export function OperationsQueueTable({
               <OperationsQueueCard
                 key={item.id}
                 item={item}
-                isPending={isPending}
+                pendingActionKey={pendingActionKey}
                 onAction={onAction}
                 onFulfill={onFulfill}
                 onDetails={setDetailsItem}

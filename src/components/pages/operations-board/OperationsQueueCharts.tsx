@@ -148,7 +148,7 @@ function SummaryTile({
           </p>
         </div>
       </div>
-      <p className="mt-2 line-clamp-2 min-h-9 text-xs leading-5 text-muted-foreground">
+      <p className="mt-2 min-h-9 text-xs leading-5 text-muted-foreground">
         {helper}
       </p>
     </div>

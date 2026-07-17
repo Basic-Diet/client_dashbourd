@@ -16,6 +16,7 @@ import { OperationsQueueTable } from "./OperationsQueueTable";
 interface OperationsKitchenBoardProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
+  pendingActionKey?: string | null;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -69,6 +70,7 @@ function matchesKitchenFilter(
 export function OperationsKitchenBoard({
   items = [],
   isPending,
+  pendingActionKey,
   onAction,
 }: OperationsKitchenBoardProps) {
   const [statusFilter, setStatusFilter] = useState<KitchenStatusFilter>("all");
@@ -141,6 +143,7 @@ export function OperationsKitchenBoard({
       <OperationsQueueTable
         items={filteredItems}
         isPending={isPending}
+        pendingActionKey={pendingActionKey}
         onAction={onAction}
       />
     </div>

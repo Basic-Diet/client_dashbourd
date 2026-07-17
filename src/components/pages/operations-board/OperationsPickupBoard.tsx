@@ -6,6 +6,7 @@ import { OperationsQueueTable } from "./OperationsQueueTable";
 interface OperationsPickupBoardProps {
   items: UnifiedQueueItem[];
   isPending: boolean;
+  pendingActionKey?: string | null;
   onAction: (
     item: UnifiedQueueItem,
     action: string,
@@ -18,6 +19,7 @@ interface OperationsPickupBoardProps {
 export function OperationsPickupBoard({
   items = [],
   isPending,
+  pendingActionKey,
   onAction,
   onFulfill,
 }: OperationsPickupBoardProps) {
@@ -33,6 +35,7 @@ export function OperationsPickupBoard({
       <OperationsQueueTable
         items={pickupItems}
         isPending={isPending}
+        pendingActionKey={pendingActionKey}
         onAction={onAction}
         onFulfill={onFulfill}
       />
