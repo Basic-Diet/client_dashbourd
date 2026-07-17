@@ -61,6 +61,54 @@ test("genuine Arabic backend status labels win over fallback maps", () => {
   assert.equal(presentation.statusLabel, "جاهز من الفرع");
 });
 
+test("canonical status wins over stale technical status labels", () => {
+  const item = makeNormalizedProductionOrder({
+    status: "in_preparation",
+    statusLabel: "confirmed",
+    uiLabel: "confirmed",
+  });
+  const presentation = buildOperationsOrderPresentation(item);
+
+  assert.equal(presentation.rawStatus, "in_preparation");
+  assert.equal(presentation.statusLabel, "قيد التحضير");
+});
+
+test("canonical lifecycle statuses render through the Arabic fallback map", () => {
+  assert.equal(
+    buildOperationsOrderPresentation(
+      makeNormalizedProductionOrder({ status: "ready_for_pickup" })
+    ).statusLabel,
+    "جاهز للاستلام"
+  );
+  assert.equal(
+    buildOperationsOrderPresentation(
+      makeNormalizedProductionOrder({ status: "fulfilled" })
+    ).statusLabel,
+    "مكتمل"
+  );
+});
+
+test("canonical payment status wins over stale technical payment labels", () => {
+  const item = makeNormalizedProductionOrder({
+    paymentStatus: "refunded",
+    paymentStatusLabel: "paid",
+  });
+  const presentation = buildOperationsOrderPresentation(item);
+
+  assert.equal(presentation.rawPaymentStatus, "refunded");
+  assert.equal(presentation.paymentLabel, "مسترجع");
+});
+
+test("genuine Arabic backend payment labels win over fallback maps", () => {
+  const item = makeNormalizedProductionOrder({
+    paymentStatus: "failed",
+    paymentStatusLabel: { ar: "راجع البنك" },
+  });
+  const presentation = buildOperationsOrderPresentation(item);
+
+  assert.equal(presentation.paymentLabel, "راجع البنك");
+});
+
 test("kitchen selectedOptions fallback deduplicates exact mirrors and keeps paid prices", () => {
   const item = makeNormalizedProductionOrder({ includeCanonicalItemOptions: false });
   const presentation = buildOperationsOrderPresentation(item);

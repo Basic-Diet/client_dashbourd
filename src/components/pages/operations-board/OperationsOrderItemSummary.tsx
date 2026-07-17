@@ -5,11 +5,13 @@ import { formatOperationsSar } from "@/lib/operationsOrderPresentation";
 interface OperationsOrderItemSummaryProps {
   item: OperationsPresentedItem;
   compact?: boolean;
+  showPaidSelections?: boolean;
 }
 
 export function OperationsOrderItemSummary({
   item,
   compact = false,
+  showPaidSelections = true,
 }: OperationsOrderItemSummaryProps) {
   return (
     <div className="rounded-xl border border-border/70 bg-background/70 p-3 shadow-sm">
@@ -35,7 +37,7 @@ export function OperationsOrderItemSummary({
         ) : null}
       </div>
 
-      {item.paidSelections.length ? (
+      {showPaidSelections && item.paidSelections.length ? (
         <div className="mt-3 rounded-lg bg-emerald-500/10 px-3 py-2">
           <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
             اختيارات مدفوعة

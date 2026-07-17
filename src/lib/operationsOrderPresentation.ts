@@ -156,24 +156,42 @@ function enumKey(value: string | null | undefined): string {
   return (value || "").trim().toLowerCase();
 }
 
-function normalizeOperationalLabel(
-  values: unknown[],
-  fallbackMap: Record<string, string>,
-  fallback = "غير محدد"
-): string {
-  const candidates = values
+function normalizeCanonicalOperationalLabel({
+  labelValues,
+  canonicalValues,
+  fallbackMap,
+  fallback = "غير محدد",
+}: {
+  labelValues: unknown[];
+  canonicalValues: unknown[];
+  fallbackMap: Record<string, string>;
+  fallback?: string;
+}): string {
+  const labelCandidates = labelValues
     .map((value) => localizedText(value))
     .filter((value): value is string => Boolean(value));
-  const arabicCandidate = candidates.find(hasArabicText);
+  const arabicCandidate = labelCandidates.find(hasArabicText);
   if (arabicCandidate) return arabicCandidate;
 
-  for (const candidate of candidates) {
+  const canonicalCandidates = canonicalValues
+    .map((value) => localizedText(value))
+    .filter((value): value is string => Boolean(value));
+
+  for (const candidate of canonicalCandidates) {
+    if (hasArabicText(candidate)) return candidate;
     const mapped = fallbackMap[enumKey(candidate)];
     if (mapped) return mapped;
   }
 
-  const humanCandidate = candidates.find((candidate) => !isTechnicalEnum(candidate));
-  return humanCandidate || fallback;
+  const humanCandidate = labelCandidates.find((candidate) => !isTechnicalEnum(candidate));
+  if (humanCandidate) return humanCandidate;
+
+  for (const candidate of labelCandidates) {
+    const mapped = fallbackMap[enumKey(candidate)];
+    if (mapped) return mapped;
+  }
+
+  return fallback;
 }
 
 function localizedText(value: unknown): string | null {
@@ -568,18 +586,21 @@ function readPricing(raw: RawRecord, items: OperationsPresentedItem[]) {
 
 function getNormalizedPaymentLabel(raw: RawRecord, item: UnifiedQueueItem): string {
   const payment = asRecord(raw.payment) || {};
-  return normalizeOperationalLabel(
-    [
+  return normalizeCanonicalOperationalLabel({
+    labelValues: [
       asRecord(payment.paymentStatusLabel)?.ar,
       payment.paymentStatusLabel,
       payment.statusLabel,
-      payment.paymentStatus,
-      item.paymentStatus,
       item.payment?.paymentStatusLabel,
+    ],
+    canonicalValues: [
+      payment.paymentStatus,
+      raw.paymentStatus,
+      item.paymentStatus,
       item.payment?.paymentStatus,
     ],
-    PAYMENT_LABELS_AR
-  );
+    fallbackMap: PAYMENT_LABELS_AR,
+  });
 }
 
 function getRawPaymentStatus(raw: RawRecord, item: UnifiedQueueItem): string | null {
@@ -589,17 +610,19 @@ function getRawPaymentStatus(raw: RawRecord, item: UnifiedQueueItem): string | n
 
 function getNormalizedStatusLabel(raw: RawRecord, item: UnifiedQueueItem): string {
   const source = asRecord(raw.source) || {};
-  return normalizeOperationalLabel(
-    [
+  return normalizeCanonicalOperationalLabel({
+    labelValues: [
       asRecord(source.statusLabel)?.ar,
       source.statusLabel,
       item.ui?.label,
       item.statusLabel,
+    ],
+    canonicalValues: [
       source.status,
       item.status,
     ],
-    STATUS_LABELS_AR
-  );
+    fallbackMap: STATUS_LABELS_AR,
+  });
 }
 
 function getOneTimeAddonCount(

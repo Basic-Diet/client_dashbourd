@@ -107,6 +107,7 @@ describe("one-time order lifecycle action rendering", () => {
   it.each([
     {
       status: "confirmed",
+      statusText: "مؤكد",
       actions: [
         action("prepare", "بدء التحضير", "/ops/confirmed/prepare"),
         action("cancel", "إلغاء", "/ops/confirmed/cancel", "POST", "red"),
@@ -115,6 +116,7 @@ describe("one-time order lifecycle action rendering", () => {
     },
     {
       status: "in_preparation",
+      statusText: "قيد التحضير",
       actions: [
         action("ready_for_pickup", "جاهز للاستلام", "/ops/prep/ready"),
         action("cancel", "إلغاء", "/ops/prep/cancel", "POST", "red"),
@@ -123,23 +125,35 @@ describe("one-time order lifecycle action rendering", () => {
     },
     {
       status: "ready_for_pickup",
+      statusText: "جاهز للاستلام",
       actions: [
         action("fulfill", "تسليم", "/ops/ready/fulfill"),
         action("cancel", "إلغاء", "/ops/ready/cancel", "POST", "red"),
       ],
       labels: ["تسليم", "إلغاء"],
     },
-  ])("renders backend-provided actions for $status", ({ status, actions, labels }) => {
+  ])("renders backend-provided status and actions for $status", ({ status, statusText, actions, labels }) => {
     renderTable([orderWith({ id: `order-${status}`, status, actions })]);
 
+    expect(screen.getAllByText(statusText).length).toBeGreaterThan(0);
     labels.forEach((label) => {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     });
   });
 
-  it("does not invent actions for fulfilled or empty delivery allowedActions", () => {
+  it("renders fulfilled status without inventing actions", () => {
     renderTable([
       orderWith({ id: "fulfilled-order", status: "fulfilled", actions: [] }),
+    ]);
+
+    expect(screen.getAllByText("مكتمل").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "بدء التحضير" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "إلغاء" })).not.toBeInTheDocument();
+    expect(screen.getByText("لا توجد إجراءات متاحة من النظام الآن")).toBeInTheDocument();
+  });
+
+  it("does not invent actions for empty delivery allowedActions", () => {
+    renderTable([
       orderWith({
         id: "delivery-empty-actions",
         status: "confirmed",
@@ -150,7 +164,7 @@ describe("one-time order lifecycle action rendering", () => {
 
     expect(screen.queryByRole("button", { name: "بدء التحضير" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "إلغاء" })).not.toBeInTheDocument();
-    expect(screen.getAllByText("لا توجد إجراءات متاحة من النظام الآن")).toHaveLength(2);
+    expect(screen.getByText("لا توجد إجراءات متاحة من النظام الآن")).toBeInTheDocument();
   });
 
   it("disables all transition actions on the same order while showing the human pending label", () => {

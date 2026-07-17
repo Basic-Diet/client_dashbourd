@@ -74,11 +74,13 @@ describe("one-time order details dialog", () => {
     const dialog = screen.getByRole("dialog");
     const dialogText = dialog.textContent || "";
     const optionMatches = within(dialog).getAllByText(/^اختيار \d+$/);
+    const paidOptionMatches = within(dialog).getAllByText(/زيادة 50 جرام من الدجاج/);
 
     expect(within(dialog).getAllByText("مؤكد").length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText("مدفوع").length).toBeGreaterThan(0);
     expect(optionMatches).toHaveLength(29);
-    expect(within(dialog).getAllByText(/زيادة 50 جرام من الدجاج/)).toHaveLength(2);
+    expect(paidOptionMatches).toHaveLength(1);
+    expect(optionMatches.length + paidOptionMatches.length).toBe(30);
     expect(within(dialog).getByText("السعر الأساسي")).toBeInTheDocument();
     expect(within(dialog).getAllByText("29.00 ر.س").length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText("5.00 ر.س").length).toBeGreaterThan(0);

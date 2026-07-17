@@ -44,12 +44,20 @@ export function makeKitchenOptions() {
 export function makeProductionOneTimeOrder({
   includeCanonicalItemOptions = true,
   status = "confirmed",
+  statusLabel = status,
+  uiLabel = status,
+  paymentStatus = "paid",
+  paymentStatusLabel = paymentStatus,
   actions,
   itemCount = 1,
   arabicStatusLabel,
 }: {
   includeCanonicalItemOptions?: boolean;
   status?: string;
+  statusLabel?: unknown;
+  uiLabel?: string;
+  paymentStatus?: string;
+  paymentStatusLabel?: unknown;
   actions?: QueueAction[];
   itemCount?: number;
   arabicStatusLabel?: string;
@@ -110,12 +118,12 @@ export function makeProductionOneTimeOrder({
       type: "one_time_order",
       reference: "OT-SAFE-1",
       status,
-      statusLabel: arabicStatusLabel ? { ar: arabicStatusLabel } : "confirmed",
+      statusLabel: arabicStatusLabel ? { ar: arabicStatusLabel } : statusLabel,
     },
-    statusLabel: "confirmed",
-    ui: { label: "confirmed" },
+    statusLabel,
+    ui: { label: uiLabel },
     mode: "pickup",
-    paymentStatus: "paid",
+    paymentStatus,
     customer: { id: "customer-safe", phone: "0500000000" },
     items,
     pricing: {
@@ -128,7 +136,8 @@ export function makeProductionOneTimeOrder({
       vatIncluded: true,
     },
     payment: {
-      paymentStatus: "paid",
+      paymentStatus,
+      paymentStatusLabel,
     },
     fulfillment: {
       type: "pickup",

@@ -421,7 +421,10 @@ function OneTimeOrderDetailsContent({ item }: { item: UnifiedQueueItem }) {
           <div className="space-y-4">
             {presentation.items.map((orderItem) => (
               <div key={orderItem.key} className="space-y-3">
-                <OperationsOrderItemSummary item={orderItem} />
+                <OperationsOrderItemSummary
+                  item={orderItem}
+                  showPaidSelections={false}
+                />
                 <OperationsSelectionGroups groups={orderItem.selectionGroups} />
               </div>
             ))}
