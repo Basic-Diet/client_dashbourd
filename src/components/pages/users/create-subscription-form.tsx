@@ -20,6 +20,7 @@ import {
 import useCreateSubscriptionForm from "@/hooks/useCreateSubscriptionForm";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import { useCreateSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
+import { buildDashboardSubscriptionSelectionPayload } from "@/utils/fetchSubscriptionCreation";
 import { usePackagesQuery } from "@/hooks/usePackagesQuery";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
@@ -75,13 +76,7 @@ export function CreateSubscriptionForm({
   } = useFieldArray({ control, name: "addons" });
 
   const onSubmit = (data: CreateSubscriptionSchemaType) => {
-    const { addons, ...rest } = data;
-    const payload = {
-      ...rest,
-      addonSubscriptions: addons.map((addon) => ({
-        addonPlanId: addon.value,
-      })),
-    };
+    const payload = buildDashboardSubscriptionSelectionPayload(data);
 
     mutate(payload as unknown as Record<string, unknown>, {
       onSuccess: () => {
@@ -234,7 +229,7 @@ export function CreateSubscriptionForm({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => appendPremium({ premiumMealId: "", qty: 1 })}
+                onClick={() => appendPremium({ premiumKey: "", qty: 1 })}
               >
                 إضافة وجبة
               </Button>
@@ -256,11 +251,11 @@ export function CreateSubscriptionForm({
                       <FieldLabel>معرف الوجبة المميزة</FieldLabel>
                       <Input
                         placeholder="أدخل معرف الوجبة"
-                        {...register(`premiumItems.${index}.premiumMealId`)}
+                        {...register(`premiumItems.${index}.premiumKey`)}
                       />
-                      {errors.premiumItems?.[index]?.premiumMealId && (
+                      {errors.premiumItems?.[index]?.premiumKey && (
                         <p className="mt-1 text-sm text-destructive">
-                          {errors.premiumItems[index].premiumMealId?.message}
+                          {errors.premiumItems[index].premiumKey?.message}
                         </p>
                       )}
                     </Field>
@@ -303,7 +298,7 @@ export function CreateSubscriptionForm({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => appendAddon({ value: "" })}
+                onClick={() => appendAddon({ addonId: "", qty: 1 })}
               >
                 إضافة
               </Button>
@@ -320,7 +315,17 @@ export function CreateSubscriptionForm({
                       <FieldLabel>معرف الإضافة</FieldLabel>
                       <Input
                         placeholder="أدخل معرف الإضافة"
-                        {...register(`addons.${index}.value` as const)}
+                        {...register(`addons.${index}.addonId` as const)}
+                      />
+                    </Field>
+                    <Field className="w-24">
+                      <FieldLabel>الكمية</FieldLabel>
+                      <Input
+                        type="number"
+                        min={1}
+                        {...register(`addons.${index}.qty` as const, {
+                          valueAsNumber: true,
+                        })}
                       />
                     </Field>
                     <Button
@@ -424,31 +429,26 @@ export function CreateSubscriptionForm({
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="street">الشارع</FieldLabel>
+                  <FieldLabel htmlFor="line1">العنوان</FieldLabel>
                   <Input
-                    id="street"
-                    placeholder="أدخل اسم الشارع"
-                    {...register("delivery.address.street")}
+                    id="line1"
+                    placeholder="أدخل العنوان"
+                    {...register("delivery.address.line1")}
                   />
-                  {errors.delivery?.address?.street && (
+                  {errors.delivery?.address?.line1 && (
                     <p className="mt-1 text-sm text-destructive">
-                      {errors.delivery.address.street.message}
+                      {errors.delivery.address.line1.message}
                     </p>
                   )}
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="building">رقم المبنى</FieldLabel>
+                  <FieldLabel htmlFor="line2">تفاصيل إضافية</FieldLabel>
                   <Input
-                    id="building"
-                    placeholder="أدخل رقم المبنى"
-                    {...register("delivery.address.building")}
+                    id="line2"
+                    placeholder="الدور، علامة مميزة، أو ملاحظات العنوان"
+                    {...register("delivery.address.line2")}
                   />
-                  {errors.delivery?.address?.building && (
-                    <p className="mt-1 text-sm text-destructive">
-                      {errors.delivery.address.building.message}
-                    </p>
-                  )}
                 </Field>
               </div>
             </FieldGroup>

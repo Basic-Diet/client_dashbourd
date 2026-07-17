@@ -1,16 +1,21 @@
 import { z } from "zod";
 
 const premiumItemSchema = z.object({
-  premiumMealId: z.string().min(1, "معرف الوجبة المميزة مطلوب"),
-  qty: z.number().min(1, "الكمية يجب أن تكون 1 على الأقل"),
+  premiumKey: z.string().min(1, "معرف الوجبة المميزة مطلوب"),
+  qty: z
+    .number()
+    .int("الكمية يجب أن تكون رقماً صحيحاً")
+    .min(1, "الكمية يجب أن تكون 1 على الأقل"),
 });
 
 const deliveryAddressSchema = z.object({
   label: z.string(),
+  line1: z.string(),
+  line2: z.string().optional(),
   city: z.string(),
   district: z.string(),
-  street: z.string(),
-  building: z.string(),
+  phone: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 const deliverySlotSchema = z.object({
@@ -36,8 +41,15 @@ const createSubscriptionSchema = z
     startDate: z.string().min(1, "تاريخ البداية مطلوب"),
     premiumItems: z.array(premiumItemSchema),
     addons: z.array(
-      z.object({ value: z.string().min(1, "معرف الإضافة مطلوب") })
+      z.object({
+        addonId: z.string().min(1, "معرف الإضافة مطلوب"),
+        qty: z
+          .number()
+          .int("الكمية يجب أن تكون رقماً صحيحاً")
+          .min(1, "الكمية يجب أن تكون 1 على الأقل"),
+      })
     ),
+    promoCode: z.string().optional(),
     delivery: deliverySchema,
   })
   .superRefine((data, ctx) => {
@@ -70,18 +82,11 @@ const createSubscriptionSchema = z
           path: ["delivery", "address", "district"],
         });
       }
-      if (!data.delivery.address.street) {
+      if (!data.delivery.address.line1) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "الشارع مطلوب",
-          path: ["delivery", "address", "street"],
-        });
-      }
-      if (!data.delivery.address.building) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "رقم المبنى مطلوب",
-          path: ["delivery", "address", "building"],
+          message: "العنوان مطلوب",
+          path: ["delivery", "address", "line1"],
         });
       }
     }

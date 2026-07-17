@@ -97,8 +97,12 @@ test("roleRoutes.test", () => {
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/operations"), true);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/one-time-orders"), true);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/users"), true);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/subscriptions/create"), true);
+  assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/subscriptions/sub-1"), false);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/payments"), false);
   assert.equal(canRoleAccessRoute(UserRoles.CASHIER, "/accounting"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.KITCHEN, "/subscriptions/create"), false);
+  assert.equal(canRoleAccessRoute(UserRoles.COURIER, "/subscriptions/create"), false);
   assert.equal(canRoleAccessRoute("unknown" as UserRole, "/dashboard"), false);
   assert.equal(canRoleAccessRoute(undefined, "/dashboard"), false);
 });

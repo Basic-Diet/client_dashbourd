@@ -20,10 +20,12 @@ const useCreateSubscriptionForm = (userId: string) => {
         pickupLocationId: "",
         address: {
           label: "",
+          line1: "",
+          line2: "",
           city: "",
           district: "",
-          street: "",
-          building: "",
+          phone: "",
+          notes: "",
         },
         slot: {
           type: "delivery",
@@ -31,6 +33,7 @@ const useCreateSubscriptionForm = (userId: string) => {
           slotId: "",
         },
       },
+      promoCode: "",
     },
   });
 

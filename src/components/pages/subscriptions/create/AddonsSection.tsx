@@ -6,18 +6,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useAddonsQuery } from "@/hooks/useAddonsQuery";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useDashboardAddonPlansQuery } from "@/hooks/useSubscriptionCreation";
 import { ShoppingBag, Check } from "lucide-react";
 import { useFieldArray, type UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
-import type { Addon } from "@/types/addonTypes";
+import type { SubscriptionAddonPlanCatalogItem } from "@/types/subscriptionCreationTypes";
 
 interface AddonsSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
 }
 
 export function AddonsSection({ form }: AddonsSectionProps) {
-  const { data: addonsResponse, isLoading } = useAddonsQuery();
+  const { data: addonsResponse, isLoading } = useDashboardAddonPlansQuery();
   const allAddons = addonsResponse?.data?.filter((a) => a.isActive) || [];
   const selectedPlanId = form.watch("planId");
 
@@ -29,15 +31,15 @@ export function AddonsSection({ form }: AddonsSectionProps) {
     name: "addons",
   });
 
-  const getSelectedSet = () => new Set(fields.map((f) => f.value));
+  const getSelectedSet = () => new Set(fields.map((f) => f.addonId));
 
   const toggleAddon = useCallback(
     (addonId: string) => {
-      const idx = fields.findIndex((f) => f.value === addonId);
+      const idx = fields.findIndex((f) => f.addonId === addonId);
       if (idx >= 0) {
         remove(idx);
       } else {
-        append({ value: addonId });
+        append({ addonId, qty: 1 });
       }
     },
     [fields, remove, append]
@@ -79,8 +81,9 @@ export function AddonsSection({ form }: AddonsSectionProps) {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {getSubscriptionAddons().map((addon: Addon) => {
+                  {getSubscriptionAddons().map((addon: SubscriptionAddonPlanCatalogItem) => {
                     const id = getAddonPlanId(addon);
+                    const index = fields.findIndex((field) => field.addonId === id);
 
                     return (
                       <AddonCard
@@ -88,6 +91,8 @@ export function AddonsSection({ form }: AddonsSectionProps) {
                         addon={addon}
                         selectedPlanId={selectedPlanId}
                         isSelected={getSelectedSet().has(id)}
+                        selectedIndex={index}
+                        form={form}
                         onToggle={toggleAddon}
                       />
                     );
@@ -106,17 +111,7 @@ export function AddonsSection({ form }: AddonsSectionProps) {
                     (تضاف مرة واحدة)
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {getOneTimeAddons().map((addon: Addon) => (
-                    <AddonCard
-                      key={addon._id}
-                      addon={addon}
-                      selectedPlanId={selectedPlanId}
-                      isSelected={getSelectedSet().has(addon._id)}
-                      onToggle={toggleAddon}
-                    />
-                  ))}
-                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2" />
               </div>
             )}
 
@@ -135,8 +130,8 @@ export function AddonsSection({ form }: AddonsSectionProps) {
   );
 }
 
-function getAddonPlanId(addon: Addon) {
-  return addon.id || addon._id;
+function getAddonPlanId(addon: SubscriptionAddonPlanCatalogItem) {
+  return addon.id || addon._id || "";
 }
 
 /** Isolated card component to prevent parent re-renders from propagating */
@@ -144,11 +139,15 @@ function AddonCard({
   addon,
   selectedPlanId,
   isSelected,
+  selectedIndex,
+  form,
   onToggle,
 }: {
-  addon: Addon;
+  addon: SubscriptionAddonPlanCatalogItem;
   selectedPlanId: string;
   isSelected: boolean;
+  selectedIndex: number;
+  form: UseFormReturn<CreateSubscriptionSchemaType>;
   onToggle: (id: string) => void;
 }) {
   const planId = getAddonPlanId(addon);
@@ -165,15 +164,6 @@ function AddonCard({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onToggle(planId)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle(planId);
-        }
-      }}
       className={`group relative flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-right transition-all ${
         isSelected
           ? "border-primary/40 bg-primary/5 shadow-sm ring-1 ring-primary/20"
@@ -181,7 +171,12 @@ function AddonCard({
       }`}
     >
       {/* Custom checkbox visual — no Radix button */}
-      <div className="pt-0.5">
+      <button
+        type="button"
+        onClick={() => planId && onToggle(planId)}
+        className="pt-0.5"
+        aria-label={isSelected ? "إزالة الإضافة" : "اختيار الإضافة"}
+      >
         <div
           className={`flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs transition-colors ${
             isSelected
@@ -191,7 +186,7 @@ function AddonCard({
         >
           {isSelected && <Check className="size-3" />}
         </div>
-      </div>
+      </button>
       {addon.imageUrl?.trim() ? (
         <img
           src={addon.imageUrl}
@@ -210,6 +205,47 @@ function AddonCard({
           {priceSar} ريال
         </span>
       </div>
+      {isSelected && selectedIndex >= 0 ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-xs"
+            onClick={() => {
+              const current = form.getValues(`addons.${selectedIndex}.qty`) || 1;
+              form.setValue(`addons.${selectedIndex}.qty`, Math.max(1, current - 1), {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            }}
+          >
+            -
+          </Button>
+          <Input
+            aria-label={`${addon.name.ar} الكمية`}
+            type="number"
+            min={1}
+            className="h-8 w-16 text-center"
+            {...form.register(`addons.${selectedIndex}.qty`, {
+              valueAsNumber: true,
+            })}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-xs"
+            onClick={() => {
+              const current = form.getValues(`addons.${selectedIndex}.qty`) || 1;
+              form.setValue(`addons.${selectedIndex}.qty`, current + 1, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            }}
+          >
+            +
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,11 +1,24 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import useCreateSubscriptionForm from "@/hooks/useCreateSubscriptionForm";
 import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
-import { useCreateSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
-import { fetchSubscriptionQuote } from "@/utils/fetchSubscriptionsData";
+import {
+  useDashboardSubscriptionCreateMutation,
+  useDashboardSubscriptionQuoteMutation,
+} from "@/hooks/useSubscriptionCreation";
+import {
+  buildDashboardSubscriptionSelectionPayload,
+  buildCashCreatePayload,
+  getQuotePricingTotalHalala,
+} from "@/utils/fetchSubscriptionCreation";
+import type {
+  DashboardSubscriptionQuoteResponse,
+  DashboardSubscriptionSelectionPayload,
+} from "@/types/subscriptionCreationTypes";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, FileCheck2 } from "lucide-react";
 
@@ -14,6 +27,7 @@ import { PlanSelectionSection } from "./PlanSelectionSection";
 import { PremiumMealsSection } from "./PremiumMealsSection";
 import { AddonsSection } from "./AddonsSection";
 import { DeliverySection } from "./DeliverySection";
+import { SubscriptionQuoteReview } from "./SubscriptionQuoteReview";
 
 interface CreateSubscriptionFormContentProps {
   /** Pre-set userId (when creating from user page). If provided, user selection is hidden. */
@@ -46,53 +60,79 @@ function readSubscriptionLabel(response: unknown) {
   );
 }
 
-function buildSubscriptionPayload(
-  data: CreateSubscriptionSchemaType
-): Record<string, unknown> {
-  const { addons, ...rest } = data;
-  const isDelivery = data.delivery.type === "delivery";
-  const deliveryWindow = data.delivery.slot?.window?.trim();
-  const delivery = {
-    type: data.delivery.type,
-    ...(isDelivery
-      ? {
-          zoneId: data.delivery.zoneId,
-          address: data.delivery.address,
-        }
-      : {
-          pickupLocationId: data.delivery.pickupLocationId,
-        }),
-    ...(deliveryWindow ? { window: deliveryWindow } : {}),
-    slot: data.delivery.slot,
-  };
-
-  return {
-    ...rest,
-    addonSubscriptions: addons.map((addon) => ({
-      addonPlanId: addon.value,
-    })),
-    delivery,
-  };
-}
-
 export function CreateSubscriptionFormContent({
   userId,
 }: CreateSubscriptionFormContentProps) {
   const form = useCreateSubscriptionForm(userId || "");
   const navigate = useNavigate();
-  const [isQuoting, setIsQuoting] = useState(false);
-  const { mutateAsync, isPending } = useCreateSubscriptionMutation();
-  const isSubmitting = isPending || isQuoting;
+  const quoteMutation = useDashboardSubscriptionQuoteMutation();
+  const createMutation = useDashboardSubscriptionCreateMutation();
+  const quoteInFlightRef = useRef(false);
+  const createInFlightRef = useRef(false);
+  const [quote, setQuote] = useState<DashboardSubscriptionQuoteResponse | null>(null);
+  const [quotedSelection, setQuotedSelection] =
+    useState<DashboardSubscriptionSelectionPayload | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [cashConfirmed, setCashConfirmed] = useState(false);
+
+  const currentSelection = form.watch();
+  const currentPayload = useMemo(() => {
+    try {
+      return buildDashboardSubscriptionSelectionPayload(currentSelection);
+    } catch {
+      return null;
+    }
+  }, [currentSelection]);
+  const isQuoteStale =
+    Boolean(quote && quotedSelection && currentPayload) &&
+    JSON.stringify(currentPayload) !== JSON.stringify(quotedSelection);
+  const isSubmitting = quoteMutation.isPending || createMutation.isPending;
+
+  useEffect(() => {
+    if (isQuoteStale) {
+      setCashConfirmed(false);
+    }
+  }, [isQuoteStale]);
 
   const onSubmit = async (data: CreateSubscriptionSchemaType) => {
-    const payload = buildSubscriptionPayload(data);
+    if (quoteInFlightRef.current || createMutation.isPending) return;
+    const payload = buildDashboardSubscriptionSelectionPayload(data);
 
     try {
-      setIsQuoting(true);
-      await fetchSubscriptionQuote(payload);
-      setIsQuoting(false);
+      quoteInFlightRef.current = true;
+      setQuoteError(null);
+      setCreateError(null);
+      setCashConfirmed(false);
+      const response = await quoteMutation.mutateAsync(payload);
+      setQuote(response);
+      setQuotedSelection(payload);
+    } catch (error: unknown) {
+      setQuote(null);
+      setQuotedSelection(null);
+      setQuoteError(
+        getApiErrorMessage(error) || "تعذر مراجعة السعر. تحقق من البيانات وحاول مرة أخرى."
+      );
+    } finally {
+      quoteInFlightRef.current = false;
+    }
+  };
 
-      const response = await mutateAsync(payload);
+  const handleCreate = async () => {
+    if (!quote || !quotedSelection || createInFlightRef.current || isQuoteStale) return;
+    const total = getQuotePricingTotalHalala(quote);
+    if (!total.ok) {
+      setCreateError(total.message);
+      setCashConfirmed(false);
+      return;
+    }
+
+    try {
+      createInFlightRef.current = true;
+      setCreateError(null);
+      const response = await createMutation.mutateAsync(
+        buildCashCreatePayload({ quotedSelection, quote })
+      );
       const subscriptionId = readSubscriptionId(response);
       const subscriptionLabel = readSubscriptionLabel(response);
 
@@ -117,31 +157,53 @@ export function CreateSubscriptionFormContent({
         navigate({ to: "/subscriptions" });
       }
     } catch (error: unknown) {
-      setIsQuoting(false);
-      ToastMessage(
-        getApiErrorMessage(error) || "حدث خطأ أثناء إنشاء الاشتراك",
-        "error"
-      );
+      const message =
+        getApiErrorMessage(error) ||
+        "تعذر إنشاء الاشتراك. احتفظنا بعرض السعر للمراجعة.";
+      setCreateError(message);
+      if (message.includes("المبلغ") || message.toLowerCase().includes("amount")) {
+        setCashConfirmed(false);
+      }
+    } finally {
+      createInFlightRef.current = false;
     }
   };
 
   return (
     <div className="mx-auto w-full max-w-4xl" dir="rtl">
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Step 1: User selection (only if no userId provided) */}
-        {!userId && <UserSelectionSection form={form} />}
+        <fieldset disabled={createMutation.isPending} className="space-y-6">
+          {/* Step 1: User selection (only if no userId provided) */}
+          {!userId && <UserSelectionSection form={form} />}
 
-        {/* Step 2: Plan selection */}
-        <PlanSelectionSection form={form} />
+          {/* Step 2: Plan selection */}
+          <PlanSelectionSection form={form} />
 
-        {/* Step 3: Premium meals */}
-        <PremiumMealsSection form={form} />
+          {/* Step 3: Premium meals */}
+          <PremiumMealsSection form={form} />
 
-        {/* Step 4: Addons */}
-        <AddonsSection form={form} />
+          {/* Step 4: Addons */}
+          <AddonsSection form={form} />
 
-        {/* Step 5: Delivery */}
-        <DeliverySection form={form} />
+          {/* Step 5: Delivery */}
+          <DeliverySection form={form} />
+
+          <div className="rounded-lg border bg-card p-4">
+            <Label htmlFor="promoCode">كود الخصم</Label>
+            <Input
+              id="promoCode"
+              className="mt-2"
+              placeholder="اختياري"
+              {...form.register("promoCode")}
+            />
+          </div>
+        </fieldset>
+
+        {quoteError ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {quoteError}
+          </div>
+        ) : null}
 
         {/* Submit */}
         <div className="flex justify-end pb-8">
@@ -151,19 +213,32 @@ export function CreateSubscriptionFormContent({
             size="lg"
             className="min-w-52 gap-2"
           >
-            {isSubmitting ? (
+            {quoteMutation.isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                {isQuoting ? "جاري مراجعة السعر..." : "جاري إنشاء الاشتراك..."}
+                جاري مراجعة السعر...
               </>
             ) : (
               <>
                 <FileCheck2 className="size-4" />
-                إنشاء الاشتراك
+                مراجعة السعر
               </>
             )}
           </Button>
         </div>
+
+        {quote && quotedSelection ? (
+          <SubscriptionQuoteReview
+            quote={quote}
+            quotedSelection={quotedSelection}
+            stale={isQuoteStale}
+            cashConfirmed={cashConfirmed}
+            createPending={createMutation.isPending}
+            createError={createError}
+            onCashConfirmedChange={setCashConfirmed}
+            onCreate={handleCreate}
+          />
+        ) : null}
       </form>
     </div>
   );

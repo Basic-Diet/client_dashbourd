@@ -92,6 +92,9 @@ const isRouteMatch = (routes: string[], pathName: string) =>
 
 const canRoleAccessRoute = (role: UserRole | undefined, pathName: string) => {
   if (!role) return false;
+  if (role === UserRoles.CASHIER && pathName === "/subscriptions/create") {
+    return true;
+  }
   return isRouteMatch(ROLE_ROUTES[role] ?? [], pathName);
 };
 

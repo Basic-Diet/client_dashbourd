@@ -14,43 +14,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import api from "@/lib/apis";
-import { useQuery } from "@tanstack/react-query";
+import { useDashboardBuilderPremiumMealsQuery } from "@/hooks/useSubscriptionCreation";
 import { Sparkles, Plus, Trash2 } from "lucide-react";
 import { useFieldArray, type UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
+import type { BuilderPremiumMealCatalogItem } from "@/types/subscriptionCreationTypes";
 
 interface PremiumMealsSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
 }
 
-interface BuilderPremiumMeal {
-  id: string;
-  name: { ar?: string; en?: string } | string;
-  imageUrl?: string;
-  extraFeeHalala?: number;
-  isActive?: boolean;
-}
-
-interface BuilderPremiumMealsResponse {
-  status: boolean;
-  data: BuilderPremiumMeal[];
-}
-
-const fetchBuilderPremiumMeals = async (): Promise<BuilderPremiumMealsResponse> => {
-  const response = await api.get("/api/admin/builder-premium-meals");
-  return response.data;
-};
-
-const getMealName = (meal: BuilderPremiumMeal) =>
+const getMealName = (meal: BuilderPremiumMealCatalogItem) =>
   typeof meal.name === "string" ? meal.name : meal.name.ar || meal.name.en || "";
 
 export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
-  const { data: premiumResponse, isLoading } = useQuery({
-    queryKey: ["builder-premium-meals"],
-    queryFn: fetchBuilderPremiumMeals,
-    staleTime: 1000 * 60 * 2,
-  });
+  const { data: premiumResponse, isLoading } = useDashboardBuilderPremiumMealsQuery();
   const premiumMeals =
     premiumResponse?.data.filter((meal) => meal.isActive !== false) || [];
 
@@ -59,10 +37,10 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
     name: "premiumItems",
   });
 
-  const selectedIds = form.watch("premiumItems")?.map((p) => p.premiumMealId) || [];
+  const selectedKeys = form.watch("premiumItems")?.map((p) => p.premiumKey) || [];
 
-  const getSelectedMeal = (mealId: string): BuilderPremiumMeal | undefined =>
-    premiumMeals.find((meal) => meal.id === mealId);
+  const getSelectedMeal = (premiumKey: string): BuilderPremiumMealCatalogItem | undefined =>
+    premiumMeals.find((meal) => meal.premiumKey === premiumKey);
 
   return (
     <Card>
@@ -81,7 +59,7 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => append({ premiumMealId: "", qty: 1 })}
+            onClick={() => append({ premiumKey: "", qty: 1 })}
           >
             <Plus className="size-3.5" />
             إضافة وجبة
@@ -108,7 +86,7 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
           <div className="space-y-3">
             {fields.map((field, index) => {
               const selectedMeal = getSelectedMeal(
-                form.watch(`premiumItems.${index}.premiumMealId`)
+                form.watch(`premiumItems.${index}.premiumKey`)
               );
               return (
                 <div
@@ -129,10 +107,11 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
                     <div className="flex-1 space-y-1.5">
                       <label className="text-xs text-muted-foreground">الوجبة المميزة</label>
                       <Select
-                        value={form.watch(`premiumItems.${index}.premiumMealId`)}
+                        value={form.watch(`premiumItems.${index}.premiumKey`)}
                         onValueChange={(value) =>
-                          form.setValue(`premiumItems.${index}.premiumMealId`, value, {
+                          form.setValue(`premiumItems.${index}.premiumKey`, value, {
                             shouldValidate: true,
+                            shouldDirty: true,
                           })
                         }
                       >
@@ -142,11 +121,11 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
                         <SelectContent>
                           {premiumMeals.map((meal) => (
                             <SelectItem
-                              key={meal.id}
-                              value={meal.id}
+                              key={meal.premiumKey}
+                              value={meal.premiumKey}
                               disabled={
-                                selectedIds.includes(meal.id) &&
-                                form.watch(`premiumItems.${index}.premiumMealId`) !== meal.id
+                                selectedKeys.includes(meal.premiumKey) &&
+                                form.watch(`premiumItems.${index}.premiumKey`) !== meal.premiumKey
                               }
                             >
                               <span className="flex items-center gap-2">
@@ -159,9 +138,9 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
                           ))}
                         </SelectContent>
                       </Select>
-                      {form.formState.errors.premiumItems?.[index]?.premiumMealId && (
+                      {form.formState.errors.premiumItems?.[index]?.premiumKey && (
                         <p className="text-xs text-destructive">
-                          {form.formState.errors.premiumItems[index].premiumMealId?.message}
+                          {form.formState.errors.premiumItems[index].premiumKey?.message}
                         </p>
                       )}
                     </div>

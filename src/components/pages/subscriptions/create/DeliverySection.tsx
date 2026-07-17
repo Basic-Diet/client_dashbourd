@@ -245,29 +245,24 @@ export function DeliverySection({ form }: DeliverySectionProps) {
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">الشارع</Label>
+                    <Label className="text-xs text-muted-foreground">العنوان</Label>
                     <Input
-                      placeholder="أدخل اسم الشارع"
-                      {...form.register("delivery.address.street")}
+                      placeholder="أدخل العنوان"
+                      {...form.register("delivery.address.line1")}
                     />
-                    {form.formState.errors.delivery?.address?.street && (
+                    {form.formState.errors.delivery?.address?.line1 && (
                       <p className="text-xs text-destructive">
-                        {form.formState.errors.delivery.address.street.message}
+                        {form.formState.errors.delivery.address.line1.message}
                       </p>
                     )}
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">رقم المبنى</Label>
+                    <Label className="text-xs text-muted-foreground">تفاصيل إضافية</Label>
                     <Input
-                      placeholder="أدخل رقم المبنى"
-                      {...form.register("delivery.address.building")}
+                      placeholder="الدور، علامة مميزة، أو ملاحظات العنوان"
+                      {...form.register("delivery.address.line2")}
                     />
-                    {form.formState.errors.delivery?.address?.building && (
-                      <p className="text-xs text-destructive">
-                        {form.formState.errors.delivery.address.building.message}
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
