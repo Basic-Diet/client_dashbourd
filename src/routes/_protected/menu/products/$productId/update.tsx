@@ -3,12 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  AlertCircle,
-  Loader2,
-  Package,
-  Save,
-} from "lucide-react";
+import { AlertCircle, Loader2, Package, Save } from "lucide-react";
 
 import menuProductSchema, {
   type MenuProductSchemaInput,
@@ -63,10 +58,17 @@ function UpdateMenuProductPage() {
     return null;
   }
 
+  const product = composerData.data.product;
+
   return (
-    <UpdateMenuProductForm composer={composerData.data} productId={productId} />
+    <UpdateMenuProductForm
+      key={product.id || productId}
+      composer={composerData.data}
+      productId={productId}
+    />
   );
 }
+
 function UpdateMenuProductForm({
   composer,
   productId,
@@ -81,39 +83,68 @@ function UpdateMenuProductForm({
   const form = useForm<MenuProductSchemaInput, unknown, MenuProductSchemaType>({
     resolver: zodResolver(menuProductSchema),
     defaultValues: getMenuProductFormValues(product),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
   });
 
   const onSubmit = useCallback(
     async (data: MenuProductSchemaType) => {
+      let updateStarted = false;
+
       try {
-        let imageUrl = data.imageUrl;
+        let imageUrl =
+          typeof data.imageUrl === "string" ? data.imageUrl.trim() : "";
+
         if (data.imageFile instanceof File) {
           const uploadRes = await fetchUploadImage(data.imageFile);
           imageUrl = resolveUploadedImageUrl(uploadRes);
+
+          // Keep the uploaded URL in form state. If the product PATCH fails,
+          // retrying will reuse this upload instead of creating a duplicate.
+          form.setValue("imageUrl", imageUrl, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+          form.setValue("imageFile", undefined, {
+            shouldDirty: true,
+            shouldValidate: false,
+          });
         }
+
+        updateStarted = true;
         await mutation.mutateAsync({
           id: productId,
-          data: toUpdateMenuProductPayload({ ...data, imageUrl }),
+          data: toUpdateMenuProductPayload({ ...data, imageFile: undefined, imageUrl }),
         });
-        ToastMessage("تم تحديث المنتج بنجاح", "success");
+
         router.navigate({
           to: "/menu",
           search: { tab: "catalog" },
         });
       } catch (submitError: unknown) {
-        ToastMessage(
-          (submitError as { response?: { data?: { message?: string } } })
-            ?.response?.data?.message || "حدث خطأ أثناء الحفظ",
-          "error"
-        );
+        // Product mutation errors are already shown by useMutationWithToast.
+        // Only show a local error when upload/response parsing failed first.
+        if (!updateStarted) {
+          ToastMessage(
+            (submitError as {
+              normalizedMessage?: string;
+              response?: { data?: { message?: string } };
+            })?.normalizedMessage ||
+              (submitError as { response?: { data?: { message?: string } } })
+                ?.response?.data?.message ||
+              "تعذر رفع الصورة الجديدة. حاول مرة أخرى.",
+            "error"
+          );
+        }
       }
     },
-    [mutation, router, productId]
+    [form, mutation, productId, router]
   );
 
   const showValidationSummary =
     form.formState.isSubmitted && Object.keys(form.formState.errors).length > 0;
   const isCustomizable = form.watch("isCustomizable") ?? false;
+  const isSaving = mutation.isPending || form.formState.isSubmitting;
 
   return (
     <div className="w-full px-4 py-8 lg:px-8" dir="rtl">
@@ -168,10 +199,10 @@ function UpdateMenuProductForm({
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={mutation.isPending || form.formState.isSubmitting}
+                  disabled={isSaving}
                   className="w-full gap-2 px-10 text-base font-semibold shadow-md sm:w-auto"
                 >
-                  {mutation.isPending || form.formState.isSubmitting ? (
+                  {isSaving ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
                       جار الحفظ...
@@ -191,73 +222,3 @@ function UpdateMenuProductForm({
     </div>
   );
 }
-
-/*
-function ProductComposerSummary({
-  composer,
-}: {
-  composer: MenuProductComposer;
-}) {
-  const linkedGroups = composer.linkedOptionGroups || [];
-  const warningCount = composer.validation?.warnings?.length || 0;
-  const errorCount = composer.validation?.errors?.length || 0;
-
-  return (
-    <Card className="border-primary/20 bg-primary/5">
-      <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">قراءة المنتج من العقد الجديد</p>
-          <Badge variant="outline">{composer.contractVersion}</Badge>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">الحالة</p>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              variant={composer.publishState?.isPublished ? "default" : "outline"}
-            >
-              {composer.publishState?.isPublished ? "منشور" : "غير منشور"}
-            </Badge>
-            <Badge
-              variant={composer.availability?.isAvailable ? "secondary" : "outline"}
-            >
-              {composer.availability?.isAvailable ? "متاح" : "غير متاح"}
-            </Badge>
-            <Badge
-              variant={composer.availability?.isVisible ? "secondary" : "outline"}
-            >
-              {composer.availability?.isVisible ? "ظاهر" : "مخفي"}
-            </Badge>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">السعر والربط</p>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">
-              {formatSar(composer.pricing?.priceHalala, composer.pricing?.currency)}
-            </Badge>
-            <Badge variant="outline">
-              <Link2 data-icon="inline-start" />
-              {linkedGroups.length} مجموعات
-            </Badge>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">التحقق</p>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={errorCount ? "destructive" : "secondary"}>
-              <CheckCircle2 data-icon="inline-start" />
-              {errorCount ? `${errorCount} أخطاء` : "بدون أخطاء"}
-            </Badge>
-            {warningCount ? (
-              <Badge variant="outline">{warningCount} تنبيهات</Badge>
-            ) : null}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-*/
