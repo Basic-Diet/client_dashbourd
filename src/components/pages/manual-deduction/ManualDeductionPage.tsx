@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, Phone, Package, PlusCircle, User } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Package,
+  Phone,
+  PlusCircle,
+  User,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,15 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  useSearchSubscriptionsByPhoneQuery,
-  useManualDeductSubscriptionMutation,
-} from "@/hooks/useSubscriptionsQuery";
-import { useQueryClient } from "@tanstack/react-query";
-import type {
-  ManualDeductionResponse,
-  Subscription,
-} from "@/types/subscriptionTypes";
-import {
   Table,
   TableBody,
   TableCell,
@@ -29,380 +27,489 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  createColumnHelper,
-} from "@tanstack/react-table";
-import { getApiErrorMessage } from "@/lib/apiErrors";
-
+  useManualDeductSubscriptionMutation,
+  useSearchSubscriptionsByPhoneQuery,
+} from "@/hooks/useSubscriptionsQuery";
 import { CustomerSearch } from "./CustomerSearch";
-import { DeductionForm } from "./DeductionForm";
-import type { DeductionFormReturn, DeductionFormValues } from "./DeductionForm";
+import { DeductionForm, type DeductionFormReturn, type DeductionFormValues } from "./DeductionForm";
+import { ManualDeductionHistory } from "./ManualDeductionHistory";
+import {
+  getAddonName,
+  getFulfillmentLabel,
+  mapManualDeductionError,
+  normalizeManualDeductionSearchResponse,
+  type ManualDeductionBlockedMap,
+  type ManualDeductionMutationResponse,
+  type ManualDeductionPayload,
+  type NormalizedManualDeductionSubscription,
+} from "./manualDeductionModel";
 
-const columnHelper = createColumnHelper<Subscription>();
+function AddonSummary({ subscription }: { subscription: NormalizedManualDeductionSubscription }) {
+  const available = subscription.addonBalances.filter((addon) => addon.remainingQty > 0).length;
+  return (
+    <Badge variant="secondary" className="gap-1">
+      <PlusCircle className="h-3 w-3" />
+      {available} متاح
+    </Badge>
+  );
+}
 
-type ManualDeductionSubscription = Subscription & {
-  remainingPremiumMeals?: number;
-  remainingRegularMeals?: number;
-  fulfillmentMethod?: string;
-};
+function DailyStatusBadge({
+  subscription,
+}: {
+  subscription: NormalizedManualDeductionSubscription;
+}) {
+  if (subscription.fulfillmentMethod === "pickup") {
+    return <Badge variant="outline">استلام متعدد مسموح</Badge>;
+  }
 
-function getAddonCount(subscription: Subscription) {
-  return subscription.addonBalances?.filter((addon) => addon.remainingQty > 0).length ?? 0;
+  if (subscription.dailyDeduction.blocked) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-amber-500/40 bg-amber-500/10 text-amber-700"
+      >
+        يوجد خصم توصيل اليوم
+      </Badge>
+    );
+  }
+
+  if (!subscription.dailyDeduction.known) {
+    return <Badge variant="outline">حالة اليوم غير مؤكدة</Badge>;
+  }
+
+  return <Badge variant="secondary">لا يوجد خصم توصيل اليوم</Badge>;
+}
+
+function SubscriptionAction({
+  subscription,
+  disabled,
+  onSelect,
+}: {
+  subscription: NormalizedManualDeductionSubscription;
+  disabled: boolean;
+  onSelect: (subscription: NormalizedManualDeductionSubscription) => void;
+}) {
+  const blocked =
+    subscription.fulfillmentMethod === "delivery" &&
+    subscription.dailyDeduction.blocked;
+
+  if (blocked) {
+    return (
+      <div className="space-y-2">
+        <Button variant="outline" size="sm" disabled>
+          غير متاح
+        </Button>
+        <p className="max-w-44 text-xs text-muted-foreground">
+          لا يمكن تنفيذ خصم توصيل مرتين لنفس يوم العمل.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={disabled}
+      onClick={() => onSelect(subscription)}
+    >
+      اختيار
+    </Button>
+  );
+}
+
+function ReceiptCard({
+  receipt,
+  subscription,
+}: {
+  receipt: ManualDeductionMutationResponse | null;
+  subscription: NormalizedManualDeductionSubscription | null;
+}) {
+  if (!receipt) return null;
+  const data = receipt.data;
+
+  return (
+    <Card className="border-emerald-500/30 bg-emerald-500/5">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg text-emerald-700">
+          <CheckCircle2 className="h-5 w-5" />
+          تم تنفيذ الخصم
+        </CardTitle>
+        <CardDescription>
+          يوم العمل {data.businessDate} - {getFulfillmentLabel(data.fulfillmentMethod)}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">عادي مخصوم</p>
+            <p className="font-semibold">{data.deducted.regularMeals}</p>
+          </div>
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">مميز مخصوم</p>
+            <p className="font-semibold">{data.deducted.premiumMeals}</p>
+          </div>
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">إجمالي الوجبات</p>
+            <p className="font-semibold">{data.deducted.total}</p>
+          </div>
+        </div>
+
+        {data.deducted.addons.length ? (
+          <div className="flex flex-wrap gap-2">
+            {data.deducted.addons.map((addon) => (
+              <Badge key={addon.addonId} variant="outline">
+                {getAddonName(addon.addonId, subscription ?? undefined)}: {addon.qty}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">المتبقي العادي</p>
+            <p className="font-semibold">{data.remaining.regularMeals}</p>
+          </div>
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">المتبقي المميز</p>
+            <p className="font-semibold">{data.remaining.premiumMeals}</p>
+          </div>
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">المتبقي الكلي</p>
+            <p className="font-semibold">{data.remaining.totalMeals}</p>
+          </div>
+        </div>
+
+        {data.remaining.addons.length ? (
+          <div className="flex flex-wrap gap-2 text-sm">
+            {data.remaining.addons.map((addon) => (
+              <span key={addon.addonId} className="rounded-full border bg-background px-3 py-1">
+                {getAddonName(addon.addonId, subscription ?? undefined)}: المتبقي{" "}
+                {addon.remainingQty}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function applyReceiptToSubscription(
+  subscription: NormalizedManualDeductionSubscription,
+  receipt: ManualDeductionMutationResponse | null
+): NormalizedManualDeductionSubscription {
+  if (!receipt || receipt.data.subscriptionId !== subscription.id) {
+    return subscription;
+  }
+
+  const remainingAddons = receipt.data.remaining.addons;
+
+  return {
+    ...subscription,
+    remainingMeals: receipt.data.remaining.totalMeals,
+    remainingRegularMeals: receipt.data.remaining.regularMeals,
+    remainingPremiumMeals: receipt.data.remaining.premiumMeals,
+    addonBalances: subscription.addonBalances.map((addon) => {
+      const updated = remainingAddons.find((row) => row.addonId === addon.addonId);
+      return updated ? { ...addon, remainingQty: updated.remainingQty } : addon;
+    }),
+  };
 }
 
 export default function ManualDeductionPage() {
   const [searchPhone, setSearchPhone] = useState("");
-  const [selectedSubscription, setSelectedSubscription] =
-    useState<Subscription | null>(null);
-  const queryClient = useQueryClient();
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null);
+  const [blockedBySubscriptionId, setBlockedBySubscriptionId] =
+    useState<ManualDeductionBlockedMap>({});
+  const [receipt, setReceipt] = useState<ManualDeductionMutationResponse | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
-  const {
-    data: searchResponse,
-    isLoading: isSearching,
-    error: searchError,
-  } = useSearchSubscriptionsByPhoneQuery(searchPhone);
-
+  const searchQuery = useSearchSubscriptionsByPhoneQuery(searchPhone);
   const deductMutation = useManualDeductSubscriptionMutation();
+  const isBusy = deductMutation.isPending || inFlightRef.current;
 
-  const rawData = searchResponse?.data;
-  const rawSubscriptions = rawData?.subscriptions ?? [];
-  const customer = rawData?.customer;
-  const today = rawData?.today;
+  const normalizedSearch = useMemo(() => {
+    if (!searchQuery.data) return null;
+    return normalizeManualDeductionSearchResponse(
+      searchQuery.data,
+      blockedBySubscriptionId
+    );
+  }, [blockedBySubscriptionId, searchQuery.data]);
 
-  const subscriptions: Subscription[] = rawSubscriptions.map(
-    (sub: ManualDeductionSubscription) => {
-      const totalRemaining = sub.remainingMeals ?? 0;
-      const premiumRemaining =
-        sub.remainingPremiumMeals ?? sub.premiumRemaining ?? 0;
-      const regularRemaining =
-        sub.remainingRegularMeals ??
-        Math.max(0, totalRemaining - premiumRemaining);
-      const user = sub.user ?? {
-        id: customer?.id ?? sub.userId ?? "",
-        fullName: customer?.name ?? sub.userName ?? "—",
-        phone: customer?.phone ?? "",
-        email: "",
-        isActive: true,
-      };
+  const customer = normalizedSearch?.kind === "found" ? normalizedSearch.customer : null;
+  const subscriptions =
+    normalizedSearch?.kind === "found"
+      ? normalizedSearch.subscriptions.map((subscription) =>
+          applyReceiptToSubscription(subscription, receipt)
+        )
+      : [];
+  const selectedSubscription =
+    subscriptions.find((subscription) => subscription.id === selectedSubscriptionId) ?? null;
+  const receiptSubscription =
+    subscriptions.find((subscription) => subscription.id === receipt?.data.subscriptionId) ??
+    selectedSubscription;
+  const historySubscription = selectedSubscription ?? receiptSubscription;
 
-      return {
-        ...sub,
-        userName: customer?.name ?? sub.userName,
-        user: {
-          ...user,
-          id: user.id ?? customer?.id ?? sub.userId ?? "",
-          fullName: customer?.name ?? user.fullName ?? "—",
-          phone: customer?.phone ?? user.phone ?? "",
-          email: user.email ?? "",
-          isActive: user.isActive ?? true,
-        },
-        remainingMeals: totalRemaining,
-        remainingRegularMeals: regularRemaining,
-        remainingPremiumMeals: premiumRemaining,
-        premiumRemaining,
-        addonBalances: sub.addonBalances ?? [],
-        hasDeliveryDeductionToday: today?.hasDeliveryDeductionToday ?? false,
-        deliveryMode: sub.fulfillmentMethod ?? sub.deliveryMode ?? "delivery",
-      };
-    }
-  );
+  const handleSearch = async (phone: string) => {
+    const normalizedPhone = phone.trim();
+    if (!normalizedPhone) return;
+    setSelectedSubscriptionId(null);
+    setReceipt(null);
+    setMutationError(null);
 
-  const handleSearch = (phone: string) => {
-    setSearchPhone(phone);
-    setSelectedSubscription(null);
-  };
-
-  const handleSelectSubscription = (sub: Subscription) => {
-    setSelectedSubscription(sub);
-  };
-
-  const handleCancelDeduction = () => {
-    setSelectedSubscription(null);
-  };
-
-  const onDeductionSubmit = async (
-    values: DeductionFormValues,
-    form: DeductionFormReturn
-  ) => {
-    if (!selectedSubscription) return;
-
-    const addons = values.addons
-      .filter((addon) => Number(addon.qty) > 0)
-      .map((addon) => ({ addonId: addon.addonId, qty: Number(addon.qty) }));
-    const totalSelected =
-      Number(values.regularMeals || 0) +
-      Number(values.premiumMeals || 0) +
-      addons.reduce((sum, addon) => sum + addon.qty, 0);
-
-    if (totalSelected === 0) {
-      form.setError("regularMeals", {
-        type: "manual",
-        message: "ادخل كمية واحدة على الأقل من الوجبات أو الإضافات",
-      });
+    if (normalizedPhone === searchPhone && searchQuery.data) {
+      await searchQuery.refetch();
       return;
     }
 
+    setSearchPhone(normalizedPhone);
+  };
+
+  const handleSelectSubscription = (
+    subscription: NormalizedManualDeductionSubscription
+  ) => {
+    if (isBusy) return;
+    setSelectedSubscriptionId(subscription.id);
+    setMutationError(null);
+  };
+
+  const handleCancelDeduction = () => {
+    if (isBusy) return;
+    setSelectedSubscriptionId(null);
+  };
+
+  const handleDeductionConfirm = async (
+    payload: ManualDeductionPayload,
+    _values: DeductionFormValues,
+    form: DeductionFormReturn
+  ) => {
+    if (!selectedSubscription || inFlightRef.current) return;
+
+    inFlightRef.current = true;
+    setMutationError(null);
+
     try {
-      const result = (await deductMutation.mutateAsync({
+      const result = await deductMutation.mutateAsync({
         id: selectedSubscription.id,
-        data: {
-          regularMeals: Number(values.regularMeals || 0),
-          premiumMeals: Number(values.premiumMeals || 0),
-          ...(addons.length ? { addons } : {}),
-          reason: values.reason.trim(),
-          notes: values.notes?.trim() || undefined,
-        },
-      })) as ManualDeductionResponse;
+        data: payload,
+      });
 
-      toast.success("تم تنفيذ الخصم اليدوي بنجاح");
-
-      const remaining = result?.data?.remaining;
-      if (remaining) {
-        setSelectedSubscription((current) => {
-          if (!current) return current;
-          const remainingAddons = remaining.addons ?? [];
-          return {
-            ...current,
-            remainingMeals: remaining.totalMeals ?? current.remainingMeals,
-            remainingRegularMeals:
-              remaining.regularMeals ?? current.remainingRegularMeals,
-            remainingPremiumMeals:
-              remaining.premiumMeals ?? current.remainingPremiumMeals,
-            premiumRemaining:
-              remaining.premiumMeals ?? current.premiumRemaining,
-            addonBalances: (current.addonBalances ?? []).map((addon) => {
-              const updated = remainingAddons.find(
-                (row) => row.addonId === addon.addonId
-              );
-              return updated
-                ? { ...addon, remainingQty: updated.remainingQty }
-                : addon;
-            }),
-          };
-        });
+      setReceipt(result);
+      if (result.data.fulfillmentMethod === "delivery") {
+        setBlockedBySubscriptionId((current) => ({
+          ...current,
+          [result.data.subscriptionId]: "session-success",
+        }));
       }
-
-      form.reset({
-        regularMeals: 0,
-        premiumMeals: 0,
-        addons: (selectedSubscription.addonBalances ?? []).map((addon) => ({
-          addonId: addon.addonId,
-          name: addon.name,
-          remainingQty: addon.remainingQty,
-          qty: 0,
-        })),
-        reason: "cashier_walk_in",
-        notes: "",
+      setSelectedSubscriptionId(null);
+      toast.success("تم تنفيذ الخصم اليدوي بنجاح");
+      await searchQuery.refetch();
+    } catch (error) {
+      const mapped = mapManualDeductionError(error);
+      if (mapped.code === "DELIVERY_ALREADY_DEDUCTED_TODAY") {
+        setBlockedBySubscriptionId((current) => ({
+          ...current,
+          [selectedSubscription.id]: "backend-rejection",
+        }));
+      }
+      setMutationError(mapped.message);
+      form.setError("root", {
+        type: "server",
+        message: mapped.message,
       });
-
-      await queryClient.invalidateQueries({
-        queryKey: ["subscriptions-search", searchPhone],
-      });
-    } catch (err: unknown) {
-      const message = getApiErrorMessage(err) || "حدث خطأ أثناء تنفيذ الخصم";
-      toast.error(message);
+      toast.error(mapped.message);
+      throw error;
+    } finally {
+      inFlightRef.current = false;
     }
   };
 
-  const columns = [
-    columnHelper.accessor((row) => row.userName || row.user?.fullName || "—", {
-      id: "userName",
-      header: "العميل",
-      cell: (info) => (
-        <div className="flex items-center gap-2 font-semibold">
-          <User className="h-4 w-4 text-muted-foreground" />
-          {info.getValue()}
-        </div>
-      ),
-    }),
-    columnHelper.accessor((row) => row.user?.phone || "—", {
-      id: "userPhone",
-      header: "الهاتف",
-      cell: (info) => (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground" dir="ltr">
-          <Phone className="h-4 w-4" />
-          {info.getValue()}
-        </div>
-      ),
-    }),
-    columnHelper.accessor((row) => row.planName || row.plan?.name || "—", {
-      id: "planName",
-      header: "الخطة",
-      cell: (info) => (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Package className="h-4 w-4" />
-          {info.getValue()}
-        </div>
-      ),
-    }),
-    columnHelper.accessor("remainingMeals", {
-      header: "الرصيد الكلي",
-      cell: (info) => <Badge variant="outline">{info.getValue()} وجبة</Badge>,
-    }),
-    columnHelper.accessor(
-      (row) => row.remainingRegularMeals ?? row.remainingMeals,
-      {
-        id: "remainingRegularMeals",
-        header: "العادي",
-        cell: (info) => (
-          <Badge variant="secondary">{info.getValue()} وجبة</Badge>
-        ),
-      }
-    ),
-    columnHelper.accessor(
-      (row) => row.remainingPremiumMeals ?? row.premiumRemaining ?? 0,
-      {
-        id: "remainingPremiumMeals",
-        header: "المميز",
-        cell: (info) => <Badge variant="outline">{info.getValue()} وجبة</Badge>,
-      }
-    ),
-    columnHelper.display({
-      id: "addons",
-      header: "الإضافات",
-      cell: ({ row }) => (
-        <Badge variant="secondary" className="gap-1">
-          <PlusCircle className="h-3 w-3" />
-          {getAddonCount(row.original)} متاح
-        </Badge>
-      ),
-    }),
-    columnHelper.accessor("deliveryMode", {
-      header: "طريقة التنفيذ",
-      cell: (info) => {
-        const isDelivery = info.getValue() === "delivery";
-        return (
-          <Badge variant={isDelivery ? "secondary" : "outline"}>
-            {isDelivery ? "توصيل" : "استلام"}
-          </Badge>
-        );
-      },
-    }),
-    columnHelper.display({
-      id: "actions",
-      header: "",
-      cell: (info) => {
-        const row = info.row.original;
-        const alreadyDeductedToday =
-          row.deliveryMode === "delivery" && row.hasDeliveryDeductionToday;
-
-        return (
-          <div className="flex flex-col gap-2">
-            {alreadyDeductedToday ? (
-              <Badge variant="outline" className="w-fit border-amber-500/30 bg-amber-500/10 text-amber-700">
-                يوجد خصم توصيل اليوم
-              </Badge>
-            ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSelectSubscription(row)}
-            >
-              اختيار
-            </Button>
-          </div>
-        );
-      },
-    }),
-  ];
-
-  const table = useReactTable({
-    data: subscriptions,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" dir="rtl">
-      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="rounded-lg border bg-card p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-foreground">
           خصم يدوي من الاشتراك
         </h1>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          ابحث عن العميل بالهاتف، اختر الاشتراك، ثم نفذ خصم وجبات عادية أو مميزة أو إضافات في معاملة واحدة.
+          ابحث عن العميل بالهاتف، اختر الاشتراك، ثم راجع الخصم قبل تنفيذه كمعاملة واحدة.
         </p>
       </div>
 
       <CustomerSearch
         onSearch={handleSearch}
-        isSearching={isSearching}
-        error={searchError}
+        isSearching={searchQuery.isLoading || searchQuery.isFetching}
+        error={searchQuery.error}
+        disabled={isBusy}
       />
 
-      {searchPhone &&
-        !isSearching &&
-        subscriptions.length > 0 &&
-        !selectedSubscription && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">اختر الاشتراك</CardTitle>
-              <CardDescription>
-                تم العثور على {subscriptions.length} اشتراك. الخصم النهائي يتم التحقق منه من الخادم.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-md border">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    {table.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead
-                            key={header.id}
-                            className="whitespace-nowrap py-3 text-right font-semibold"
-                          >
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className="whitespace-nowrap py-3 text-right">
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {searchPhone && searchQuery.isFetching && searchQuery.data ? (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>جاري تحديث نتيجة البحث الحالية...</AlertDescription>
+        </Alert>
+      ) : null}
 
-      {searchPhone &&
-        !isSearching &&
-        !searchError &&
-        subscriptions.length === 0 && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              لم يتم العثور على اشتراكات مرتبطة بهذا الرقم
-            </AlertDescription>
-          </Alert>
-        )}
+      {normalizedSearch?.kind === "customer_not_found" ? (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{normalizedSearch.message}</AlertDescription>
+        </Alert>
+      ) : null}
 
-      {selectedSubscription && (
+      {normalizedSearch?.kind === "subscription_not_found" ? (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{normalizedSearch.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <ReceiptCard receipt={receipt} subscription={receiptSubscription} />
+
+      {mutationError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{mutationError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {customer && subscriptions.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">اختر الاشتراك</CardTitle>
+            <CardDescription>
+              تم العثور على {subscriptions.length} اشتراك للعميل {customer.name}. حالة خصم
+              التوصيل اليومية معروفة فقط للاشتراك الافتراضي أو ما تعلمته هذه الجلسة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="hidden rounded-md border md:block">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="text-right">العميل</TableHead>
+                    <TableHead className="text-right">الهاتف</TableHead>
+                    <TableHead className="text-right">الخطة</TableHead>
+                    <TableHead className="text-right">الرصيد</TableHead>
+                    <TableHead className="text-right">عادي</TableHead>
+                    <TableHead className="text-right">مميز</TableHead>
+                    <TableHead className="text-right">الإضافات</TableHead>
+                    <TableHead className="text-right">التنفيذ</TableHead>
+                    <TableHead className="text-right">حالة اليوم</TableHead>
+                    <TableHead className="text-right">الإجراء</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subscriptions.map((subscription) => (
+                    <TableRow key={subscription.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2 font-semibold">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          {customer.name}
+                        </div>
+                      </TableCell>
+                      <TableCell dir="ltr" className="text-right">
+                        <div className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-4 w-4" />
+                          {customer.phone}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          {subscription.planName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{subscription.remainingMeals} وجبة</Badge>
+                      </TableCell>
+                      <TableCell>{subscription.remainingRegularMeals}</TableCell>
+                      <TableCell>{subscription.remainingPremiumMeals}</TableCell>
+                      <TableCell>
+                        <AddonSummary subscription={subscription} />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={subscription.fulfillmentMethod === "delivery" ? "secondary" : "outline"}>
+                          {getFulfillmentLabel(subscription.fulfillmentMethod)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DailyStatusBadge subscription={subscription} />
+                      </TableCell>
+                      <TableCell>
+                        <SubscriptionAction
+                          subscription={subscription}
+                          disabled={isBusy}
+                          onSelect={handleSelectSubscription}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="grid gap-3 md:hidden">
+              {subscriptions.map((subscription) => (
+                <div key={subscription.id} className="rounded-lg border bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{subscription.planName}</p>
+                      <p className="text-sm text-muted-foreground">{customer.name}</p>
+                      <p dir="ltr" className="text-sm text-muted-foreground">
+                        {customer.phone}
+                      </p>
+                    </div>
+                    <Badge variant={subscription.fulfillmentMethod === "delivery" ? "secondary" : "outline"}>
+                      {getFulfillmentLabel(subscription.fulfillmentMethod)}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                    <div className="rounded-md bg-muted/40 p-2">
+                      <p className="text-xs text-muted-foreground">الكلي</p>
+                      <p className="font-semibold">{subscription.remainingMeals}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/40 p-2">
+                      <p className="text-xs text-muted-foreground">عادي</p>
+                      <p className="font-semibold">{subscription.remainingRegularMeals}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/40 p-2">
+                      <p className="text-xs text-muted-foreground">مميز</p>
+                      <p className="font-semibold">{subscription.remainingPremiumMeals}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      <AddonSummary subscription={subscription} />
+                      <DailyStatusBadge subscription={subscription} />
+                    </div>
+                    <SubscriptionAction
+                      subscription={subscription}
+                      disabled={isBusy}
+                      onSelect={handleSelectSubscription}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {customer && selectedSubscription ? (
         <DeductionForm
           key={selectedSubscription.id}
+          customer={customer}
           subscription={selectedSubscription}
-          onSubmit={onDeductionSubmit}
+          onConfirm={handleDeductionConfirm}
           onCancel={handleCancelDeduction}
-          isPending={deductMutation.isPending}
+          isPending={isBusy}
         />
-      )}
+      ) : null}
+
+      <ManualDeductionHistory subscription={historySubscription} />
     </div>
   );
 }

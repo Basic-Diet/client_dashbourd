@@ -2,7 +2,7 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, AlertCircle } from "lucide-react";
+import { AlertCircle, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,68 +12,80 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { getApiErrorMessage } from "@/lib/apiErrors";
+import { mapManualDeductionError } from "./manualDeductionModel";
 
 const searchSchema = z.object({
-  phone: z.string().min(8, "الرجاء إدخال رقم هاتف صحيح (8 أرقام على الأقل)"),
+  phone: z
+    .string()
+    .trim()
+    .min(8, "الرجاء إدخال رقم هاتف صحيح لا يقل عن 8 أرقام"),
 });
 
 type SearchFormValues = z.infer<typeof searchSchema>;
 
 interface CustomerSearchProps {
-  onSearch: (phone: string) => void;
+  onSearch: (phone: string) => Promise<void> | void;
   isSearching: boolean;
   error: unknown;
+  disabled?: boolean;
 }
 
 export const CustomerSearch: React.FC<CustomerSearchProps> = ({
   onSearch,
   isSearching,
   error,
+  disabled = false,
 }) => {
   const searchForm = useForm<SearchFormValues>({
     resolver: zodResolver(searchSchema),
     defaultValues: { phone: "" },
   });
 
-  const onSubmit = (values: SearchFormValues) => {
-    onSearch(values.phone.trim());
+  const onSubmit = async (values: SearchFormValues) => {
+    await onSearch(values.phone.trim());
   };
+
+  const isBusy = isSearching || disabled || searchForm.formState.isSubmitting;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Search className="h-5 w-5" />
-          البحث بالهاتف
+          البحث برقم الهاتف
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...searchForm}>
           <form
             onSubmit={searchForm.handleSubmit(onSubmit)}
-            className="flex items-start gap-3"
+            className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+            aria-busy={isBusy}
           >
             <FormField
               control={searchForm.control}
               name="phone"
               render={({ field }) => (
-                <FormItem className="flex-1 space-y-0">
+                <FormItem>
+                  <FormLabel>رقم الهاتف</FormLabel>
                   <FormControl>
                     <Input
                       type="tel"
-                      placeholder="أدخل رقم الهاتف..."
+                      inputMode="tel"
+                      placeholder="05xxxxxxxx"
                       {...field}
+                      disabled={isBusy}
                       dir="ltr"
                     />
                   </FormControl>
-                  <FormMessage className="pt-2" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isSearching}>
+            <Button type="submit" disabled={isBusy} className="mt-0 sm:mt-8">
               {isSearching ? "جاري البحث..." : "بحث"}
             </Button>
           </form>
@@ -83,8 +95,7 @@ export const CustomerSearch: React.FC<CustomerSearchProps> = ({
           <Alert variant="destructive" className="mt-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {getApiErrorMessage(error) ||
-                "حدث خطأ أثناء البحث. تأكد من الرقم وأعد المحاولة."}
+              {mapManualDeductionError(error).message}
             </AlertDescription>
           </Alert>
         )}

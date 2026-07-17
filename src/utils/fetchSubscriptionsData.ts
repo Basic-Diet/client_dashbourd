@@ -1,7 +1,12 @@
 import api from "@/lib/apis";
+import {
+  isExpectedManualDeductionNoResultCode,
+  type ManualDeductionHistoryResponse,
+  type ManualDeductionMutationResponse,
+  type ManualDeductionPayload as ManualDeductionContractPayload,
+  type ManualDeductionSearchResponse,
+} from "@/components/pages/manual-deduction/manualDeductionModel";
 import type {
-  ManualDeductionPayload,
-  ManualDeductionResponse,
   SubscriptionAddonEntitlementsResponse,
   SubscriptionAddonEntitlementPayload,
   SubscriptionBalancesPayload,
@@ -21,10 +26,15 @@ import {
   subscriptionLifecycleUrl,
 } from "./subscriptionApiContract";
 
-type ApiStatusError = {
-  response?: {
-    status?: number;
-  };
+const getErrorCode = (data: unknown) => {
+  if (!data || typeof data !== "object") return undefined;
+  const record = data as Record<string, unknown>;
+  const error = record.error;
+  if (error && typeof error === "object") {
+    const code = (error as Record<string, unknown>).code;
+    return typeof code === "string" ? code : undefined;
+  }
+  return typeof record.code === "string" ? record.code : undefined;
 };
 
 export const fetchSubscriptionsSummary = async () => {
@@ -275,23 +285,42 @@ export const deleteSubscriptionAddonEntitlement = async (
   );
 };
 
-export const searchSubscriptionsByPhone = async (phone: string) => {
-  try {
-    const response = await api.get(
-      `/api/dashboard/subscriptions/search?phone=${encodeURIComponent(phone)}`
-    );
-    return response.data;
-  } catch (error: unknown) {
-    if ((error as ApiStatusError)?.response?.status === 404) {
-      return { data: { customer: null, subscriptions: [], today: null } };
+export const searchSubscriptionsByPhone = async (
+  phone: string
+): Promise<ManualDeductionSearchResponse> => {
+  const response = await api.get(
+    `/api/dashboard/subscriptions/search?phone=${encodeURIComponent(phone)}`,
+    {
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
     }
+  );
+
+  if (response.status === 404) {
+    const code = getErrorCode(response.data);
+    if (isExpectedManualDeductionNoResultCode(code)) {
+      return {
+        status: false,
+        noResult: {
+          code,
+          message:
+            code === "CUSTOMER_NOT_FOUND"
+              ? "لم يتم العثور على عميل بهذا الرقم."
+              : "العميل موجود لكن لا يوجد اشتراك نشط.",
+        },
+      };
+    }
+
+    const error = new Error("Unexpected manual deduction search 404");
+    Object.assign(error, { response });
     throw error;
   }
+
+  return response.data;
 };
 
 export const fetchSubscriptionManualDeductions = async (
   subscriptionId: string
-) => {
+): Promise<ManualDeductionHistoryResponse> => {
   const response = await api.get(
     `/api/dashboard/subscriptions/${subscriptionId}/manual-deductions`
   );
@@ -303,8 +332,8 @@ export const manualDeductSubscription = async ({
   data,
 }: {
   id: string;
-  data: ManualDeductionPayload;
-}): Promise<ManualDeductionResponse> => {
+  data: ManualDeductionContractPayload;
+}): Promise<ManualDeductionMutationResponse> => {
   const response = await api.post(
     `/api/dashboard/subscriptions/${id}/manual-deduction`,
     data

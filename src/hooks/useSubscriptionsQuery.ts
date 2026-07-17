@@ -200,6 +200,7 @@ export const useManualDeductSubscriptionMutation = () => {
         queryKey: ["subscription-details", variables.id],
       });
       queryClient.invalidateQueries({ queryKey: ["subscriptions-list"] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions-summary"] });
       queryClient.invalidateQueries({ queryKey: ["subscriptions-search"] });
       queryClient.invalidateQueries({
         queryKey: ["subscription-manual-deductions", variables.id],
