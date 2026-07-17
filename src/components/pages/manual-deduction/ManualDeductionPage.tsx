@@ -232,8 +232,10 @@ export default function ManualDeductionPage() {
   const isBusy = deductMutation.isPending || inFlightRef.current;
   const hasCachedSearchData = Boolean(searchQuery.data);
   const searchPanelError = hasCachedSearchData ? null : searchQuery.error;
-  const hasBackgroundRefreshError =
-    hasCachedSearchData && Boolean(searchQuery.error) && !searchQuery.isFetching;
+  const hasCachedRefetchError =
+    hasCachedSearchData && searchQuery.isRefetchError && !searchQuery.isFetching;
+  const hasPostDeductionRefreshError = Boolean(receipt) && hasCachedRefetchError;
+  const hasGenericRefreshError = !receipt && hasCachedRefetchError;
 
   const normalizedSearch = useMemo(() => {
     if (!searchQuery.data) return null;
@@ -362,11 +364,20 @@ export default function ManualDeductionPage() {
         </Alert>
       ) : null}
 
-      {hasBackgroundRefreshError ? (
+      {hasPostDeductionRefreshError ? (
         <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-800">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             تم تنفيذ الخصم، لكن تعذر تحديث بيانات الاشتراك تلقائياً. يمكنك إعادة البحث لتحديث الرصيد.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {hasGenericRefreshError ? (
+        <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-800">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            تعذر تحديث بيانات الاشتراك تلقائياً. البيانات المعروضة قديمة؛ أعد البحث للمحاولة مرة أخرى.
           </AlertDescription>
         </Alert>
       ) : null}

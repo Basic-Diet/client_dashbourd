@@ -41,6 +41,8 @@ const searchFallback =
   "تعذر البحث عن العميل. حاول مرة أخرى.";
 const refreshWarning =
   "تم تنفيذ الخصم، لكن تعذر تحديث بيانات الاشتراك تلقائياً. يمكنك إعادة البحث لتحديث الرصيد.";
+const genericRefreshWarning =
+  "تعذر تحديث بيانات الاشتراك تلقائياً. البيانات المعروضة قديمة؛ أعد البحث للمحاولة مرة أخرى.";
 const historyFallback =
   "تعذر تحميل سجل الخصومات. حاول مرة أخرى.";
 
@@ -484,10 +486,70 @@ describe("manual deduction page", () => {
     expect(await screen.findByText(receiptTitle)).toBeInTheDocument();
     await waitFor(() => expect(searchCalls()).toHaveLength(2));
     expect(await screen.findByText(refreshWarning)).toBeInTheDocument();
+    expect(screen.queryByText(genericRefreshWarning)).not.toBeInTheDocument();
     expect(apiPostMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(mutationFallback)).not.toBeInTheDocument();
     expect(screen.queryByText(searchFallback)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(regularLabel)).not.toBeInTheDocument();
+  });
+
+  it("shows a generic stale-data warning when same-phone cached refresh fails without a mutation", async () => {
+    apiGetMock.mockImplementation((url: string) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("/manual-deductions")) {
+        return Promise.resolve({ status: 200, data: emptyHistory });
+      }
+      if (searchCalls().length > 1) {
+        return Promise.reject({
+          response: { status: 500, data: { error: { code: "SERVER_ERROR" } } },
+        });
+      }
+      return Promise.resolve({ status: 200, data: makeSearchResponse() });
+    });
+    renderPage();
+    const user = userEvent.setup();
+
+    await searchForCustomer(user);
+    expect(await screen.findAllByText("Delivery Plan")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: searchButton }));
+
+    await waitFor(() => expect(searchCalls()).toHaveLength(2));
+    expect(await screen.findByText(genericRefreshWarning)).toBeInTheDocument();
+    expect(screen.queryByText(refreshWarning)).not.toBeInTheDocument();
+    expect(screen.queryByText(receiptTitle)).not.toBeInTheDocument();
+    expect(screen.queryByText(searchFallback)).not.toBeInTheDocument();
+    expect(await screen.findAllByText("Delivery Plan")).toHaveLength(2);
+    expect(apiPostMock).not.toHaveBeenCalled();
+  });
+
+  it("shows a generic stale-data warning when automatic cached refetch fails before mutation", async () => {
+    apiGetMock.mockImplementation((url: string) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("/manual-deductions")) {
+        return Promise.resolve({ status: 200, data: emptyHistory });
+      }
+      if (searchCalls().length > 1) {
+        return Promise.reject({
+          response: { status: 500, data: { error: { code: "SERVER_ERROR" } } },
+        });
+      }
+      return Promise.resolve({ status: 200, data: makeSearchResponse() });
+    });
+    const { queryClient } = renderPage();
+    const user = userEvent.setup();
+
+    await searchForCustomer(user);
+    expect(await screen.findAllByText("Delivery Plan")).toHaveLength(2);
+
+    await queryClient.invalidateQueries({ queryKey: ["subscriptions-search"] });
+
+    await waitFor(() => expect(searchCalls()).toHaveLength(2));
+    expect(await screen.findByText(genericRefreshWarning)).toBeInTheDocument();
+    expect(screen.queryByText(refreshWarning)).not.toBeInTheDocument();
+    expect(screen.queryByText(receiptTitle)).not.toBeInTheDocument();
+    expect(screen.queryByText(searchFallback)).not.toBeInTheDocument();
+    expect(apiPostMock).not.toHaveBeenCalled();
   });
 
   it("correctable backend rejection keeps the form and entered values available", async () => {
