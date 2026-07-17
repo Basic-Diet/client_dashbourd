@@ -10,14 +10,16 @@ export interface ManualDeductionCustomer {
 
 export interface ManualDeductionAddonBalance {
   addonId: string;
-  addonPlanId?: string;
+  addonPlanId: string;
   name: string;
-  category?: string;
+  category: string;
+  purchasedDailyQty: number;
+  includedTotalQty: number;
   remainingQty: number;
   totalQty: number;
-  purchasedQty?: number;
+  purchasedQty: number;
   consumedQty: number;
-  reservedQty?: number;
+  reservedQty: number;
 }
 
 export interface ManualDeductionSearchSubscription {

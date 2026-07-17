@@ -230,6 +230,10 @@ export default function ManualDeductionPage() {
   const searchQuery = useSearchSubscriptionsByPhoneQuery(searchPhone);
   const deductMutation = useManualDeductSubscriptionMutation();
   const isBusy = deductMutation.isPending || inFlightRef.current;
+  const hasCachedSearchData = Boolean(searchQuery.data);
+  const searchPanelError = hasCachedSearchData ? null : searchQuery.error;
+  const hasBackgroundRefreshError =
+    hasCachedSearchData && Boolean(searchQuery.error) && !searchQuery.isFetching;
 
   const normalizedSearch = useMemo(() => {
     if (!searchQuery.data) return null;
@@ -347,7 +351,7 @@ export default function ManualDeductionPage() {
       <CustomerSearch
         onSearch={handleSearch}
         isSearching={searchQuery.isLoading || searchQuery.isFetching}
-        error={searchQuery.error}
+        error={searchPanelError}
         disabled={isBusy}
       />
 
@@ -355,6 +359,15 @@ export default function ManualDeductionPage() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>جاري تحديث نتيجة البحث الحالية...</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {hasBackgroundRefreshError ? (
+        <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-800">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            تم تنفيذ الخصم، لكن تعذر تحديث بيانات الاشتراك تلقائياً. يمكنك إعادة البحث لتحديث الرصيد.
+          </AlertDescription>
         </Alert>
       ) : null}
 

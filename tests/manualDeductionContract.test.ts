@@ -58,10 +58,16 @@ const makeSearchResponse = (): ManualDeductionSearchSuccessResponse => ({
         addonBalances: [
           {
             addonId: "addon-zero",
+            addonPlanId: "addon-zero-plan",
             name: "Water",
+            category: "drink",
+            purchasedDailyQty: 1,
+            includedTotalQty: 2,
             remainingQty: 0,
             totalQty: 2,
+            purchasedQty: 2,
             consumedQty: 2,
+            reservedQty: 0,
           },
         ],
       },
