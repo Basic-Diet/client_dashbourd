@@ -25,6 +25,8 @@ function renderTable(items = [makeNormalizedProductionOrder()]) {
 }
 
 function fiveKitchenCards(): KitchenCard[] {
+  const unavailableWarning = "مكون غير متوفر";
+
   return Array.from({ length: 5 }, (_, index) => ({
     cardId: `card-${index + 1}`,
     type: index === 4 ? "chef_choice" : "standard_meal",
@@ -35,22 +37,60 @@ function fiveKitchenCards(): KitchenCard[] {
       protein: { name: `Protein ${index + 1}` },
     },
     sections:
-      index === 2
+      index >= 2
         ? [
             {
               label: "Hidden paid section",
               items: [
-                {
-                  name: "Hidden paid chicken",
-                  quantity: 1,
-                  payableTotalHalala: 500,
-                  productUnitPriceHalala: 500,
-                },
+                ...(index === 2
+                  ? [
+                      {
+                        name: "Hidden paid chicken",
+                        quantity: 1,
+                        payableTotalHalala: 500,
+                        productUnitPriceHalala: 500,
+                      },
+                    ]
+                  : []),
+                ...(index === 3
+                  ? [
+                      {
+                        name: "Hidden paid sauce",
+                        quantity: 1,
+                        payableTotalHalala: 250,
+                        productUnitPriceHalala: 250,
+                      },
+                    ]
+                  : []),
+                ...(index === 4
+                  ? [
+                      {
+                        name: "Hidden paid salmon",
+                        quantity: 1,
+                        grams: 80,
+                        payableTotalHalala: 800,
+                        productUnitPriceHalala: 800,
+                      },
+                      {
+                        name: "Hidden paid avocado",
+                        quantity: 1,
+                        payableTotalHalala: 300,
+                        productUnitPriceHalala: 300,
+                      },
+                    ]
+                  : []),
               ],
             },
           ]
         : [],
-    warnings: index === 3 ? ["Important hidden warning"] : [],
+    warnings:
+      index === 0
+        ? [unavailableWarning]
+        : index === 3
+          ? ["Important hidden warning", unavailableWarning]
+          : index === 4
+            ? ["Third warning", "Fourth warning", "Fifth warning"]
+            : [],
   }));
 }
 
@@ -85,14 +125,27 @@ describe("one-time order operations card", () => {
   });
 
   it("bounds compact kitchen cards while preserving hidden paid extras", async () => {
-    renderTable([makeNormalizedProductionOrder({ kitchenCards: fiveKitchenCards() })]);
+    const unavailableWarning = "مكون غير متوفر";
+
+    renderTable([
+      makeNormalizedProductionOrder({
+        kitchenCards: fiveKitchenCards(),
+        kitchenWarnings: [unavailableWarning],
+      }),
+    ]);
 
     expect(screen.getByText("Prep card 1")).toBeInTheDocument();
     expect(screen.getByText("Prep card 2")).toBeInTheDocument();
     expect(screen.queryByText("Prep card 3")).not.toBeInTheDocument();
     expect(screen.getByText("+3 بطاقات تحضير أخرى")).toBeInTheDocument();
     expect(screen.getByText(/Hidden paid chicken - 5.00 ر.س/)).toBeInTheDocument();
+    expect(screen.getByText(/Hidden paid sauce - 2.50 ر.س/)).toBeInTheDocument();
+    expect(screen.queryByText(/Hidden paid salmon - 8.00 ر.س/)).not.toBeInTheDocument();
+    expect(screen.getByText("+2 إضافات مدفوعة أخرى")).toBeInTheDocument();
+    expect(screen.getAllByText(unavailableWarning)).toHaveLength(1);
     expect(screen.getByText(/Important hidden warning/)).toBeInTheDocument();
+    expect(screen.queryByText("Third warning")).not.toBeInTheDocument();
+    expect(screen.getByText("+3 تنبيهات أخرى")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /عرض التفاصيل الكاملة/ }));
     const dialog = screen.getByRole("dialog");
@@ -100,6 +153,11 @@ describe("one-time order operations card", () => {
     for (let index = 1; index <= 5; index += 1) {
       expect(within(dialog).getByText(`Prep card ${index}`)).toBeInTheDocument();
     }
+    expect(within(dialog).getByText("Hidden paid salmon")).toBeInTheDocument();
+    expect(within(dialog).getByText("Hidden paid avocado")).toBeInTheDocument();
+    expect(within(dialog).getByText("Third warning")).toBeInTheDocument();
+    expect(within(dialog).getByText("Fourth warning")).toBeInTheDocument();
+    expect(within(dialog).getByText("Fifth warning")).toBeInTheDocument();
   });
 
   it("keeps responsive card grid classes", () => {

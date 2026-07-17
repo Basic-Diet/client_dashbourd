@@ -188,6 +188,33 @@ test("structured warnings prefer Arabic and never render objects", () => {
   assert.equal(kitchen.searchText.includes("[object Object]"), false);
 });
 
+test("Kitchen v2 presentation preserves visible, hidden, and top-level warnings", () => {
+  const duplicateWarning = "مكون غير متوفر";
+  const kitchen = buildKitchenV2Presentation(
+    makeNormalizedProductionOrder({
+      kitchenCards: [
+        card("standard_meal", {
+          title: "Prep card 1",
+          warnings: [duplicateWarning],
+        }),
+        card("standard_meal", {
+          title: "Prep card 2",
+          warnings: [],
+        }),
+        card("standard_meal", {
+          title: "Prep card 3",
+          warnings: ["Important hidden warning", duplicateWarning],
+        }),
+      ],
+      kitchenWarnings: [duplicateWarning],
+    })
+  );
+
+  assert.deepEqual(kitchen.cards[0].warnings, [duplicateWarning]);
+  assert.deepEqual(kitchen.cards[2].warnings, ["Important hidden warning", duplicateWarning]);
+  assert.deepEqual(kitchen.warningMessages, [duplicateWarning]);
+});
+
 test("unsupported and empty Kitchen v2 states are explicit", () => {
   const unsupported = buildKitchenV2Presentation(
     { ...makeNormalizedProductionOrder(), kitchen: null }
