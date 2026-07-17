@@ -89,7 +89,10 @@ export interface KitchenComponents {
 }
 
 export interface KitchenSectionItem {
+  id?: string | null;
+  key?: string | null;
   name?: string | LocalizedText | null;
+  nameI18n?: LocalizedText | null;
   quantity?: number | null;
   grams?: number | null;
   productUnitPriceHalala?: number | null;
@@ -97,15 +100,22 @@ export interface KitchenSectionItem {
 }
 
 export interface KitchenSection {
+  key?: string | null;
   label?: string | LocalizedText | null;
+  labelI18n?: LocalizedText | null;
   title?: string | LocalizedText | null;
   items: KitchenSectionItem[];
 }
 
 export interface KitchenCard {
   id?: string | null;
+  cardId?: string | null;
+  slotIndex?: number | null;
+  slotKey?: string | null;
   type: KitchenCardType;
   title?: string | LocalizedText | null;
+  titleI18n?: LocalizedText | null;
+  imageUrl?: string | null;
   badge?: string | LocalizedText | null;
   quantity?: number | null;
   lines?: string[];
@@ -116,14 +126,20 @@ export interface KitchenCard {
 }
 
 export interface KitchenAddonItem {
+  productId?: string | null;
+  key?: string | null;
   name?: string | LocalizedText | null;
+  nameI18n?: LocalizedText | null;
   quantity?: number | null;
   productUnitPriceHalala?: number | null;
   payableTotalHalala?: number | null;
 }
 
 export interface KitchenAddonGroup {
+  addonPlanId?: string | null;
+  balanceBucketId?: string | null;
   label?: string | LocalizedText | null;
+  labelI18n?: LocalizedText | null;
   title?: string | LocalizedText | null;
   items: KitchenAddonItem[];
 }
@@ -151,11 +167,21 @@ export interface OperationAction {
 export type QueueAction = OperationAction;
 
 export interface SelectedOption {
-  groupName?: string | null;
-  optionName?: string | null;
-  quantity?: number | null;
-  unitPriceHalala?: number | null;
+  groupId?: string | null;
+  groupKey?: string | null;
+  groupName: string;
+  optionId?: string | null;
+  optionKey?: string | null;
+  optionName: string;
+  quantity: number;
+  grams?: number | null;
+  unitPriceHalala: number;
+  totalPriceHalala: number;
+  extraWeightUnitGrams: number;
+  extraWeightPriceHalala: number;
   lineTotalHalala?: number | null;
+  payableTotalHalala?: number | null;
+  totalHalala?: number | null;
   pricingSnapshot?: {
     unitPriceHalala?: number | null;
     lineTotalHalala?: number | null;

@@ -204,19 +204,21 @@ function normalizedKey(value: string | null | undefined): string {
 
 function optionAmount(option: RawRecord): number {
   const quantity = asNumber(option.quantity) ?? asNumber(option.qty) ?? 1;
-  const lineTotal = readAmount(option, [
+  const total = readAmount(option, [
+    "totalPriceHalala",
     "lineTotalHalala",
     "pricingSnapshot.lineTotalHalala",
     "payableTotalHalala",
     "totalHalala",
   ]);
-  if (lineTotal !== null) return lineTotal;
+  if (total !== null) return total;
   const unit = readAmount(option, [
     "unitPriceHalala",
     "pricingSnapshot.unitPriceHalala",
     "productUnitPriceHalala",
   ]);
-  return unit !== null ? Math.round(unit * quantity) : 0;
+  if (unit !== null) return Math.round(unit * quantity);
+  return readAmount(option, ["extraWeightPriceHalala"]) ?? 0;
 }
 
 function optionGroupName(option: RawRecord): string {
@@ -265,14 +267,14 @@ function normalizeSelectedOptions(options: unknown[]): OperationsSelectedOption[
       signature,
       groupName,
       optionName: name,
-      optionKey: asString(option.optionKey) || undefined,
+      optionKey: asString(option.optionKey) || asString(option.optionId) || undefined,
       quantity: asNumber(option.quantity) ?? asNumber(option.qty) ?? 1,
       paidAmountHalala: optionAmount(option),
       weightGrams:
+        asNumber(option.grams) ??
         asNumber(option.extraWeightUnitGrams) ??
         asNumber(option.extraWeightGrams) ??
         asNumber(option.weightGrams) ??
-        asNumber(option.grams) ??
         null,
     });
   });

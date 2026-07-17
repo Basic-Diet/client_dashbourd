@@ -4,6 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OperationsQueueTable } from "../src/components/pages/operations-board/OperationsQueueTable";
+import type { KitchenCard } from "../src/types/dashboardOpsTypes";
 import {
   makeNormalizedProductionOrder,
 } from "./operationsOneTimeOrderFixtures";
@@ -21,6 +22,36 @@ function renderTable(items = [makeNormalizedProductionOrder()]) {
       onAction={vi.fn()}
     />
   );
+}
+
+function fiveKitchenCards(): KitchenCard[] {
+  return Array.from({ length: 5 }, (_, index) => ({
+    cardId: `card-${index + 1}`,
+    type: index === 4 ? "chef_choice" : "standard_meal",
+    title: `Prep card ${index + 1}`,
+    quantity: 1,
+    lines: [`Line ${index + 1}`],
+    components: {
+      protein: { name: `Protein ${index + 1}` },
+    },
+    sections:
+      index === 2
+        ? [
+            {
+              label: "Hidden paid section",
+              items: [
+                {
+                  name: "Hidden paid chicken",
+                  quantity: 1,
+                  payableTotalHalala: 500,
+                  productUnitPriceHalala: 500,
+                },
+              ],
+            },
+          ]
+        : [],
+    warnings: index === 3 ? ["Important hidden warning"] : [],
+  }));
 }
 
 describe("one-time order operations card", () => {
@@ -51,6 +82,24 @@ describe("one-time order operations card", () => {
 
     expect(screen.getAllByText("سلطة على مزاجك").length).toBeGreaterThan(0);
     expect(screen.getByText("34.00 ر.س")).toBeInTheDocument();
+  });
+
+  it("bounds compact kitchen cards while preserving hidden paid extras", async () => {
+    renderTable([makeNormalizedProductionOrder({ kitchenCards: fiveKitchenCards() })]);
+
+    expect(screen.getByText("Prep card 1")).toBeInTheDocument();
+    expect(screen.getByText("Prep card 2")).toBeInTheDocument();
+    expect(screen.queryByText("Prep card 3")).not.toBeInTheDocument();
+    expect(screen.getByText("+3 بطاقات تحضير أخرى")).toBeInTheDocument();
+    expect(screen.getByText(/Hidden paid chicken - 5.00 ر.س/)).toBeInTheDocument();
+    expect(screen.getByText(/Important hidden warning/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /عرض التفاصيل الكاملة/ }));
+    const dialog = screen.getByRole("dialog");
+
+    for (let index = 1; index <= 5; index += 1) {
+      expect(within(dialog).getByText(`Prep card ${index}`)).toBeInTheDocument();
+    }
   });
 
   it("keeps responsive card grid classes", () => {

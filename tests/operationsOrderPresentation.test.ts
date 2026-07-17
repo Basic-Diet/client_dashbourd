@@ -117,6 +117,82 @@ test("selectedOptions are not reconstructed from kitchen v2 when item details om
   assert.equal(presentation.paidSelections.length, 0);
 });
 
+test("selected option pricing uses canonical precedence without double counting", () => {
+  const raw = makeProductionOneTimeOrder();
+  raw.items = [
+    {
+      id: "pricing-line",
+      productName: "اختبار التسعير",
+      quantity: 1,
+      selectedOptions: [
+        {
+          groupName: "أسعار",
+          optionName: "total preferred",
+          quantity: 3,
+          unitPriceHalala: 200,
+          totalPriceHalala: 500,
+          extraWeightUnitGrams: 0,
+          extraWeightPriceHalala: 900,
+        },
+        {
+          groupName: "أسعار",
+          optionName: "unit multiplied",
+          quantity: 3,
+          unitPriceHalala: 200,
+          totalPriceHalala: null,
+          extraWeightUnitGrams: 0,
+          extraWeightPriceHalala: 900,
+        },
+        {
+          groupName: "أسعار",
+          optionName: "extra fallback",
+          quantity: 2,
+          unitPriceHalala: null,
+          totalPriceHalala: null,
+          extraWeightUnitGrams: 50,
+          extraWeightPriceHalala: 700,
+        },
+        {
+          groupName: "أسعار",
+          optionName: "free total",
+          quantity: 4,
+          unitPriceHalala: 500,
+          totalPriceHalala: 0,
+          extraWeightUnitGrams: 0,
+          extraWeightPriceHalala: 300,
+        },
+      ],
+      pricingSnapshot: {
+        basePriceHalala: 0,
+        optionsTotalHalala: 0,
+        unitPriceHalala: 0,
+        lineTotalHalala: 0,
+        currency: "SAR",
+        vatIncluded: true,
+      },
+    },
+  ];
+
+  const presentation = buildOperationsOrderPresentation(normalizeOperationsQueueItem(raw));
+  const amounts = Object.fromEntries(
+    presentation.items[0].selectionGroups[0].options.map((option) => [
+      option.optionName,
+      option.paidAmountHalala,
+    ])
+  );
+
+  assert.equal(amounts["total preferred"], 500);
+  assert.equal(amounts["unit multiplied"], 600);
+  assert.equal(amounts["extra fallback"], 700);
+  assert.equal(amounts["free total"], 0);
+  assert.equal(
+    presentation.items[0].selectionGroups[0].options.find(
+      (option) => option.optionName === "free total"
+    )?.paidAmountHalala,
+    0
+  );
+});
+
 test("multi-item one-time order keeps all items and paid selections in detail presentation", () => {
   const item = makeNormalizedProductionOrder({ itemCount: 3 });
   const presentation = buildOperationsOrderPresentation(item);

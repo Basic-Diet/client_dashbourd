@@ -6,7 +6,7 @@ export const productionGroups = [
   "الكارب",
   "الخضار",
   "الصوص",
-  "الإضافات",
+  "إضافة بروتين",
   "السلطة",
   "التغليف",
 ];
@@ -14,16 +14,21 @@ export const productionGroups = [
 export function makeCanonicalOptions() {
   return Array.from({ length: 30 }, (_, index) => {
     const groupIndex = index % productionGroups.length;
+    const isPaidProtein = index === 4;
     return {
+      groupId: `group-${groupIndex + 1}`,
+      groupKey: `group-${groupIndex + 1}`,
       groupName: productionGroups[groupIndex],
+      optionId: `option-${index + 1}`,
+      optionKey: `option-${index + 1}`,
       optionName:
-        index === 4 ? "زيادة 50 جرام من الدجاج" : `اختيار ${index + 1}`,
+        isPaidProtein ? "زيادة 50 جرام من الدجاج" : `اختيار ${index + 1}`,
       quantity: 1,
-      lineTotalHalala: index === 4 ? 500 : 0,
-      pricingSnapshot: {
-        unitPriceHalala: index === 4 ? 500 : 0,
-        lineTotalHalala: index === 4 ? 500 : 0,
-      },
+      grams: null,
+      unitPriceHalala: isPaidProtein ? 500 : 0,
+      totalPriceHalala: isPaidProtein ? 500 : 0,
+      extraWeightUnitGrams: isPaidProtein ? 50 : 0,
+      extraWeightPriceHalala: isPaidProtein ? 500 : 0,
     };
   });
 }
@@ -38,8 +43,8 @@ function makeSaladSections(): KitchenCard["sections"] {
         name: option.optionName,
         quantity: 1,
         grams: option.optionName.includes("50 جرام") ? 50 : undefined,
-        productUnitPriceHalala: option.lineTotalHalala,
-        payableTotalHalala: option.lineTotalHalala,
+        productUnitPriceHalala: option.unitPriceHalala,
+        payableTotalHalala: option.totalPriceHalala,
       })),
   }));
 }
@@ -144,7 +149,11 @@ export function makeProductionOneTimeOrder({
                 groupName: "إضافات الصنف",
                 optionName: index === 1 ? "صلصة خاصة" : "جبنة إضافية",
                 quantity: 1,
-                lineTotalHalala: index * 100,
+                grams: null,
+                unitPriceHalala: index * 100,
+                totalPriceHalala: index * 100,
+                extraWeightUnitGrams: 0,
+                extraWeightPriceHalala: 0,
               },
             ]
           : [],

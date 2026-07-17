@@ -12,13 +12,60 @@ import type {
 export const UNSUPPORTED_KITCHEN_MESSAGE =
   "تعذر عرض تفاصيل التحضير: إصدار بيانات المطبخ غير مدعوم";
 
-export function formatOperationsSar(value: number | null | undefined): string {
-  if (!value || value <= 0) return "";
+export function formatOperationsSar(
+  value: number | null | undefined,
+  fallback = ""
+): string {
+  if (value === null || value === undefined) return fallback;
   return `${(value / 100).toFixed(2)} ر.س`;
 }
 
 function text(value: unknown, fallback = "") {
   return safeText(value, fallback);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function warningText(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") {
+    return text(value, "");
+  }
+
+  const record = asRecord(value);
+  if (!record) return "";
+
+  return text(
+    record.ar ??
+      record.messageAr ??
+      record.label ??
+      record.title ??
+      record.message ??
+      record.en ??
+      record.messageEn ??
+      record.code,
+    ""
+  );
+}
+
+function saladSummary(card: KitchenCard) {
+  const salad = card.components?.salad;
+  const record = asRecord(salad);
+  if (!record) return { sectionCount: null, itemCount: null };
+
+  return {
+    sectionCount:
+      typeof record.sectionCount === "number" && Number.isFinite(record.sectionCount)
+        ? record.sectionCount
+        : null,
+    itemCount:
+      typeof record.itemCount === "number" && Number.isFinite(record.itemCount)
+        ? record.itemCount
+        : null,
+  };
 }
 
 function countItems(sections: KitchenSection[] = []) {
@@ -30,8 +77,8 @@ function paidSectionItems(sections: KitchenSection[] = []) {
     (section.items ?? [])
       .filter((item) => (item.payableTotalHalala ?? 0) > 0)
       .map((item) => ({
-        sectionLabel: text(section.label ?? section.title, "قسم"),
-        name: text(item.name, "مكون"),
+        sectionLabel: text(section.label ?? section.labelI18n ?? section.title, "قسم"),
+        name: text(item.name ?? item.nameI18n, "مكون"),
         amount: item.payableTotalHalala ?? 0,
         grams: item.grams ?? null,
       }))
@@ -43,8 +90,8 @@ function paidAddonItems(groups: KitchenAddonGroup[] = []) {
     (group.items ?? [])
       .filter((item) => (item.payableTotalHalala ?? 0) > 0)
       .map((item) => ({
-        groupLabel: text(group.label ?? group.title, "إضافات"),
-        name: text(item.name, "إضافة"),
+        groupLabel: text(group.label ?? group.labelI18n ?? group.title, "إضافات"),
+        name: text(item.name ?? item.nameI18n, "إضافة"),
         amount: item.payableTotalHalala ?? 0,
       }))
   );
@@ -133,7 +180,7 @@ export interface PresentedKitchenV2 {
 function sectionItem(item: KitchenSectionItem): PresentedKitchenSectionItem {
   const paidAmountHalala = item.payableTotalHalala ?? 0;
   return {
-    name: text(item.name, "مكون"),
+    name: text(item.name ?? item.nameI18n, "مكون"),
     quantity: item.quantity ?? null,
     grams: item.grams ?? null,
     paidAmountHalala,
@@ -143,7 +190,7 @@ function sectionItem(item: KitchenSectionItem): PresentedKitchenSectionItem {
 
 function section(section: KitchenSection): PresentedKitchenSection {
   return {
-    label: text(section.label ?? section.title, "قسم"),
+    label: text(section.label ?? section.labelI18n ?? section.title, "قسم"),
     items: (section.items ?? []).map(sectionItem),
   };
 }
@@ -181,20 +228,21 @@ function card(card: KitchenCard, index: number): PresentedKitchenCard {
     label: formatOperationsSar(item.amount),
   }));
   const warnings = (card.warnings ?? [])
-    .map((warning) => text(warning, ""))
+    .map(warningText)
     .filter(Boolean);
+  const counters = saladSummary(card);
 
   return {
-    key: card.id ?? `${card.type}-${index}`,
+    key: card.cardId ?? card.slotKey ?? `${card.type}-${index}`,
     type: card.type,
-    title: text(card.title, `بطاقة ${index + 1}`),
+    title: text(card.title ?? card.titleI18n, `بطاقة ${index + 1}`),
     badge: text(card.badge, "") || null,
     quantity: card.quantity ?? 1,
     lines: (card.lines ?? []).map((line) => text(line, "")).filter(Boolean),
     notes: text(card.notes, "") || null,
     warnings,
-    sectionCount: sections.length,
-    itemCount: countItems(card.sections ?? []),
+    sectionCount: counters.sectionCount ?? sections.length,
+    itemCount: counters.itemCount ?? countItems(card.sections ?? []),
     paidExtras,
     sections,
     componentLines: componentLines(card),
@@ -203,12 +251,12 @@ function card(card: KitchenCard, index: number): PresentedKitchenCard {
 
 function addonGroup(group: KitchenAddonGroup, index: number): PresentedKitchenAddonGroup {
   return {
-    key: `${text(group.label ?? group.title, "addons")}-${index}`,
-    label: text(group.label ?? group.title, "إضافات"),
+    key: `${text(group.label ?? group.labelI18n ?? group.title, "addons")}-${index}`,
+    label: text(group.label ?? group.labelI18n ?? group.title, "إضافات"),
     items: (group.items ?? []).map((item: KitchenAddonItem) => {
       const paidAmountHalala = item.payableTotalHalala ?? 0;
       return {
-        name: text(item.name, "إضافة"),
+        name: text(item.name ?? item.nameI18n, "إضافة"),
         quantity: item.quantity ?? 1,
         paidAmountHalala,
         paidLabel: paidAmountHalala > 0 ? formatOperationsSar(paidAmountHalala) : "",
@@ -239,7 +287,7 @@ export function buildKitchenV2Presentation(item: UnifiedQueueItem): PresentedKit
   const cards = kitchen.cards.map(card);
   const addonGroups = kitchen.addonGroups.map(addonGroup);
   const warningMessages = kitchen.warnings
-    .map((warning) => text(warning, ""))
+    .map(warningText)
     .filter(Boolean);
   const paidAddons = paidAddonItems(kitchen.addonGroups).map((item) => ({
     ...item,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   buildKitchenV2Presentation,
+  formatOperationsSar,
   UNSUPPORTED_KITCHEN_MESSAGE,
 } from "../src/lib/operationsKitchenV2Presentation";
 import type { KitchenCard } from "../src/types/dashboardOpsTypes";
@@ -38,6 +39,32 @@ test("basic salad kitchen presentation reads cards, sections, and counters from 
   assert.equal(kitchen.cards[0].paidExtras[0].label, "5.00 ر.س");
   assert.ok(kitchen.searchText.includes("سلطة على مزاجك"));
   assert.ok(kitchen.searchText.includes("زيادة 50 جرام من الدجاج"));
+});
+
+test("SAR formatter preserves zero and lets callers choose null fallback", () => {
+  assert.equal(formatOperationsSar(undefined), "");
+  assert.equal(formatOperationsSar(null, "غير محدد"), "غير محدد");
+  assert.equal(formatOperationsSar(0), "0.00 ر.س");
+  assert.equal(formatOperationsSar(500), "5.00 ر.س");
+  assert.equal(formatOperationsSar(3400), "34.00 ر.س");
+});
+
+test("compact salad counters prefer components.salad while detail rows stay from card.sections", () => {
+  const kitchen = buildKitchenV2Presentation(
+    makeNormalizedProductionOrder({
+      kitchenCards: [
+        card("basic_salad", {
+          title: "عدادات السلطة",
+          components: { salad: { sectionCount: 7, itemCount: 30 } },
+          sections: [],
+        }),
+      ],
+    })
+  );
+
+  assert.equal(kitchen.cards[0].sectionCount, 7);
+  assert.equal(kitchen.cards[0].itemCount, 30);
+  assert.equal(kitchen.cards[0].sections.length, 0);
 });
 
 test("Kitchen v2 card renderer keeps supported and unknown card types renderable", () => {
@@ -122,6 +149,43 @@ test("Kitchen v2 add-ons render only from addonGroups", () => {
   assert.equal(kitchen.addonGroups[0].items[0].name, "ماء");
   assert.equal(kitchen.addonGroups[0].items[0].paidLabel, "3.00 ر.س");
   assert.equal(kitchen.paidAddonItems[0].label, "3.00 ر.س");
+});
+
+test("structured warnings prefer Arabic and never render objects", () => {
+  const kitchen = buildKitchenV2Presentation(
+    makeNormalizedProductionOrder({
+      kitchenCards: [
+        card("unknown_backend_card", {
+          warnings: [
+            "تنبيه نصي",
+            { messageAr: "مكون غير متوفر" },
+            { messageEn: "Ingredient unavailable" },
+            { code: "INGREDIENT_UNAVAILABLE" },
+          ],
+        }),
+      ],
+      kitchenWarnings: [
+        "تنبيه نصي",
+        { messageAr: "مكون غير متوفر" },
+        { messageEn: "Ingredient unavailable" },
+        { code: "INGREDIENT_UNAVAILABLE" },
+      ],
+    })
+  );
+
+  assert.deepEqual(kitchen.cards[0].warnings, [
+    "تنبيه نصي",
+    "مكون غير متوفر",
+    "Ingredient unavailable",
+    "INGREDIENT_UNAVAILABLE",
+  ]);
+  assert.deepEqual(kitchen.warningMessages, [
+    "تنبيه نصي",
+    "مكون غير متوفر",
+    "Ingredient unavailable",
+    "INGREDIENT_UNAVAILABLE",
+  ]);
+  assert.equal(kitchen.searchText.includes("[object Object]"), false);
 });
 
 test("unsupported and empty Kitchen v2 states are explicit", () => {

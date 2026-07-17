@@ -21,6 +21,11 @@ export function OperationsKitchenV2Summary({
     );
   }
 
+  const visibleCards = compact ? presentation.cards.slice(0, 2) : presentation.cards;
+  const hiddenCards = compact ? presentation.cards.slice(2) : [];
+  const hiddenPaidExtras = hiddenCards.flatMap((card) => card.paidExtras);
+  const hiddenWarnings = hiddenCards.flatMap((card) => card.warnings);
+
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-primary/10 bg-primary/5 p-3">
@@ -42,9 +47,27 @@ export function OperationsKitchenV2Summary({
 
       {presentation.cards.length ? (
         <div className="grid gap-2">
-          {presentation.cards.map((card) => (
+          {visibleCards.map((card) => (
             <OperationsKitchenV2Card key={card.key} card={card} compact={compact} />
           ))}
+          {hiddenCards.length ? (
+            <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+              <p>+{hiddenCards.length} بطاقات تحضير أخرى</p>
+              {hiddenPaidExtras.length ? (
+                <p className="mt-1 text-emerald-700 dark:text-emerald-300">
+                  إضافات مدفوعة في البطاقات المخفية:{" "}
+                  {hiddenPaidExtras
+                    .map((extra) => `${extra.name} - ${extra.label}`)
+                    .join("، ")}
+                </p>
+              ) : null}
+              {hiddenWarnings.length ? (
+                <p className="mt-1 text-amber-700 dark:text-amber-300">
+                  تنبيهات من البطاقات المخفية: {hiddenWarnings.join("، ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
