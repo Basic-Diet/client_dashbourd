@@ -26,6 +26,7 @@ type SubscriptionQuoteReviewProps = {
   quotedSelection: DashboardSubscriptionSelectionPayload;
   stale: boolean;
   requoteRequired: boolean;
+  quotePending: boolean;
   customerSummary: SubscriptionCreationCustomerSummary | null;
   cashConfirmed: boolean;
   createPending: boolean;
@@ -113,6 +114,7 @@ export function SubscriptionQuoteReview({
   quotedSelection,
   stale,
   requoteRequired,
+  quotePending,
   customerSummary,
   cashConfirmed,
   createPending,
@@ -135,7 +137,7 @@ export function SubscriptionQuoteReview({
   const plan = asRecord(quote.data.plan);
   const planName = readDisplay(plan.name) || readDisplay(quote.data.plan) || quotedSelection.planId;
   const customerLabel = customerSummary?.name || quotedSelection.userId;
-  const createBlocked = stale || requoteRequired;
+  const createBlocked = stale || requoteRequired || quotePending;
 
   return (
     <Card className="border-primary/30 bg-primary/5">
@@ -244,9 +246,7 @@ export function SubscriptionQuoteReview({
                 <span>الإجمالي النهائي</span>
                 <span>
                   {total.ok
-                    ? totalLineItem && lineAmount(totalLineItem) !== undefined
-                      ? formatHalalaAsSar(Number(lineAmount(totalLineItem)), totalLineItem.currency || currency)
-                      : formatHalalaAsSar(total.totalHalala, currency)
+                    ? formatHalalaAsSar(total.totalHalala, totalLineItem?.currency || currency)
                     : "غير صالح"}
                 </span>
               </div>

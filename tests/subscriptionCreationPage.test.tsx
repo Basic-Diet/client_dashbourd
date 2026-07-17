@@ -314,6 +314,37 @@ const createResponse = {
   },
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function quoteWithTotal(totalHalala: number) {
+  return {
+    ...quoteResponse,
+    data: {
+      ...quoteResponse.data,
+      pricing: { ...quoteResponse.data.pricing, totalHalala },
+      totalHalala,
+      lineItems: quoteResponse.data.lineItems.map((item) =>
+        item.key === "total" ? { ...item, amountHalala: totalHalala } : item
+      ),
+    },
+  };
+}
+
+const mismatchError = {
+  response: {
+    status: 400,
+    data: { messageAr: "المبلغ المحصل لا يطابق إجمالي عرض السعر" },
+  },
+};
+
 function renderPage(
   userId?: string,
   customerSummary?: { id: string; name: string; phone?: string }
@@ -643,14 +674,170 @@ describe("subscription creation page", () => {
     await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
     await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(3));
     expect(screen.queryByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.")).not.toBeInTheDocument();
+  });
+
+  it("keeps the old quote locked while replacement quote is pending after amount mismatch", async () => {
+    const replacementQuote = deferred<{ data: typeof quoteResponse }>();
+    apiPostMock
+      .mockResolvedValueOnce({ data: quoteResponse })
+      .mockRejectedValueOnce(mismatchError)
+      .mockImplementationOnce(() => replacementQuote.promise);
+    renderPage();
+    const user = userEvent.setup();
+
+    await fillValidPickup(user);
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await screen.findByText("مراجعة السعر والدفع النقدي");
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
+    await screen.findByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.");
+
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(3));
+
+    expect(screen.getByText("160 SAR")).toBeInTheDocument();
+    expect(screen.getByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.")).toBeInTheDocument();
+    const checkbox = screen.getByRole("checkbox");
+    const createButton = screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" });
+    expect(checkbox).toBeDisabled();
+    expect(createButton).toBeDisabled();
+
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(createButton);
+    await user.keyboard("{Enter}");
+    expect(apiPostMock).toHaveBeenCalledTimes(3);
+
+    replacementQuote.resolve({ data: quoteWithTotal(17000) });
+    await waitFor(() =>
+      expect(screen.queryByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.")).not.toBeInTheDocument()
+    );
+    expect(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" })).toBeDisabled();
+  });
+
+  it("keeps the old quote locked when replacement quote fails after amount mismatch", async () => {
+    apiPostMock
+      .mockResolvedValueOnce({ data: quoteResponse })
+      .mockRejectedValueOnce(mismatchError)
+      .mockRejectedValueOnce({
+        response: { status: 422, data: { messageAr: "تعذر تحديث السعر" } },
+      });
+    renderPage();
+    const user = userEvent.setup();
+
+    await fillValidPickup(user);
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await screen.findByText("مراجعة السعر والدفع النقدي");
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
+    await screen.findByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.");
+
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    expect(await screen.findByText("تعذر تحديث السعر")).toBeInTheDocument();
+
+    expect(screen.getByText("مراجعة السعر والدفع النقدي")).toBeInTheDocument();
+    expect(screen.getByText("160 SAR")).toBeInTheDocument();
+    expect(screen.getByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
     expect(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" })).toBeDisabled();
 
     await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
     await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
+    expect(apiPostMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("uses the successful replacement quote total only after fresh cash confirmation", async () => {
+    apiPostMock
+      .mockResolvedValueOnce({ data: quoteResponse })
+      .mockRejectedValueOnce(mismatchError)
+      .mockResolvedValueOnce({ data: quoteWithTotal(17000) })
+      .mockResolvedValueOnce({ data: createResponse });
+    renderPage();
+    const user = userEvent.setup();
+
+    await fillValidPickup(user);
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await screen.findByText("مراجعة السعر والدفع النقدي");
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" }));
+    await screen.findByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.");
+
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await waitFor(() =>
+      expect(screen.queryByText("تغير إجمالي السعر في الخادم. راجع السعر مرة أخرى قبل إنشاء الاشتراك.")).not.toBeInTheDocument()
+    );
+
+    const createButton = screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" });
+    expect(createButton).toBeDisabled();
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(createButton);
+
     await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(4));
     expect(apiPostMock.mock.calls[3][1]).toMatchObject({
       payment: { collectedAmountHalala: 17000 },
     });
+  });
+
+  it("locks create during a generic quote refresh while an old quote exists", async () => {
+    const refreshedQuote = deferred<{ data: typeof quoteResponse }>();
+    apiPostMock
+      .mockResolvedValueOnce({ data: quoteResponse })
+      .mockImplementationOnce(() => refreshedQuote.promise);
+    renderPage();
+    const user = userEvent.setup();
+
+    await fillValidPickup(user);
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await screen.findByText("مراجعة السعر والدفع النقدي");
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    expect(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByText("160 SAR")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+    const createButton = screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" });
+    expect(createButton).toBeDisabled();
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(createButton);
+    await user.keyboard("{Enter}");
+    expect(apiPostMock).toHaveBeenCalledTimes(2);
+
+    refreshedQuote.resolve({ data: quoteWithTotal(17000) });
+    await waitFor(() => expect(screen.getByText("170 SAR")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" })).toBeDisabled();
+  });
+
+  it("blocks create when the total line item conflicts with the authoritative total", async () => {
+    apiPostMock.mockResolvedValueOnce({
+      data: {
+        ...quoteResponse,
+        data: {
+          ...quoteResponse.data,
+          pricing: { ...quoteResponse.data.pricing, totalHalala: 17000 },
+          totalHalala: 17000,
+          lineItems: quoteResponse.data.lineItems.map((item) =>
+            item.key === "total" ? { ...item, amountHalala: 16000 } : item
+          ),
+        },
+      },
+    });
+    renderPage();
+    const user = userEvent.setup();
+
+    await fillValidPickup(user);
+    await user.click(screen.getByRole("button", { name: "مراجعة السعر" }));
+
+    expect(await screen.findByText("غير صالح")).toBeInTheDocument();
+    expect(screen.getByText("إجمالي عرض السعر غير متطابق. راجع السعر مرة أخرى.")).toBeInTheDocument();
+    expect(screen.queryByText("160 SAR")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+    const createButton = screen.getByRole("button", { name: "تأكيد الدفع وإنشاء الاشتراك" });
+    expect(createButton).toBeDisabled();
+
+    await user.click(screen.getByText("أؤكد أنه تم استلام المبلغ النقدي كاملاً"));
+    await user.click(createButton);
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects invalid premium and add-on quantities before quote", async () => {

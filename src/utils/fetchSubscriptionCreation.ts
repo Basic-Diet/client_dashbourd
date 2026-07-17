@@ -137,6 +137,11 @@ export function isCollectedAmountMismatchError(error: unknown) {
 export function getQuotePricingTotalHalala(
   quote: DashboardSubscriptionQuoteResponse
 ) {
+  const mismatchResult = {
+    ok: false as const,
+    totalHalala: null,
+    message: "إجمالي عرض السعر غير متطابق. راجع السعر مرة أخرى.",
+  };
   const pricingTotal = quote.data.pricing?.totalHalala;
   const aliasTotal = quote.data.totalHalala;
 
@@ -145,11 +150,7 @@ export function getQuotePricingTotalHalala(
     aliasTotal !== undefined &&
     Number(pricingTotal) !== Number(aliasTotal)
   ) {
-    return {
-      ok: false as const,
-      totalHalala: null,
-      message: "إجمالي عرض السعر غير متطابق. راجع السعر مرة أخرى.",
-    };
+    return mismatchResult;
   }
 
   const totalHalala =
@@ -161,6 +162,18 @@ export function getQuotePricingTotalHalala(
       totalHalala: null,
       message: "تعذر قراءة إجمالي عرض السعر من الخادم.",
     };
+  }
+
+  const totalLineItem = resolveQuoteLineItems(quote).find(isTotalQuoteLineItem);
+  const lineTotal = totalLineItem
+    ? getQuoteLineItemAmount(totalLineItem)
+    : undefined;
+  if (
+    lineTotal !== undefined &&
+    Number.isFinite(lineTotal) &&
+    Number(lineTotal) !== totalHalala
+  ) {
+    return mismatchResult;
   }
 
   return { ok: true as const, totalHalala };

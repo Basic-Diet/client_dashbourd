@@ -101,7 +101,7 @@ export function CreateSubscriptionFormContent({
   const isQuoteStale =
     Boolean(quote && quotedSelection && currentPayload) &&
     JSON.stringify(currentPayload) !== JSON.stringify(quotedSelection);
-  const createBlocked = isQuoteStale || requoteRequired;
+  const createBlocked = isQuoteStale || requoteRequired || quoteMutation.isPending;
   const isSubmitting = quoteMutation.isPending || createMutation.isPending;
 
   useEffect(() => {
@@ -125,15 +125,18 @@ export function CreateSubscriptionFormContent({
       setQuoteError(null);
       setCreateError(null);
       setCashConfirmed(false);
-      setRequoteRequired(false);
       const response = await quoteMutation.mutateAsync(payload);
       setQuote(response);
       setQuotedSelection(payload);
       setQuotedCustomerSummary(matchingCustomer);
+      setCashConfirmed(false);
+      setRequoteRequired(false);
     } catch (error: unknown) {
-      setQuote(null);
-      setQuotedSelection(null);
-      setQuotedCustomerSummary(null);
+      if (!quote) {
+        setQuote(null);
+        setQuotedSelection(null);
+        setQuotedCustomerSummary(null);
+      }
       setQuoteError(
         getApiErrorMessage(error) || "تعذر مراجعة السعر. تحقق من البيانات وحاول مرة أخرى."
       );
@@ -143,7 +146,15 @@ export function CreateSubscriptionFormContent({
   };
 
   const handleCreate = async () => {
-    if (!quote || !quotedSelection || createInFlightRef.current || createBlocked) return;
+    if (
+      !quote ||
+      !quotedSelection ||
+      createInFlightRef.current ||
+      quoteMutation.isPending ||
+      createBlocked
+    ) {
+      return;
+    }
     const total = getQuotePricingTotalHalala(quote);
     if (!total.ok) {
       setCreateError(total.message);
@@ -270,6 +281,7 @@ export function CreateSubscriptionFormContent({
             quotedSelection={quotedSelection}
             stale={isQuoteStale}
             requoteRequired={requoteRequired}
+            quotePending={quoteMutation.isPending}
             customerSummary={quotedCustomerSummary}
             cashConfirmed={cashConfirmed}
             createPending={createMutation.isPending}
