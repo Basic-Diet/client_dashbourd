@@ -1,5 +1,6 @@
 import type { QueueAction, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { isOneTimeOrder } from "@/types/dashboardOpsTypes";
+import { formatOperationsSar } from "@/lib/operationsKitchenV2Presentation";
 
 type RawRecord = Record<string, unknown>;
 
@@ -9,13 +10,11 @@ const STATUS_LABELS_AR: Record<string, string> = {
   in_preparation: "قيد التحضير",
   preparing: "قيد التحضير",
   ready_for_pickup: "جاهز للاستلام",
-  ready_for_delivery: "جاهز للتوصيل",
   out_for_delivery: "خرج للتوصيل",
   fulfilled: "مكتمل",
   cancelled: "ملغي",
   canceled: "ملغي",
   expired: "منتهي",
-  no_show: "لم يحضر",
 };
 
 const PAYMENT_LABELS_AR: Record<string, string> = {
@@ -36,7 +35,7 @@ export interface OperationsSelectedOption {
   optionName: string;
   optionKey?: string;
   quantity: number;
-  priceHalala: number;
+  paidAmountHalala: number;
   weightGrams: number | null;
 }
 
@@ -51,8 +50,8 @@ export interface OperationsPresentedItem {
   quantity: number;
   notes: string | null;
   basePriceHalala: number | null;
-  optionsPriceHalala: number;
-  unitPriceHalala: number | null;
+  optionsAmountHalala: number;
+  unitAmountHalala: number | null;
   lineTotalHalala: number | null;
   currency: string;
   vatIncluded: boolean | null;
@@ -133,271 +132,120 @@ function asBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
-function firstString(...values: unknown[]): string | null {
-  for (const value of values) {
-    const direct = asString(value);
-    if (direct) return direct;
-
-    const localized = localizedText(value);
-    if (localized) return localized;
-  }
-  return null;
-}
-
-function hasArabicText(value: string | null | undefined): boolean {
-  return Boolean(value && /[\u0600-\u06ff]/.test(value));
-}
-
-function isTechnicalEnum(value: string | null | undefined): boolean {
-  return Boolean(value && /^[a-z][a-z0-9_-]*$/i.test(value.trim()));
-}
-
-function enumKey(value: string | null | undefined): string {
-  return (value || "").trim().toLowerCase();
-}
-
-function normalizeCanonicalOperationalLabel({
-  labelValues,
-  canonicalValues,
-  fallbackMap,
-  fallback = "غير محدد",
-}: {
-  labelValues: unknown[];
-  canonicalValues: unknown[];
-  fallbackMap: Record<string, string>;
-  fallback?: string;
-}): string {
-  const labelCandidates = labelValues
-    .map((value) => localizedText(value))
-    .filter((value): value is string => Boolean(value));
-  const arabicCandidate = labelCandidates.find(hasArabicText);
-  if (arabicCandidate) return arabicCandidate;
-
-  const canonicalCandidates = canonicalValues
-    .map((value) => localizedText(value))
-    .filter((value): value is string => Boolean(value));
-
-  for (const candidate of canonicalCandidates) {
-    if (hasArabicText(candidate)) return candidate;
-    const mapped = fallbackMap[enumKey(candidate)];
-    if (mapped) return mapped;
-  }
-
-  const humanCandidate = labelCandidates.find((candidate) => !isTechnicalEnum(candidate));
-  if (humanCandidate) return humanCandidate;
-
-  for (const candidate of labelCandidates) {
-    const mapped = fallbackMap[enumKey(candidate)];
-    if (mapped) return mapped;
-  }
-
-  return fallback;
-}
-
 function localizedText(value: unknown): string | null {
   const direct = asString(value);
   if (direct) return direct;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
-
   const record = asRecord(value);
   if (!record) return null;
-
-  const name = asRecord(record.name);
-  const display = asRecord(record.display);
-  return firstString(
-    record.ar,
-    record.en,
-    record.displayName,
-    record.titleAr,
-    record.title,
-    name?.ar,
-    name?.en,
-    display?.ar,
-    display?.en,
-    record.label
+  return (
+    asString(record.ar) ||
+    asString(record.en) ||
+    asString(record.displayName) ||
+    asString(record.title) ||
+    asString(record.label) ||
+    asString(asRecord(record.name)?.ar) ||
+    asString(asRecord(record.name)?.en)
   );
 }
 
-function displayText(value: unknown, fallback: string): string {
-  return localizedText(value) || fallback;
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const text = localizedText(value);
+    if (text) return text;
+  }
+  return null;
 }
 
-function normalizedKey(value: string | null | undefined): string {
-  return (value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+function hasArabic(value: string | null | undefined): boolean {
+  return Boolean(value && /[\u0600-\u06ff]/.test(value));
 }
 
-function readHalala(record: RawRecord | null, keys: string[]): number | null {
-  if (!record) return null;
-  for (const key of keys) {
-    const value = asNumber(record[key]);
+function normalizeLabel(
+  labelValues: unknown[],
+  canonicalValues: unknown[],
+  fallbackMap: Record<string, string>,
+  fallback = "غير محدد"
+) {
+  const labels = labelValues
+    .map((value) => localizedText(value))
+    .filter((value): value is string => Boolean(value));
+  const arabic = labels.find(hasArabic);
+  if (arabic) return arabic;
+
+  for (const value of canonicalValues) {
+    const key = localizedText(value)?.trim();
+    if (!key) continue;
+    if (hasArabic(key)) return key;
+    const mapped = fallbackMap[key.toLowerCase()];
+    if (mapped) return mapped;
+  }
+
+  return labels[0] || fallback;
+}
+
+function readNested(record: RawRecord | null, path: string) {
+  return path.split(".").reduce<unknown>((current, key) => {
+    return asRecord(current)?.[key];
+  }, record);
+}
+
+function readAmount(record: RawRecord | null, paths: string[]): number | null {
+  for (const path of paths) {
+    const value = asNumber(readNested(record, path));
     if (value !== null) return Math.round(value);
   }
   return null;
 }
 
-function readNestedHalala(record: RawRecord | null, paths: string[]): number | null {
-  if (!record) return null;
-  for (const path of paths) {
-    const value = path.split(".").reduce<unknown>((current, key) => {
-      return asRecord(current)?.[key];
-    }, record);
-    const parsed = asNumber(value);
-    if (parsed !== null) return Math.round(parsed);
-  }
-  return null;
+function normalizedKey(value: string | null | undefined): string {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function readNestedString(record: RawRecord | null, paths: string[]): string | null {
-  if (!record) return null;
-  for (const path of paths) {
-    const value = path.split(".").reduce<unknown>((current, key) => {
-      return asRecord(current)?.[key];
-    }, record);
-    const parsed = asString(value);
-    if (parsed) return parsed;
-  }
-  return null;
-}
-
-function readNestedBoolean(record: RawRecord | null, paths: string[]): boolean | null {
-  if (!record) return null;
-  for (const path of paths) {
-    const value = path.split(".").reduce<unknown>((current, key) => {
-      return asRecord(current)?.[key];
-    }, record);
-    const parsed = asBoolean(value);
-    if (parsed !== null) return parsed;
-  }
-  return null;
-}
-
-function readPriceHalala(record: RawRecord | null): number {
-  if (!record) return 0;
-
-  const quantity = asNumber(record.quantity) ?? asNumber(record.qty) ?? 1;
-  const total = readHalala(record, ["totalHalala", "totalPriceHalala"]);
-  if (total !== null) return total;
-
-  const extraPrice = readHalala(record, ["extraPriceHalala"]);
-  if (extraPrice !== null) return Math.round(extraPrice * quantity);
-
-  const unitPrice = readHalala(record, ["unitPriceHalala"]);
-  if (unitPrice !== null) return Math.round(unitPrice * quantity);
-
-  return (
-    readHalala(record, [
-      "extraFeeHalala",
-      "priceHalala",
-      "optionsPriceHalala",
-      "optionPriceHalala",
-      "lineExtraHalala",
-      "extraWeightPriceHalala",
-    ]) || 0
-  );
-}
-
-function formatSarAr(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "غير محدد";
-  return `${(value / 100).toFixed(2)} ر.س`;
-}
-
-function getRawRecord(item: UnifiedQueueItem): RawRecord {
-  return asRecord(item.rawData) || {};
-}
-
-function getOrderSummary(raw: RawRecord, item: UnifiedQueueItem): RawRecord {
-  return asRecord(raw.orderSummary) || (asRecord(item.orderSummary) ?? {});
-}
-
-function getKitchen(raw: RawRecord, item: UnifiedQueueItem): RawRecord {
-  return asRecord(raw.kitchen) || (asRecord(item.kitchen) ?? {});
-}
-
-function getFulfillment(raw: RawRecord, item: UnifiedQueueItem): RawRecord {
-  return asRecord(raw.fulfillment) || (asRecord(item.fulfillment) ?? {});
-}
-
-function getSelectionSource(
-  rawItem: RawRecord,
-  kitchenMealSlot: unknown
-): unknown[] {
-  const direct = asArray(rawItem.selectedOptions);
-  if (direct.length) return direct;
-
-  const selections = asRecord(rawItem.selections);
-  const nested = asArray(selections?.selectedOptions);
-  if (nested.length) return nested;
-
-  return asArray(asRecord(kitchenMealSlot)?.selectedOptions);
-}
-
-function getOptionGroupName(option: RawRecord): string {
-  return (
-    firstString(
-      option.groupName,
-      option.groupLabel,
-      option.selectionGroupName,
-      option.selectionGroupLabel,
-      asRecord(option.group)?.name,
-      asRecord(option.group)?.displayName,
-      option.categoryName
-    ) || "اختيارات"
-  );
-}
-
-function getOptionName(option: RawRecord, index: number): string {
-  return (
-    firstString(
-      option.optionName,
-      option.name,
-      option.displayName,
-      option.title,
-      asRecord(option.option)?.name,
-      asRecord(option.option)?.displayName,
-      asRecord(option.product)?.name,
-      asRecord(option.product)?.displayName,
-      option.label
-    ) || `اختيار ${index + 1}`
-  );
-}
-
-function getOptionSignature(option: RawRecord, optionName: string, groupName: string) {
-  const groupId = firstString(
-    option.groupId,
-    option.groupKey,
-    option.selectionGroupId,
-    asRecord(option.group)?.id,
-    asRecord(option.group)?.key
-  );
-  const optionId = firstString(
-    option.optionId,
-    option.optionKey,
-    asRecord(option.option)?.id,
-    asRecord(option.option)?.key,
-    asRecord(option.product)?.id,
-    asRecord(option.product)?.key,
-    option.id,
-    option.key
-  );
+function optionAmount(option: RawRecord): number {
   const quantity = asNumber(option.quantity) ?? asNumber(option.qty) ?? 1;
-  const price = readPriceHalala(option);
+  const lineTotal = readAmount(option, [
+    "lineTotalHalala",
+    "pricingSnapshot.lineTotalHalala",
+    "payableTotalHalala",
+    "totalHalala",
+  ]);
+  if (lineTotal !== null) return lineTotal;
+  const unit = readAmount(option, [
+    "unitPriceHalala",
+    "pricingSnapshot.unitPriceHalala",
+    "productUnitPriceHalala",
+  ]);
+  return unit !== null ? Math.round(unit * quantity) : 0;
+}
+
+function optionGroupName(option: RawRecord): string {
+  return firstString(option.groupName, option.groupLabel, option.categoryName) || "اختيارات";
+}
+
+function optionName(option: RawRecord, index: number): string {
+  return (
+    firstString(option.optionName, option.name, option.displayName, option.title, option.label) ||
+    `اختيار ${index + 1}`
+  );
+}
+
+function optionSignature(option: RawRecord, name: string, group: string) {
+  const quantity = asNumber(option.quantity) ?? asNumber(option.qty) ?? 1;
+  const amount = optionAmount(option);
   const weight =
     asNumber(option.extraWeightUnitGrams) ??
     asNumber(option.extraWeightGrams) ??
     asNumber(option.weightGrams) ??
     asNumber(option.grams) ??
     null;
-
-  if (groupId && optionId) {
-    return `id:${groupId}|${optionId}|q:${quantity}|p:${price}|w:${weight ?? ""}`;
-  }
-
-  return `text:${normalizedKey(groupName)}|${normalizedKey(
-    firstString(option.optionKey, option.key) || ""
-  )}|${normalizedKey(optionName)}|q:${quantity}|p:${price}|w:${weight ?? ""}`;
+  return [
+    normalizedKey(group),
+    normalizedKey(name),
+    quantity,
+    amount,
+    weight ?? "",
+  ].join("|");
 }
 
 function normalizeSelectedOptions(options: unknown[]): OperationsSelectedOption[] {
@@ -405,342 +253,194 @@ function normalizeSelectedOptions(options: unknown[]): OperationsSelectedOption[
   const normalized: OperationsSelectedOption[] = [];
 
   options.forEach((entry, index) => {
-    const record = asRecord(entry);
-    if (!record) return;
-
-    const groupName = getOptionGroupName(record);
-    const optionName = getOptionName(record, index);
-    const quantity = asNumber(record.quantity) ?? asNumber(record.qty) ?? 1;
-    const priceHalala = readPriceHalala(record);
-    const weightGrams =
-      asNumber(record.extraWeightUnitGrams) ??
-      asNumber(record.extraWeightGrams) ??
-      asNumber(record.weightGrams) ??
-      asNumber(record.grams) ??
-      null;
-    const signature = getOptionSignature(record, optionName, groupName);
-
+    const option = asRecord(entry);
+    if (!option) return;
+    const groupName = optionGroupName(option);
+    const name = optionName(option, index);
+    const signature = optionSignature(option, name, groupName);
     if (seen.has(signature)) return;
     seen.add(signature);
 
     normalized.push({
       signature,
       groupName,
-      optionName,
-      optionKey: firstString(record.optionKey, record.key) || undefined,
-      quantity,
-      priceHalala,
-      weightGrams,
+      optionName: name,
+      optionKey: asString(option.optionKey) || undefined,
+      quantity: asNumber(option.quantity) ?? asNumber(option.qty) ?? 1,
+      paidAmountHalala: optionAmount(option),
+      weightGrams:
+        asNumber(option.extraWeightUnitGrams) ??
+        asNumber(option.extraWeightGrams) ??
+        asNumber(option.weightGrams) ??
+        asNumber(option.grams) ??
+        null,
     });
   });
 
   return normalized;
 }
 
-function groupSelectedOptions(
-  options: OperationsSelectedOption[]
-): OperationsSelectionGroup[] {
+function groupSelectedOptions(options: OperationsSelectedOption[]) {
   const groups: OperationsSelectionGroup[] = [];
-  const groupIndex = new Map<string, OperationsSelectionGroup>();
+  const byName = new Map<string, OperationsSelectionGroup>();
 
   options.forEach((option) => {
     const key = normalizedKey(option.groupName);
-    const existing = groupIndex.get(key);
+    const existing = byName.get(key);
     if (existing) {
       existing.options.push(option);
       return;
     }
-
     const group = { name: option.groupName, options: [option] };
-    groupIndex.set(key, group);
+    byName.set(key, group);
     groups.push(group);
   });
 
   return groups;
 }
 
-function getItemName(rawItem: RawRecord, index: number): string {
-  return displayText(
+function itemName(rawItem: RawRecord, index: number): string {
+  return (
     firstString(
       rawItem.productName,
       rawItem.displayName,
       rawItem.name,
       asRecord(rawItem.product)?.displayName,
-      asRecord(rawItem.product)?.name,
-      asRecord(rawItem.display)?.titleAr
-    ),
-    `صنف ${index + 1}`
+      asRecord(rawItem.product)?.name
+    ) || `صنف ${index + 1}`
   );
 }
 
-function getPresentedItems(raw: RawRecord, item: UnifiedQueueItem) {
-  const rawItems = asArray(raw.items);
-  const orderPricing = asRecord(raw.pricing) || {};
-  const kitchen = getKitchen(raw, item);
-  const kitchenSlots = asArray(kitchen.meals).length
-    ? asArray(kitchen.meals)
-    : asArray(item.kitchenDetails?.mealSlots);
-
-  const sourceItems = rawItems.length
-    ? rawItems
-    : item.items?.map((entry) => ({ ...entry })) || [];
-
-  return sourceItems.map((entry, index) => {
-    const rawItem = asRecord(entry) || {};
-    const selectedOptions = normalizeSelectedOptions(
-      getSelectionSource(rawItem, kitchenSlots[index])
-    );
+function presentedItems(item: UnifiedQueueItem): OperationsPresentedItem[] {
+  return (item.items ?? []).map((entry, index) => {
+    const rawItem = entry as unknown as RawRecord;
+    const selectedOptions = normalizeSelectedOptions(asArray(rawItem.selectedOptions));
     const selectionGroups = groupSelectedOptions(selectedOptions);
-    const paidSelections = selectedOptions.filter((option) => option.priceHalala > 0);
-    const basePriceHalala = readNestedHalala(rawItem, [
+    const basePriceHalala = readAmount(rawItem, [
       "pricingSnapshot.basePriceHalala",
       "basePriceHalala",
-      "productSnapshot.priceHalala",
-      "unitBasePriceHalala",
+      "unitPriceHalala",
     ]);
-    const optionsPriceHalala =
-      readNestedHalala(rawItem, [
+    const optionsAmountHalala =
+      readAmount(rawItem, [
         "pricingSnapshot.optionsTotalHalala",
-        "optionsPriceHalala",
-        "extrasTotalHalala",
-      ]) ?? selectedOptions.reduce((sum, option) => sum + option.priceHalala, 0);
-    const unitPriceHalala = readNestedHalala(rawItem, [
+        "optionsTotalHalala",
+        "optionsHalala",
+      ]) ?? selectedOptions.reduce((sum, option) => sum + option.paidAmountHalala, 0);
+    const unitAmountHalala = readAmount(rawItem, [
       "pricingSnapshot.unitPriceHalala",
       "unitPriceHalala",
-      "unitPrice",
     ]);
-    const lineTotalHalala = readNestedHalala(rawItem, [
+    const lineTotalHalala = readAmount(rawItem, [
       "pricingSnapshot.lineTotalHalala",
       "lineTotalHalala",
-      "totalHalala",
     ]);
-    const currency =
-      readNestedString(rawItem, ["pricingSnapshot.currency", "currency"]) ||
-      asString(orderPricing.currency) ||
-      "SAR";
-    const vatIncluded =
-      readNestedBoolean(rawItem, ["pricingSnapshot.vatIncluded"]) ??
-      asBoolean(orderPricing.vatIncluded);
 
     return {
-      key: firstString(rawItem.id, rawItem._id, rawItem.key) || `item-${index}`,
-      name: getItemName(rawItem, index),
-      quantity: asNumber(rawItem.quantity) ?? asNumber(rawItem.qty) ?? 1,
-      notes: firstString(rawItem.notes, rawItem.comment),
+      key: asString(rawItem.id) || `item-${index}`,
+      name: itemName(rawItem, index),
+      quantity: asNumber(rawItem.quantity) ?? 1,
+      notes: asString(rawItem.notes),
       basePriceHalala,
-      optionsPriceHalala,
-      unitPriceHalala,
+      optionsAmountHalala,
+      unitAmountHalala,
       lineTotalHalala,
-      currency,
-      vatIncluded,
+      currency: firstString(readNested(rawItem, "pricingSnapshot.currency"), item.pricing?.currency) || "SAR",
+      vatIncluded:
+        asBoolean(readNested(rawItem, "pricingSnapshot.vatIncluded")) ??
+        item.pricing?.vatIncluded ??
+        null,
       selectionGroups,
       uniqueSelectionCount: selectedOptions.length,
-      paidSelections,
+      paidSelections: selectedOptions.filter((option) => option.paidAmountHalala > 0),
     };
   });
 }
 
-function readPricing(raw: RawRecord, items: OperationsPresentedItem[]) {
-  const pricing = asRecord(raw.pricing) || {};
-  const payment = asRecord(raw.payment) || {};
-  const optionsTotal = items.reduce(
-    (sum, entry) => sum + entry.optionsPriceHalala,
+function readPricing(item: UnifiedQueueItem, items: OperationsPresentedItem[]) {
+  const pricing = (item.pricing ?? {}) as RawRecord;
+  const payment = (item.payment ?? {}) as RawRecord;
+  const derivedBaseItems = items.reduce(
+    (sum, entry) => sum + (entry.basePriceHalala ?? 0) * entry.quantity,
     0
   );
-  const derivedBaseItems = items.reduce((sum, entry) => {
-    return sum + (entry.basePriceHalala ?? 0) * entry.quantity;
-  }, 0);
-  const vatIncluded =
-    asBoolean(pricing.vatIncluded) ??
-    items.find((entry) => entry.vatIncluded !== null)?.vatIncluded ??
-    null;
+  const optionsTotal = items.reduce((sum, entry) => sum + entry.optionsAmountHalala, 0);
 
   return {
     baseItemsHalala:
-      readHalala(pricing, ["baseItemsHalala", "itemsTotalHalala", "itemsSubtotalHalala"]) ??
+      readAmount(pricing, ["baseItemsHalala", "itemsTotalHalala", "itemsSubtotalHalala"]) ??
       (derivedBaseItems > 0 ? derivedBaseItems : null),
     optionsHalala:
-      readHalala(pricing, ["optionsHalala", "optionsTotalHalala", "extrasTotalHalala"]) ??
+      readAmount(pricing, ["optionsHalala", "optionsTotalHalala", "extrasTotalHalala"]) ??
       optionsTotal,
-    subtotalHalala:
-      readHalala(pricing, ["subtotalHalala", "subtotal", "orderSubtotalHalala"]) ??
-      null,
-    deliveryHalala:
-      readHalala(pricing, ["deliveryHalala", "deliveryFeeHalala", "deliveryFee"]) ??
-      null,
-    discountHalala:
-      readHalala(pricing, ["discountHalala", "discountAmountHalala"]) ??
-      null,
-    vatHalala:
-      readHalala(pricing, ["vatHalala", "vatAmountHalala", "taxHalala"]) ??
-      null,
+    subtotalHalala: readAmount(pricing, ["subtotalHalala", "orderSubtotalHalala"]),
+    deliveryHalala: readAmount(pricing, ["deliveryHalala", "deliveryFeeHalala"]),
+    discountHalala: readAmount(pricing, ["discountHalala", "discountAmountHalala"]),
+    vatHalala: readAmount(pricing, ["vatHalala", "vatAmountHalala", "taxHalala"]),
     totalHalala:
-      readHalala(pricing, ["totalHalala", "finalTotalHalala", "grandTotalHalala"]) ??
-      readHalala(payment, ["amountHalala", "totalHalala"]) ??
-      readHalala(raw, ["totalHalala", "amountHalala"]) ??
+      readAmount(pricing, ["totalHalala", "finalTotalHalala", "grandTotalHalala"]) ??
+      readAmount(payment, ["amountHalala", "totalHalala"]),
+    currency: asString(pricing.currency) || "SAR",
+    vatIncluded:
+      asBoolean(pricing.vatIncluded) ??
+      items.find((entry) => entry.vatIncluded !== null)?.vatIncluded ??
       null,
-    currency: asString(pricing.currency) || items[0]?.currency || "SAR",
-    vatIncluded,
   };
 }
 
-function getNormalizedPaymentLabel(raw: RawRecord, item: UnifiedQueueItem): string {
-  const payment = asRecord(raw.payment) || {};
-  return normalizeCanonicalOperationalLabel({
-    labelValues: [
-      asRecord(payment.paymentStatusLabel)?.ar,
-      payment.paymentStatusLabel,
-      payment.statusLabel,
-      item.payment?.paymentStatusLabel,
-    ],
-    canonicalValues: [
-      payment.paymentStatus,
-      raw.paymentStatus,
-      item.paymentStatus,
-      item.payment?.paymentStatus,
-    ],
-    fallbackMap: PAYMENT_LABELS_AR,
-  });
-}
-
-function getRawPaymentStatus(raw: RawRecord, item: UnifiedQueueItem): string | null {
-  const payment = asRecord(raw.payment) || {};
-  return firstString(payment.paymentStatus, item.paymentStatus, item.payment?.paymentStatus);
-}
-
-function getNormalizedStatusLabel(raw: RawRecord, item: UnifiedQueueItem): string {
-  const source = asRecord(raw.source) || {};
-  return normalizeCanonicalOperationalLabel({
-    labelValues: [
-      asRecord(source.statusLabel)?.ar,
-      source.statusLabel,
-      item.ui?.label,
-      item.statusLabel,
-    ],
-    canonicalValues: [
-      source.status,
-      item.status,
-    ],
-    fallbackMap: STATUS_LABELS_AR,
-  });
-}
-
-function getOneTimeAddonCount(
-  raw: RawRecord,
-  item: UnifiedQueueItem,
-  orderSummary: RawRecord
-): number {
-  const summaryCount = asNumber(orderSummary.addonCount);
-  if (summaryCount !== null) return summaryCount;
-
-  const rawKitchenDetails = asRecord(raw.kitchenDetails);
-  const rawKitchen = asRecord(raw.kitchen);
-  const itemKitchenDetails = asRecord(item.kitchenDetails);
-  const sources = [
-    asArray(raw.addons),
-    asArray(rawKitchenDetails?.addons),
-    asArray(rawKitchen?.addons),
-    asArray(itemKitchenDetails?.addons),
-    asArray(item.addonSelections),
-  ];
-  const firstPopulated = sources.find((entries) => entries.length > 0);
-  return firstPopulated?.length || 0;
-}
-
-function getWindow(raw: RawRecord, item: UnifiedQueueItem): string | null {
-  const fulfillment = getFulfillment(raw, item);
-  const pickup = asRecord(raw.pickup) || asRecord(fulfillment.pickup);
-  const delivery = asRecord(raw.delivery) || asRecord(fulfillment.delivery);
-  const context = asRecord(raw.context);
-
-  if (item.mode === "pickup") {
-    return firstString(
-      pickup?.pickupWindow,
-      pickup?.window,
-      context?.window,
-      item.context?.window,
-      delivery?.window,
-      delivery?.deliveryWindow
-    );
-  }
-
-  return firstString(
-    delivery?.window,
-    delivery?.deliveryWindow,
-    context?.window,
-    item.context?.window,
-    pickup?.pickupWindow
+function branchDestination(item: UnifiedQueueItem): string | null {
+  const pickup = item.fulfillment?.pickup || item.pickup || {};
+  return (
+    firstString(
+      pickup.branchName,
+      asRecord(pickup.branchName)?.ar,
+      asRecord(pickup.branchName)?.en
+    ) ||
+    asString(pickup.branchId) ||
+    asString(pickup.locationId)
   );
 }
 
-function getBranch(raw: RawRecord, item: UnifiedQueueItem): string | null {
-  const fulfillment = getFulfillment(raw, item);
-  const pickup = asRecord(raw.pickup) || asRecord(fulfillment.pickup);
-  const context = asRecord(raw.context);
-
-  return firstString(
-    pickup?.branchName,
-    asRecord(pickup?.branchName)?.ar,
-    asRecord(pickup?.branchName)?.en,
-    pickup?.locationName,
-    context?.branch,
-    item.context?.branch,
-    pickup?.branchId,
-    pickup?.locationId,
-    item.pickup?.branchId,
-    item.pickup?.locationId
-  );
-}
-
-function getFulfillmentPresentation(
-  raw: RawRecord,
+function fulfillmentPresentation(
   item: UnifiedQueueItem,
   orderSummary: RawRecord
 ): OperationsFulfillmentPresentation {
-  const fulfillment = getFulfillment(raw, item);
-  const delivery = asRecord(raw.delivery) || asRecord(fulfillment.delivery);
-  const context = asRecord(raw.context);
+  const delivery = item.fulfillment?.delivery;
   const destination =
     item.mode === "delivery"
-      ? firstString(
-          item.context?.addressSummary,
-          item.delivery?.addressSummary,
-          delivery?.addressSummary,
-          asRecord(delivery?.address)?.displayAddressAr,
-          asRecord(delivery?.address)?.formattedAddress,
-          asRecord(context?.address)?.displayAddressAr
-        )
-      : getBranch(raw, item);
+      ? firstString(delivery?.addressSummary, asRecord(delivery?.address)?.displayAddressAr)
+      : branchDestination(item);
 
   return {
     modeLabel: item.mode === "delivery" ? "توصيل" : "استلام",
     destination,
-    window: getWindow(raw, item),
-    notes: firstString(
-      orderSummary.notes,
-      raw.notes,
-      item.notes,
-      item.context?.notes,
-      item.context?.addressNotes
-    ),
-    allergies: firstString(orderSummary.allergies, raw.allergies),
+    window:
+      item.mode === "pickup"
+        ? firstString(
+            item.fulfillment?.pickup?.pickupWindow,
+            item.context.window,
+            item.fulfillment?.deliverySlot
+          )
+        : firstString(delivery?.window, delivery?.deliveryWindow, item.fulfillment?.deliverySlot),
+    notes: firstString(orderSummary.notes, item.context.notes, item.fulfillment?.notes),
+    allergies: firstString(orderSummary.allergies, item.fulfillment?.allergies),
   };
 }
 
-export function getOperationsActionKey(
-  item: UnifiedQueueItem,
-  action: string
-): string {
+function customerName(item: UnifiedQueueItem) {
+  return item.customer?.name || item.customer?.phone || "عميل";
+}
+
+export function getOperationsActionKey(item: UnifiedQueueItem, action: string): string {
   return `${item.id}:${action}`;
 }
 
 export function buildOperationsOrderPresentation(
   item: UnifiedQueueItem
 ): OperationsOrderPresentation {
-  const raw = getRawRecord(item);
-  const orderSummary = getOrderSummary(raw, item);
-  const items = getPresentedItems(raw, item);
-  const pricing = readPricing(raw, items);
+  const orderSummary = (item.orderSummary ?? {}) as RawRecord;
+  const items = presentedItems(item);
+  const pricing = readPricing(item, items);
   const paidSelections = items.flatMap((entry) => entry.paidSelections);
   const uniqueSelectionCount = items.reduce(
     (sum, entry) => sum + entry.uniqueSelectionCount,
@@ -750,27 +450,27 @@ export function buildOperationsOrderPresentation(
     (sum, entry) => sum + entry.selectionGroups.length,
     0
   );
-  const fulfillment = getFulfillmentPresentation(raw, item, orderSummary);
-  const customerName =
-    firstString(item.customer?.name, asRecord(raw.customer)?.name, raw.customerName) ||
-    "عميل بدون اسم";
-  const customerPhone =
-    firstString(item.customer?.phone, asRecord(raw.customer)?.phone, raw.customerPhone) ||
-    "غير محدد";
-  const statusLabel = getNormalizedStatusLabel(raw, item);
-  const rawPaymentStatus = getRawPaymentStatus(raw, item);
-  const actions = item.allowedActions || [];
-  const addonCount = getOneTimeAddonCount(raw, item, orderSummary);
+  const fulfillment = fulfillmentPresentation(item, orderSummary);
+  const statusLabel = normalizeLabel(
+    [item.statusLabel],
+    [item.status],
+    STATUS_LABELS_AR,
+    item.status
+  );
+  const rawPaymentStatus = firstString(item.paymentStatus, item.payment?.paymentStatus);
+  const paymentLabel = normalizeLabel(
+    [item.payment?.paymentStatusLabel],
+    [rawPaymentStatus],
+    PAYMENT_LABELS_AR
+  );
   const searchParts = [
-    customerName,
-    customerPhone,
+    customerName(item),
+    item.customer?.phone,
     item.reference,
     item.orderNumber,
     statusLabel,
     item.status,
-    rawPaymentStatus,
-    getNormalizedPaymentLabel(raw, item),
-    fulfillment.modeLabel,
+    paymentLabel,
     fulfillment.destination,
     fulfillment.window,
     ...items.flatMap((entry) => [
@@ -780,36 +480,35 @@ export function buildOperationsOrderPresentation(
         group.name,
         ...group.options.map((option) => option.optionName),
       ]),
-      ...entry.paidSelections.map((option) => option.optionName),
     ]),
   ];
 
   return {
     isOneTimeOrder: isOneTimeOrder(item),
-    customerName,
-    customerPhone,
+    customerName: customerName(item),
+    customerPhone: item.customer?.phone || "غير محدد",
     reference: item.reference || item.orderNumber || "غير محدد",
     sourceLabel: isOneTimeOrder(item) ? "طلب فردي" : "اشتراك يومي",
     statusLabel,
     rawStatus: item.status,
     modeLabel: fulfillment.modeLabel,
-    paymentLabel: getNormalizedPaymentLabel(raw, item),
+    paymentLabel,
     rawPaymentStatus,
-    totalLabel: formatSarAr(pricing.totalHalala),
+    totalLabel: formatOperationsSar(pricing.totalHalala) || "غير محدد",
     items,
     itemCount:
-      asNumber(orderSummary.itemCount) ||
-      (items.length ? items.length : asNumber(orderSummary.mealCount) || 0),
+      (orderSummary.itemCount as number | undefined) ||
+      (items.length ? items.length : (orderSummary.mealCount as number | undefined) || 0),
     quantityCount: items.reduce((sum, entry) => sum + entry.quantity, 0),
     uniqueSelectionCount,
     selectionGroupCount,
     paidSelections,
-    addonCount,
+    addonCount: (orderSummary.addonCount as number | undefined) || 0,
     pricing,
     fulfillment,
-    actions,
+    actions: item.allowedActions || [],
     searchText: searchParts.filter(Boolean).join(" ").toLowerCase(),
   };
 }
 
-export { formatSarAr as formatOperationsSar };
+export { formatOperationsSar };

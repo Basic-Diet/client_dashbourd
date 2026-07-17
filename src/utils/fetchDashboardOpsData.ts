@@ -1,12 +1,12 @@
 import api from "@/lib/apis";
-import { extractOperationsQueueItems } from "@/lib/operationsBoard";
+import { extractOperationsQueueItems, getInvalidActionReason } from "@/lib/operationsBoard";
 import { type UnifiedQueueItem, isOneTimeOrder } from "@/types/dashboardOpsTypes";
 import type {
   DashboardOpsListResponse,
   DashboardOpsActionResponse,
   DashboardOpsActionRequest,
+  QueueAction,
 } from "@/types/dashboardOpsTypes";
-import { isOneTimeOrderActionAllowed } from "@/types/oneTimeOrderTypes";
 
 export interface QueueParams {
   status?: string | string[];
@@ -279,22 +279,21 @@ export const fetchDeliverySchedule = async (
 // ── Execute an action ──
 export const executeDashboardOpsAction = async (
   action: string,
-  payload: DashboardOpsActionRequest
+  payload: DashboardOpsActionRequest,
+  actionDef?: QueueAction
 ): Promise<DashboardOpsActionResponse> => {
-  if (
-    payload.source === "one_time_order" &&
-    !isOneTimeOrderActionAllowed(action)
-  ) {
-    return Promise.reject({
-      ok: false,
-      code: "ACTION_NOT_ALLOWED",
-      message: `Action "${action}" is not supported for pickup-only one-time orders`,
-    });
+  if (!actionDef || actionDef.id !== action) {
+    throw new Error("هذا الإجراء غير موجود ضمن الصلاحيات المرسلة من الخادم.");
+  }
+  const invalidReason = actionDef.disabledReason || getInvalidActionReason(actionDef);
+  if (actionDef.disabled || invalidReason) {
+    throw new Error(invalidReason || "هذا الإجراء غير متاح حالياً.");
   }
 
-  const response = await api.post(
-    `/api/dashboard/ops/actions/${action}`,
-    payload
-  );
+  const response = await api.request({
+    url: actionDef.endpoint,
+    method: actionDef.method.toLowerCase(),
+    data: payload,
+  });
   return response.data;
 };

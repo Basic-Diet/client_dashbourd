@@ -7,7 +7,7 @@ import api from "@/lib/apis";
 import {
   buildOperationsActionPayload,
   getCourierItems,
-  getEndpointForAction,
+  getInvalidActionReason,
   getPickupItems,
   getScreensForRole,
   OPERATIONS_SCREENS,
@@ -64,12 +64,11 @@ function hasPreparationAction(item: UnifiedQueueItem): boolean {
 }
 
 function hasKitchenWorkload(item: UnifiedQueueItem): boolean {
+  if (item.kitchen?.version !== "v2") return false;
   return Boolean(
-    item.kitchenDetails?.mealSlots?.length ||
-      item.kitchen?.meals?.length ||
-      item.mealSlots?.length ||
-      item.context.requiredMealCount ||
-      item.context.mealCount
+    item.kitchen.mealCount > 0 ||
+      item.kitchen.cards.length > 0 ||
+      item.kitchen.addonGroups.length > 0
   );
 }
 
@@ -168,8 +167,15 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
       const actionDef = item.allowedActions?.find(
         (entry) => entry.id === action
       );
-      const endpoint = actionDef?.endpoint || getEndpointForAction(action);
-      const method = (actionDef?.method || "POST").toLowerCase();
+      if (!actionDef) {
+        throw new Error("هذا الإجراء غير موجود ضمن الصلاحيات المرسلة من الخادم.");
+      }
+      const invalidReason =
+        actionDef.disabledReason || getInvalidActionReason(actionDef);
+      if (actionDef.disabled || invalidReason) {
+        throw new Error(invalidReason || "هذا الإجراء غير متاح حالياً.");
+      }
+      const method = actionDef.method.toLowerCase();
       const payload = buildOperationsActionPayload(
         item,
         action,
@@ -178,7 +184,7 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
         pickupCode
       );
       const { data } = await api.request<DashboardOpsActionResponse>({
-        url: endpoint,
+        url: actionDef.endpoint,
         method,
         data: payload,
       });

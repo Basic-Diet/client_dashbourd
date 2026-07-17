@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import type { PendingOperationsActions } from "@/hooks/useOperationsBoard";
+import { buildKitchenV2Presentation } from "@/lib/operationsKitchenV2Presentation";
 import { OperationsQueueCharts } from "./OperationsQueueCharts";
 import { OperationsQueueTable } from "./OperationsQueueTable";
 
@@ -68,6 +69,34 @@ function matchesKitchenFilter(
   return itemStatus === filter;
 }
 
+function pickupSearchText(item: UnifiedQueueItem) {
+  const pickup = item.fulfillment?.pickup || item.pickup || {};
+  const branch =
+    typeof pickup.branchName === "string"
+      ? pickup.branchName
+      : pickup.branchName?.ar || pickup.branchName?.en || pickup.branchId || pickup.locationId || "";
+  return [branch, pickup.pickupWindow, pickup.pickupCode, pickup.pickupCodeState]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function canonicalSearchText(item: UnifiedQueueItem) {
+  const kitchen = buildKitchenV2Presentation(item);
+  return [
+    item.customer?.name,
+    item.customer?.phone,
+    item.reference,
+    item.orderNumber,
+    item.status,
+    item.statusLabel,
+    pickupSearchText(item),
+    kitchen.searchText,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 export function OperationsKitchenBoard({
   items = [],
   isPending,
@@ -81,13 +110,7 @@ export function OperationsKitchenBoard({
   const filteredItems = items.filter((item) => {
     const matchesStatus = matchesKitchenFilter(item.status, statusFilter);
     const query = localSearch.trim().toLowerCase();
-    const matchesSearch = query
-      ? (item.customer?.name || "").toLowerCase().includes(query) ||
-        (item.reference || "").toLowerCase().includes(query) ||
-        (item.customer?.phone || "").toLowerCase().includes(query) ||
-        (item.orderSummary?.display?.titleAr || "").toLowerCase().includes(query) ||
-        (item.plan?.name || "").toLowerCase().includes(query)
-      : true;
+    const matchesSearch = query ? canonicalSearchText(item).includes(query) : true;
     return matchesStatus && matchesSearch;
   });
 

@@ -48,14 +48,14 @@ export function OperationsSelectionGroups({
               {options.map((option) => (
                 <Badge
                   key={option.signature}
-                  variant={option.priceHalala > 0 ? "secondary" : "outline"}
+                  variant={option.paidAmountHalala > 0 ? "secondary" : "outline"}
                   className="max-w-full rounded-md px-2 py-1 text-[11px]"
                 >
                   <span className="break-words">
                     {option.optionName}
                     {option.quantity > 1 ? ` ×${option.quantity}` : ""}
-                    {option.priceHalala > 0
-                      ? ` +${formatOperationsSar(option.priceHalala)}`
+                    {option.paidAmountHalala > 0
+                      ? ` +${formatOperationsSar(option.paidAmountHalala)}`
                       : ""}
                   </span>
                 </Badge>

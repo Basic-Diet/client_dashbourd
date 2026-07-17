@@ -5,7 +5,7 @@ import {
   fetchDashboardOpsSearch,
   executeDashboardOpsAction,
 } from "@/utils/fetchDashboardOpsData";
-import type { DashboardOpsActionRequest } from "@/types/dashboardOpsTypes";
+import type { DashboardOpsActionRequest, QueueAction } from "@/types/dashboardOpsTypes";
 
 // ── Query keys (single source of truth) ──
 
@@ -44,10 +44,12 @@ export const useDashboardOpsActionMutation = () => {
     mutationFn: ({
       action,
       payload,
+      actionDef,
     }: {
       action: string;
       payload: DashboardOpsActionRequest;
-    }) => executeDashboardOpsAction(action, payload),
+      actionDef?: QueueAction;
+    }) => executeDashboardOpsAction(action, payload, actionDef),
 
     onSuccess: (data) => {
       toast.success(

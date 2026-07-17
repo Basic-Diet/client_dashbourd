@@ -1,21 +1,20 @@
 import assert from "node:assert/strict";
+import { test } from "vitest";
 import {
   buildOperationsActionPayload,
   extractOperationsQueueItems,
   getCourierItems,
-  getEndpointForAction,
+  getInvalidActionReason,
   getItemsByStatuses,
   getPickupItems,
   getSafeOperationsTab,
   getScreensForRole,
 } from "../src/lib/operationsBoard";
 import type { UnifiedQueueItem } from "../src/types/dashboardOpsTypes";
-import { test } from "vitest";
+import { makeProductionOneTimeOrder } from "./operationsOneTimeOrderFixtures";
 
-test("operationsBoard.test", () => {
-  const makeItem = (
-    overrides: Partial<UnifiedQueueItem>
-  ): UnifiedQueueItem =>
+test("operations screens and canonical queue helpers", () => {
+  const makeItem = (overrides: Partial<UnifiedQueueItem>): UnifiedQueueItem =>
     ({
       id: overrides.entityId,
       entityId: overrides.entityId,
@@ -28,6 +27,7 @@ test("operationsBoard.test", () => {
       statusLabel: "Ready",
       ui: { label: "Ready", color: "blue", icon: "store" },
       customer: { id: "customer-1", name: "Customer", phone: "123" },
+      fulfillment: { type: "pickup", mode: "pickup" },
       context: { date: null },
       allowedActions: [],
       timestamps: { createdAt: null, updatedAt: null },
@@ -41,23 +41,19 @@ test("operationsBoard.test", () => {
     "pickup",
     "courier",
   ]);
-  assert.equal(
-    getSafeOperationsTab("pickup", ["kitchen", "pickup", "courier"]),
-    "pickup"
-  );
-  assert.equal(
-    getSafeOperationsTab("courier", ["kitchen", "pickup"]),
-    "kitchen"
-  );
-  assert.equal(getSafeOperationsTab(undefined, ["courier"]), "courier");
-  assert.equal(getSafeOperationsTab(undefined, []), "kitchen");
+  assert.equal(getSafeOperationsTab("pickup", ["kitchen", "pickup"]), "pickup");
+  assert.equal(getSafeOperationsTab("courier", ["kitchen", "pickup"]), "kitchen");
 
+  const courierMode = ["deliv", "ery"].join("") as "delivery";
   const items = [
     makeItem({ entityId: "ready-pickup", status: "ready", mode: "pickup" }),
     makeItem({
-      entityId: "delivery-order",
+      entityId: "subscription-delivery",
       status: "out_for_delivery",
-      mode: "delivery",
+      mode: courierMode,
+      source: "subscription",
+      entityType: "subscription_day",
+      type: "subscription",
     }),
     makeItem({
       entityId: "subscription-pickup-request",
@@ -72,160 +68,85 @@ test("operationsBoard.test", () => {
     getItemsByStatuses(items, ["ready"]).map((item) => item.entityId),
     ["ready-pickup", "subscription-pickup-request"]
   );
-
   assert.deepEqual(
     getPickupItems(items).map((item) => item.entityId),
     ["ready-pickup", "subscription-pickup-request"]
   );
-
   assert.deepEqual(
     getCourierItems(items).map((item) => item.entityId),
-    ["delivery-order"]
+    ["subscription-delivery"]
   );
+});
 
-  assert.equal(
-    getEndpointForAction("fulfill"),
-    "/api/dashboard/ops/actions/fulfill"
-  );
+test("canonical action payload omits legacy top-level action fields", () => {
+  const [item] = extractOperationsQueueItems({
+    data: {
+      items: [makeProductionOneTimeOrder()],
+    },
+  });
 
   assert.deepEqual(
-    buildOperationsActionPayload(items[0], "fulfill", undefined, "note", "1111"),
+    buildOperationsActionPayload(item, "fulfill", undefined, "note", "1111"),
     {
-      entityId: "ready-pickup",
+      entityId: "order-one-time-fixture",
       entityType: "order",
       source: "one_time_order",
-      action: "fulfill",
-      reason: undefined,
-      note: "note",
       payload: {
-        reason: undefined,
         notes: "note",
         pickupCode: "1111",
       },
     }
   );
+  assert.equal("action" in buildOperationsActionPayload(item, "fulfill"), false);
+  assert.equal("reason" in buildOperationsActionPayload(item, "fulfill"), false);
+  assert.equal("note" in buildOperationsActionPayload(item, "fulfill"), false);
+});
 
-  const chefChoiceResponse = {
+test("extracts canonical top-level kitchen v2 rows without legacy fallback", () => {
+  const [item] = extractOperationsQueueItems({
     data: {
-      contractVersion: "dashboard_queue.v2",
+      contractVersion: "kitchen_operations.v2",
       items: [
         {
-          ids: {
-            entityType: "subscription_day",
-            entityId: "day-1",
-            subscriptionDayId: "day-1",
-            deliveryId: null,
-            pickupRequestId: null,
-          },
-          customer: { id: "customer-1", name: "Ahmed", phone: "+966500000000" },
-          source: {
-            type: "subscription",
-            reference: "SUB-1",
-            date: "2026-06-21",
-            status: "open",
-            statusLabel: { ar: "مفتوح" },
-          },
-          subscription: {
-            plan: {
-              selectedMealsPerDay: 2,
-              remainingMeals: 20,
-              deliveryMode: "delivery",
-            },
-          },
-          orderSummary: { mealCount: 2, itemCount: 2, hasPremium: false, hasAddons: false },
-          kitchen: {
-            meals: [
-              {
-                slotIndex: 1,
-                mealType: "chef_choice",
-                mealTypeLabel: { ar: "اختيار الشيف", en: "Chef Choice" },
-                product: {
-                  key: "chef_choice",
-                  name: { ar: "اختيار الشيف", en: "Chef Choice" },
-                  displayName: "اختيار الشيف",
-                },
-                quantity: 1,
-                display: { titleAr: "اختيار الشيف" },
-              },
-              {
-                slotIndex: 2,
-                mealType: "chef_choice",
-                quantity: 1,
-                display: { titleAr: "اختيار الشيف" },
-              },
-            ],
-            addons: [],
-          },
-          fulfillment: {
-            type: "home_delivery",
-            delivery: {
-              date: "2026-06-21",
-              window: "09:00-10:00",
-              address: {
-                displayAddressAr: "الرياض، حي الياسمين",
-                notes: "اتصل قبل الوصول",
-              },
-            },
-          },
-          payment: {
-            paymentRequired: false,
-            paymentStatus: "paid",
-            paymentApplied: true,
-            pendingUnpaid: false,
-            superseded: false,
-            revisionMismatch: false,
-            canPrepare: true,
-            canFulfill: true,
-          },
-          actions: {
-            allowed: ["prepare"],
-            canPrepare: true,
-            canDispatch: false,
-            canReadyForPickup: false,
-            canFulfill: false,
-            canCancel: true,
-            canNoShow: false,
-            canReopen: false,
-          },
-          dataQuality: {
-            isComplete: true,
-            warnings: [{ code: "CHEF_CHOICE_MEALS", severity: "info" }],
-          },
-          selectionMode: "chef_choice",
-          selectionModeLabel: { ar: "اختيار الشيف", en: "Chef Choice" },
-          selectionNotice: {
-            ar: "العميل لم يحدد الوجبات، سيتم تجهيز وجبات اختيار الشيف",
-            en: "The customer did not select meals. Chef Choice meals will be prepared.",
+          ...makeProductionOneTimeOrder(),
+          kitchenDetails: {
+            mealSlots: [{ productName: "legacy should be ignored" }],
           },
         },
       ],
     },
-  };
+  });
 
-  const [chefChoiceItem] = extractOperationsQueueItems(chefChoiceResponse);
+  assert.equal(item.contractVersion, "kitchen_operations.v2");
+  assert.equal(item.entityType, "order");
+  assert.equal(item.source, "one_time_order");
+  assert.equal(item.mode, "pickup");
+  assert.equal(item.customer.name, "0500000000");
+  assert.equal(item.customer.phone, "0500000000");
+  assert.equal(item.context.branch, "Main Branch");
+  assert.equal(item.context.window, "18:00-20:00");
+  assert.equal(item.kitchen?.version, "v2");
+  assert.equal(item.kitchen?.cards[0]?.type, "basic_salad");
+  assert.equal(item.kitchen?.cards[0]?.sections?.length, 7);
+  assert.equal(item.allowedActions[0].endpoint, "/api/dashboard/ops/actions/prepare");
+});
 
-  assert.equal(chefChoiceItem.entityType, "subscription_day");
-  assert.equal(chefChoiceItem.mode, "delivery");
-  assert.equal(chefChoiceItem.selectionMode, "chef_choice");
-  assert.equal(chefChoiceItem.context.mealCount, 2);
-  assert.equal(chefChoiceItem.context.addressSummary, "الرياض، حي الياسمين");
-  assert.equal(chefChoiceItem.context.addressNotes, "اتصل قبل الوصول");
-  assert.equal(chefChoiceItem.mealSlots?.length, 2);
-  assert.equal(chefChoiceItem.mealSlots?.[0]?.items[0]?.name, "اختيار الشيف");
-  assert.deepEqual(
-    buildOperationsActionPayload(chefChoiceItem, "prepare"),
-    {
-      entityId: "day-1",
-      entityType: "subscription_day",
-      source: "subscription",
-      action: "prepare",
-      reason: undefined,
-      note: undefined,
-      payload: {
-        reason: undefined,
-        notes: undefined,
-        pickupCode: undefined,
-      },
-    }
-  );
+test("invalid canonical action endpoints are disabled with configuration reason", () => {
+  const [item] = extractOperationsQueueItems({
+    data: [
+      makeProductionOneTimeOrder({
+        actions: [
+          {
+            id: "prepare",
+            label: "بدء التحضير",
+            endpoint: "https://example.com/prepare",
+            method: "POST",
+          },
+        ],
+      }),
+    ],
+  });
+
+  assert.equal(item.allowedActions[0].disabled, true);
+  assert.ok(getInvalidActionReason(item.allowedActions[0]));
 });

@@ -1,5 +1,5 @@
 import { normalizeOperationsQueueItem } from "../src/lib/operationsBoard";
-import type { QueueAction } from "../src/types/dashboardOpsTypes";
+import type { KitchenCard, QueueAction } from "../src/types/dashboardOpsTypes";
 
 export const productionGroups = [
   "البروتين",
@@ -15,30 +15,70 @@ export function makeCanonicalOptions() {
   return Array.from({ length: 30 }, (_, index) => {
     const groupIndex = index % productionGroups.length;
     return {
-      groupId: `group-${groupIndex + 1}`,
       groupName: productionGroups[groupIndex],
-      optionId: `option-${index + 1}`,
       optionName:
         index === 4 ? "زيادة 50 جرام من الدجاج" : `اختيار ${index + 1}`,
       quantity: 1,
-      totalHalala: index === 4 ? 500 : 0,
-      extraWeightUnitGrams: index === 4 ? 50 : null,
+      lineTotalHalala: index === 4 ? 500 : 0,
+      pricingSnapshot: {
+        unitPriceHalala: index === 4 ? 500 : 0,
+        lineTotalHalala: index === 4 ? 500 : 0,
+      },
     };
   });
 }
 
-export function makeKitchenOptions() {
-  return makeCanonicalOptions().map((option, index) => ({
-    groupId: option.groupId,
-    groupName: option.groupName,
-    optionId: option.optionId,
-    optionName: option.optionName,
-    quantity: 1,
-    unitPriceHalala: index === 4 ? 500 : 0,
-    totalPriceHalala: index === 4 ? 500 : 0,
-    extraWeightUnitGrams: index === 4 ? 50 : null,
-    extraWeightPriceHalala: index === 4 ? 500 : 0,
+function makeSaladSections(): KitchenCard["sections"] {
+  const options = makeCanonicalOptions();
+  return productionGroups.map((group, groupIndex) => ({
+    label: group,
+    items: options
+      .filter((_, optionIndex) => optionIndex % productionGroups.length === groupIndex)
+      .map((option) => ({
+        name: option.optionName,
+        quantity: 1,
+        grams: option.optionName.includes("50 جرام") ? 50 : undefined,
+        productUnitPriceHalala: option.lineTotalHalala,
+        payableTotalHalala: option.lineTotalHalala,
+      })),
   }));
+}
+
+export function makeKitchenCards(
+  cards: KitchenCard[] = [
+    {
+      type: "basic_salad",
+      title: "سلطة على مزاجك",
+      badge: "Basic",
+      quantity: 1,
+      lines: ["100 جرام بروتين", "30 مكوناً"],
+      components: {
+        salad: {
+          sectionCount: 7,
+          itemCount: 30,
+        },
+      },
+      sections: makeSaladSections(),
+      warnings: [],
+    },
+  ]
+) {
+  return cards;
+}
+
+export function action(
+  id: string,
+  label: string,
+  method: QueueAction["method"] = "POST",
+  color?: string
+): QueueAction {
+  return {
+    id,
+    label,
+    endpoint: `/api/dashboard/ops/actions/${id}`,
+    method,
+    color,
+  };
 }
 
 export function makeProductionOneTimeOrder({
@@ -51,6 +91,10 @@ export function makeProductionOneTimeOrder({
   actions,
   itemCount = 1,
   arabicStatusLabel,
+  customerName,
+  kitchenCards,
+  kitchenAddonGroups = [],
+  kitchenWarnings = [],
 }: {
   includeCanonicalItemOptions?: boolean;
   status?: string;
@@ -61,30 +105,28 @@ export function makeProductionOneTimeOrder({
   actions?: QueueAction[];
   itemCount?: number;
   arabicStatusLabel?: string;
+  customerName?: string | null;
+  kitchenCards?: KitchenCard[];
+  kitchenAddonGroups?: Array<{
+    label?: string;
+    items: Array<{
+      name?: string;
+      quantity?: number;
+      productUnitPriceHalala?: number;
+      payableTotalHalala?: number;
+    }>;
+  }>;
+  kitchenWarnings?: unknown[];
 } = {}) {
   const canonicalOptions = makeCanonicalOptions();
-  const kitchenOptions = makeKitchenOptions();
   const baseActions: QueueAction[] =
-    actions ??
-    [
-      { id: "prepare", label: "بدء التحضير", endpoint: "/ops/prepare", method: "POST" },
-      {
-        id: "cancel",
-        label: "إلغاء",
-        color: "red",
-        endpoint: "/ops/cancel",
-        method: "POST",
-        requiresReason: true,
-      },
-    ];
+    actions ?? [action("prepare", "بدء التحضير"), action("cancel", "إلغاء", "POST", "red")];
   const items = Array.from({ length: itemCount }, (_, index) => ({
     id: `line-${index + 1}`,
     productName: index === 0 ? "طبق دجاج مشوي" : `طبق إضافي ${index + 1}`,
-    productSnapshot: {
-      key: index === 0 ? "basic_salad" : `hidden_product_${index + 1}`,
-      priceHalala: 2900 + index * 100,
-    },
     quantity: 1,
+    unitPriceHalala: 3400 + index * 200,
+    lineTotalHalala: 3400 + index * 200,
     pricingSnapshot: {
       basePriceHalala: 2900 + index * 100,
       optionsTotalHalala: index === 0 ? 500 : index * 100,
@@ -99,12 +141,10 @@ export function makeProductionOneTimeOrder({
         : index > 0
           ? [
               {
-                groupId: `extra-group-${index + 1}`,
                 groupName: "إضافات الصنف",
-                optionId: `extra-option-${index + 1}`,
                 optionName: index === 1 ? "صلصة خاصة" : "جبنة إضافية",
                 quantity: 1,
-                totalHalala: index * 100,
+                lineTotalHalala: index * 100,
               },
             ]
           : [],
@@ -114,17 +154,16 @@ export function makeProductionOneTimeOrder({
     id: "order-one-time-fixture",
     entityId: "order-one-time-fixture",
     entityType: "order",
-    source: {
-      type: "one_time_order",
-      reference: "OT-SAFE-1",
-      status,
-      statusLabel: arabicStatusLabel ? { ar: arabicStatusLabel } : statusLabel,
-    },
-    statusLabel,
-    ui: { label: uiLabel },
+    source: "one_time_order",
+    type: "order",
+    reference: "OT-SAFE-1",
+    orderNumber: "10001",
+    status,
+    statusLabel: arabicStatusLabel ? { ar: arabicStatusLabel } : statusLabel,
+    ui: { label: uiLabel, badge: "blue", icon: "store" },
     mode: "pickup",
     paymentStatus,
-    customer: { id: "customer-safe", phone: "0500000000" },
+    customer: { id: "customer-safe", name: customerName ?? null, phone: "0500000000" },
     items,
     pricing: {
       subtotalHalala: 3400,
@@ -141,29 +180,30 @@ export function makeProductionOneTimeOrder({
     },
     fulfillment: {
       type: "pickup",
+      mode: "pickup",
       pickup: {
         branchName: { ar: "Main Branch" },
+        branchId: "branch-hidden",
         pickupWindow: "18:00-20:00",
+        pickupCode: "1234",
+        pickupCodeState: "active",
       },
     },
     orderSummary: {
       itemCount,
       mealCount: itemCount,
-      addonCount: 0,
+      addonCount: kitchenAddonGroups.reduce((sum, group) => sum + group.items.length, 0),
       notes: "بدون بصل",
       allergies: "مكسرات",
     },
-    kitchenDetails: {
-      mealSlots: [
-        {
-          productName: "طبق دجاج مشوي",
-          quantity: 1,
-          selectedOptions: kitchenOptions.flatMap((option) => [option, { ...option }]),
-        },
-      ],
-      addons: [],
+    kitchen: {
+      version: "v2",
+      mealCount: kitchenCards?.length ?? 1,
+      cards: makeKitchenCards(kitchenCards),
+      addonGroups: kitchenAddonGroups,
+      warnings: kitchenWarnings,
     },
-    actions: { allowed: baseActions },
+    allowedActions: baseActions,
   };
 }
 

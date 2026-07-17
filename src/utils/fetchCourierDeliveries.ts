@@ -55,6 +55,8 @@ const fallbackCourierActionsFor = (
       label: "استلام للتوصيل",
       color: "blue",
       icon: "truck",
+      endpoint: "/api/dashboard/ops/actions/dispatch",
+      method: "POST",
       requiresReason: false,
     });
   }
@@ -65,6 +67,8 @@ const fallbackCourierActionsFor = (
       label: "قريب من العميل",
       color: "blue",
       icon: "bell",
+      endpoint: "/api/dashboard/ops/actions/notify_arrival",
+      method: "POST",
       requiresReason: false,
     });
   }
@@ -75,6 +79,8 @@ const fallbackCourierActionsFor = (
       label: "تم التسليم",
       color: "green",
       icon: "check",
+      endpoint: "/api/dashboard/ops/actions/fulfill",
+      method: "POST",
       requiresReason: false,
     });
   }
@@ -85,6 +91,8 @@ const fallbackCourierActionsFor = (
       label: "تعذر التوصيل",
       color: "red",
       icon: "x",
+      endpoint: "/api/dashboard/ops/actions/cancel",
+      method: "POST",
       requiresReason: true,
     });
   }
@@ -166,24 +174,19 @@ const normalizeCourierItem = (
 export const fetchCourierDeliveryList = async (
   date: string
 ): Promise<DashboardOpsListResponse> => {
-  const [deliveriesResponse, ordersResponse] = await Promise.all([
-    api.get<CourierDeliveryResponse>("/api/courier/deliveries/today"),
-    api.get<CourierDeliveryResponse>("/api/courier/orders/today"),
-  ]);
+  const deliveriesResponse = await api.get<CourierDeliveryResponse>(
+    "/api/courier/deliveries/today"
+  );
 
   const subscriptionItems = toItems(deliveriesResponse.data).map((item) =>
     normalizeCourierItem(item, "subscription")
   );
-  const orderItems = toItems(ordersResponse.data).map((item) =>
-    normalizeCourierItem(item, "one_time_order")
-  );
-
   return {
     status: true,
     data: {
       contractVersion: "courier-v1",
       date,
-      items: [...subscriptionItems, ...orderItems],
+      items: subscriptionItems,
     },
   };
 };
@@ -200,15 +203,14 @@ export const executeCourierDeliveryAction = async ({
   const id = payload.entityId;
   const isOrder =
     payload.entityType === "order" || payload.source === "one_time_order";
-  const reason = payload.reason || payload.payload?.reason;
-  const note = payload.note || payload.payload?.notes;
+  const reason = payload.payload?.reason;
+  const note = payload.payload?.notes;
   const requiresReason = actionDef?.requiresReason || action === "cancel";
   const data =
     requiresReason || reason || note
       ? {
           reason:
             reason ||
-            actionDef?.reason ||
             (action === "cancel" ? "customer_unreachable" : undefined),
           note,
         }

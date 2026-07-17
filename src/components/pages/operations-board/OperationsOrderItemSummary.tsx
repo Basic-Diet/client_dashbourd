@@ -49,7 +49,7 @@ export function OperationsOrderItemSummary({
                 variant="secondary"
                 className="rounded-md text-[10px]"
               >
-                {option.optionName} +{formatOperationsSar(option.priceHalala)}
+                {option.optionName} +{formatOperationsSar(option.paidAmountHalala)}
               </Badge>
             ))}
           </div>
@@ -66,12 +66,12 @@ export function OperationsOrderItemSummary({
           ) : null}
           <div className="flex justify-between gap-3 rounded-md bg-muted/35 px-2 py-1.5">
             <span>الاختيارات المدفوعة</span>
-            <span dir="ltr">{formatOperationsSar(item.optionsPriceHalala)}</span>
+            <span dir="ltr">{formatOperationsSar(item.optionsAmountHalala)}</span>
           </div>
-          {item.unitPriceHalala !== null ? (
+          {item.unitAmountHalala !== null ? (
             <div className="flex justify-between gap-3 rounded-md bg-muted/35 px-2 py-1.5">
               <span>سعر الوحدة</span>
-              <span dir="ltr">{formatOperationsSar(item.unitPriceHalala)}</span>
+              <span dir="ltr">{formatOperationsSar(item.unitAmountHalala)}</span>
             </div>
           ) : null}
           {item.lineTotalHalala !== null ? (

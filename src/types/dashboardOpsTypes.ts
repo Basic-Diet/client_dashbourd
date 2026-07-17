@@ -1,223 +1,268 @@
+export type OperationSource =
+  | "subscription"
+  | "one_time_order"
+  | "subscription_pickup_request";
+
+export type OperationEntityType =
+  | "subscription_day"
+  | "order"
+  | "subscription_pickup_request";
+
 export interface LocalizedText {
-  ar?: string;
-  en?: string;
+  ar?: string | null;
+  en?: string | null;
 }
 
-export interface DisplayEntity {
+export interface OperationUi {
+  label?: string | null;
+  badge?: string | null;
+  color?: string | null;
+  icon?: string | null;
+}
+
+export interface OperationCustomer {
   id?: string | null;
-  key?: string | null;
-  name?: LocalizedText;
-  displayName: string;
+  name?: string | null;
+  phone?: string | null;
 }
 
-export interface KitchenMealV2 {
-  slotIndex?: number;
-  slotKey?: string;
-  mealType: string;
-  mealTypeLabel?: LocalizedText;
-  product?: DisplayEntity;
-  sandwich?: DisplayEntity | null;
-  protein?: DisplayEntity & { grams?: number | null };
-  carbs?: Array<DisplayEntity & { grams?: number | null }>;
-  salad?: DisplayEntity | null;
-  sauce?: DisplayEntity[];
-  sides?: DisplayEntity[];
-  options?: DisplayEntity[];
-  premium?: {
-    isPremium: boolean;
-    key?: string | null;
-    source?: string | null;
-    labelAr?: string | null;
-  };
-  quantity: number;
+export interface OperationPickup {
+  branchName?: string | LocalizedText | null;
+  branchId?: string | null;
+  locationId?: string | null;
+  pickupWindow?: string | null;
+  pickupCode?: string | null;
+  pickupCodeState?: string | null;
+  mealCount?: number | null;
+  remainingMeals?: number | null;
+}
+
+export interface OperationDelivery {
+  addressSummary?: string | null;
+  address?: unknown;
+  date?: string | null;
+  window?: string | null;
+  deliveryWindow?: string | null;
+  deliverySlot?: string | null;
+  status?: string | null;
+  zone?: { id?: string | null; name?: string | null } | null;
+  zoneId?: string | null;
+  courierId?: string | null;
+}
+
+export interface OperationFulfillment {
+  type?: "pickup" | "delivery" | "home_delivery" | string | null;
+  mode?: "pickup" | "delivery" | string | null;
+  pickup?: OperationPickup | null;
+  delivery?: OperationDelivery | null;
+  deliverySlot?: string | null;
   notes?: string | null;
-  display?: {
-    titleAr?: string;
-    subtitleAr?: string;
-    preparationTextAr?: string;
-    badgesAr?: string[];
-  };
+  allergies?: string | null;
 }
 
-export interface KitchenAddonV2 extends DisplayEntity {
-  quantity: number;
-  display?: {
-    titleAr?: string;
-  };
+export type KitchenCardType =
+  | "basic_salad"
+  | "premium_large_salad"
+  | "standard_meal"
+  | "premium_meal"
+  | "sandwich"
+  | "chef_choice"
+  | string;
+
+export interface KitchenComponentItem {
+  name?: string | LocalizedText | null;
+  label?: string | LocalizedText | null;
+  grams?: number | null;
+  quantity?: number | null;
 }
 
-export interface QueueAction {
+export interface KitchenSaladSummary {
+  sectionCount?: number | null;
+  itemCount?: number | null;
+}
+
+export interface KitchenComponents {
+  protein?: KitchenComponentItem | null;
+  carbs?: KitchenComponentItem[] | KitchenComponentItem | null;
+  product?: KitchenComponentItem | null;
+  salad?: KitchenSaladSummary | KitchenComponentItem | null;
+}
+
+export interface KitchenSectionItem {
+  name?: string | LocalizedText | null;
+  quantity?: number | null;
+  grams?: number | null;
+  productUnitPriceHalala?: number | null;
+  payableTotalHalala?: number | null;
+}
+
+export interface KitchenSection {
+  label?: string | LocalizedText | null;
+  title?: string | LocalizedText | null;
+  items: KitchenSectionItem[];
+}
+
+export interface KitchenCard {
+  id?: string | null;
+  type: KitchenCardType;
+  title?: string | LocalizedText | null;
+  badge?: string | LocalizedText | null;
+  quantity?: number | null;
+  lines?: string[];
+  notes?: string | null;
+  components?: KitchenComponents | null;
+  sections?: KitchenSection[];
+  warnings?: unknown[];
+}
+
+export interface KitchenAddonItem {
+  name?: string | LocalizedText | null;
+  quantity?: number | null;
+  productUnitPriceHalala?: number | null;
+  payableTotalHalala?: number | null;
+}
+
+export interface KitchenAddonGroup {
+  label?: string | LocalizedText | null;
+  title?: string | LocalizedText | null;
+  items: KitchenAddonItem[];
+}
+
+export interface KitchenV2 {
+  version: "v2";
+  mealCount: number;
+  cards: KitchenCard[];
+  addonGroups: KitchenAddonGroup[];
+  warnings: unknown[];
+}
+
+export interface OperationAction {
   id: string;
   label: string;
   color?: string;
   icon?: string;
-  endpoint?: string;
-  method?: string;
+  endpoint: string;
+  method: "POST" | "PUT";
+  requiresReason?: boolean;
   disabled?: boolean;
   disabledReason?: string | null;
-  requiresReason?: boolean;
-  reason?: string | null;
-  reasonLabel?: LocalizedText | null;
 }
 
-export interface DataQualityWarning {
-  code: string;
-  field?: string;
-  messageAr?: string;
-  messageEn?: string;
+export type QueueAction = OperationAction;
+
+export interface SelectedOption {
+  groupName?: string | null;
+  optionName?: string | null;
+  quantity?: number | null;
+  unitPriceHalala?: number | null;
+  lineTotalHalala?: number | null;
+  pricingSnapshot?: {
+    unitPriceHalala?: number | null;
+    lineTotalHalala?: number | null;
+  } | null;
 }
 
-export interface DashboardQueueItemV2 {
-  ids: {
-    entityType: string;
-    entityId: string;
-    subscriptionId?: string | null;
-    subscriptionDayId?: string | null;
-    orderId?: string | null;
-    deliveryId?: string | null;
-    pickupRequestId?: string | null;
-  };
-  customer: {
-    id?: string | null;
-    name: string;
-    phone?: string;
-  };
-  source: {
-    type: string;
-    reference: string;
-    date: string;
-    status: string;
-    statusLabel?: LocalizedText;
-    lifecycleGroup?: string;
-    isActionable?: boolean;
-  };
-  subscription?: {
-    id?: string | null;
-    plan?: {
-      id?: string | null;
-      key?: string | null;
-      name?: LocalizedText;
-      displayName?: string;
-      proteinGrams?: number | null;
-      portionSize?: string | null;
-      selectedMealsPerDay?: number | null;
-      totalMeals?: number;
-      remainingMeals?: number;
-      deliveryMode?: string;
-    };
-  };
-  orderSummary: {
-    mealCount: number;
-    addonCount?: number;
-    itemCount: number;
-    mealCountTextAr?: string;
-    addonCountTextAr?: string;
-    itemCountTextAr?: string;
-    hasPremium: boolean;
-    hasAddons: boolean;
-    notes?: string | null;
-    allergies?: string | null;
-    display?: {
-      titleAr?: string;
-      subtitleAr?: string;
-      fulfillmentTextAr?: string;
-    };
-  };
-  kitchen: {
-    meals: KitchenMealV2[];
-    addons: KitchenAddonV2[];
-  };
-  fulfillment: {
-    type: string;
-    typeLabel?: LocalizedText;
-    delivery?: Record<string, unknown> | null;
-    pickup?: Record<string, unknown> | null;
-  };
-  payment: {
-    paymentRequired: boolean;
-    paymentStatus: string;
-    paymentStatusLabel?: LocalizedText;
-    paymentApplied: boolean;
-    pendingUnpaid: boolean;
-    superseded: boolean;
-    revisionMismatch: boolean;
-    canPrepare: boolean;
-    canFulfill: boolean;
-    reason?: string | null;
-    reasonLabel?: LocalizedText | null;
-  };
-  actions: {
-    allowed: QueueAction[];
-    disabled?: QueueAction[];
-    canPrepare: boolean;
-    canDispatch: boolean;
-    canReadyForPickup: boolean;
-    canFulfill: boolean;
-    canCancel: boolean;
-    canNoShow: boolean;
-    canReopen: boolean;
-  };
-  timestamps?: {
-    createdAt?: string | null;
-    updatedAt?: string | null;
+export interface OrderItemPricingSnapshot {
+  basePriceHalala?: number | null;
+  optionsTotalHalala?: number | null;
+  unitPriceHalala?: number | null;
+  lineTotalHalala?: number | null;
+  currency?: string | null;
+  vatIncluded?: boolean | null;
+}
+
+export interface OrderOperationItem {
+  id?: string | null;
+  productName?: string | null;
+  displayName?: string | null;
+  name?: string | null;
+  quantity?: number | null;
+  notes?: string | null;
+  selectedOptions?: SelectedOption[];
+  unitPriceHalala?: number | null;
+  lineTotalHalala?: number | null;
+  pricingSnapshot?: OrderItemPricingSnapshot | null;
+}
+
+export interface OrderPricing {
+  baseItemsHalala?: number | null;
+  optionsHalala?: number | null;
+  subtotalHalala?: number | null;
+  deliveryHalala?: number | null;
+  discountHalala?: number | null;
+  vatHalala?: number | null;
+  totalHalala?: number | null;
+  currency?: string | null;
+  vatIncluded?: boolean | null;
+}
+
+export interface OrderPayment {
+  paymentStatus?: string | null;
+  paymentStatusLabel?: string | LocalizedText | null;
+  amountHalala?: number | null;
+}
+
+export interface OrderSummary {
+  itemCount?: number | null;
+  mealCount?: number | null;
+  addonCount?: number | null;
+  notes?: string | null;
+  allergies?: string | null;
+}
+
+export interface OperationItem {
+  contractVersion?: string;
+  id: string;
+  entityId: string;
+  subscriptionDayId?: string | null;
+  entityType: OperationEntityType;
+  source: OperationSource;
+  type: "subscription" | "order" | "subscription_pickup_request";
+  mode: "pickup" | "delivery";
+  reference: string;
+  orderNumber?: string | null;
+  status: string;
+  statusLabel: string;
+  ui: OperationUi;
+  customer: OperationCustomer;
+  fulfillment: OperationFulfillment;
+  pickup?: OperationPickup | null;
+  delivery?: OperationDelivery | null;
+  kitchen?: KitchenV2 | null;
+  allowedActions: OperationAction[];
+  timestamps: {
+    createdAt: string | null;
+    updatedAt: string | null;
     preparedAt?: string | null;
     fulfilledAt?: string | null;
   };
+  paymentStatus?: string | null;
+  payment?: OrderPayment | null;
+  pricing?: OrderPricing | null;
+  orderSummary?: OrderSummary | null;
+  items?: OrderOperationItem[];
+  mealSlots?: Array<{
+    slot?: string | number | null;
+    label?: string | null;
+    items: Array<{ name?: string | null; quantity?: number | null }>;
+  }>;
+  notes?: string | null;
+  plan?: {
+    id?: string | null;
+    key?: string | null;
+    name?: string | null;
+    remainingMeals?: number | null;
+    selectedMealsPerDay?: number | null;
+    proteinGrams?: number | null;
+    portionSize?: string | null;
+  } | null;
   dataQuality?: {
-    isComplete: boolean;
-    warnings: DataQualityWarning[];
-  };
-  selectionMode?: string | null;
-  selectionModeLabel?: LocalizedText | null;
-  selectionNotice?: LocalizedText | null;
-}
-
-export interface DashboardQueueV2Response {
-  status: boolean;
-  data: {
-    contractVersion: string;
-    date: string;
-    businessDate: string;
-    count: number;
-    items: DashboardQueueItemV2[];
-    filters?: unknown;
-  };
-}
-
-export interface UnifiedQueueItem {
-  contractVersion?: string;
-  ids?: DashboardQueueItemV2["ids"];
-  // ── Identity ──
-  id: string;
-  entityId: string;
-  entityType: "subscription_day" | "order" | "subscription_pickup_request";
-  source: "subscription" | "one_time_order" | "subscription_pickup_request";
-  type: "subscription" | "order" | "subscription_pickup_request";
-
-  // ── Display ──
-  mode: "delivery" | "pickup";
-  reference: string;
-  status: string;
-  statusLabel: string;
-  ui: {
-    label: string;
-    color: string;
-    icon: string;
-    badgeText?: string;
-  };
-
-  // ── Customer ──
-  customer: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-
-  // ── Context ──
+    isComplete?: boolean;
+    warnings?: Array<{ code?: string; messageAr?: string; messageEn?: string }>;
+  } | null;
   context: {
     date: string | null;
-    window?: string;
-    address?: unknown;
+    window?: string | null;
     addressSummary?: string | null;
     addressNotes?: string | null;
     branch?: string | null;
@@ -226,197 +271,26 @@ export interface UnifiedQueueItem {
     mealCount?: number;
     requiredMealCount?: number;
   };
-
-  // ── Delivery / Pickup details ──
-  delivery?: {
-    deliveryId?: string | null;
-    method?: string;
-    date?: string | null;
-    status?: string | null;
-    address?: unknown;
-    addressSummary?: string | null;
-    zone?: { id: string; name: string } | null;
-    zoneId?: string | null;
-    courierId?: string | null;
-    window?: string | null;
-    deliveryWindow?: string;
-    pickupLocationId?: string | null;
-  };
-  pickup?: {
-    pickupRequestId?: string | null;
-    branchId?: string | null;
-    locationId?: string | null;
-    pickupLocationId?: string | null;
-    pickupRequested?: boolean;
-    pickupPreparedAt?: string | null;
-    pickupCodeIssuedAt?: string | null;
-    pickupVerifiedAt?: string | null;
-    pickupNoShowAt?: string | null;
-    pickupCode?: string | null;
-    pickupCodeState?: string | null;
-    mealCount?: number | null;
-    remainingMeals?: number | null;
-    reserved?: boolean | null;
-    consumed?: boolean | null;
-    released?: boolean | null;
-  };
-
-  // ── Items (orders) ──
-  items?: { id: string; name: string; quantity: number; notes?: string }[];
-  pricing?: unknown;
-  paymentStatus?: string | null;
-  orderNumber?: string | null;
-
-  // ── Subscription-specific ──
-  mealSlots?: { slot: string; items: { name: string; quantity: number; notes?: string }[] }[];
-  materializedMeals?: unknown[];
-  addonSelections?: unknown[];
-  premiumUpgradeSelections?: unknown[];
-  fulfillmentType?: string | null;
-  plan?: {
-    id?: string | null;
-    key?: string | null;
-    name?: string | null;
-    daysCount?: number | null;
-    durationDays?: number | null;
-    totalMeals?: number | null;
-    remainingMeals?: number | null;
-    selectedMealsPerDay?: number | null;
-    deliveryMode?: string | null;
-    proteinGrams?: number | null;
-    portionSize?: string | null;
-  } | null;
-  orderSummary?: DashboardQueueItemV2["orderSummary"];
-  kitchen?: DashboardQueueItemV2["kitchen"];
-  fulfillment?: DashboardQueueItemV2["fulfillment"];
-  payment?: DashboardQueueItemV2["payment"];
-  actions?: DashboardQueueItemV2["actions"];
-  dataQuality?: DashboardQueueItemV2["dataQuality"];
-  selectionMode?: string | null;
-  selectionModeLabel?: LocalizedText | null;
-  selectionNotice?: LocalizedText | null;
-  kitchenDetails?: {
-    mealSlots?: unknown[];
-    addons?: unknown[];
-    [key: string]: unknown;
-  } | null;
-  paymentValidity?: {
-    paymentRequired?: boolean | null;
-    paymentStatus?: string | null;
-    paymentApplied?: boolean | null;
-    pendingUnpaid?: boolean | null;
-    superseded?: boolean | null;
-    revisionMismatch?: boolean | null;
-    canPrepare?: boolean | null;
-    canFulfill?: boolean | null;
-    reason?: string | null;
-  } | null;
-  subscriptionDayId?: string | null;
-  subscriptionId?: string | null;
-
-  // ── Actions ──
-  allowedActions: {
-    id: string;
-    label: string;
-    color: string;
-    icon: string;
-    endpoint?: string;
-    method?: string;
-    disabled?: boolean;
-    disabledReason?: string | null;
-    reason?: string | null;
-    reasonLabel?: LocalizedText | null;
-    requiresReason: boolean;
-  }[];
-
-  // ── Metadata ──
-  notes?: string | null;
-  timestamps: {
-    createdAt: string | null;
-    updatedAt: string | null;
-    preparedAt?: string | null;
-    fulfilledAt?: string | null;
-  };
   rawData?: unknown;
 }
 
-export interface UnifiedOperationalDTO {
-  id: string;
-  type: "subscription" | "order" | "subscription_pickup_request";
-  source?: "subscription" | "one_time_order" | "subscription_pickup_request";
-  mode: "delivery" | "pickup";
-  reference: string;
-  status: string;
-  ui: {
-    label: string;
-    color: string;
-    icon: string;
-    badgeText?: string;
-  };
-  customer: { name: string; phone: string };
-  context: {
-    date: string | null;
-    window?: string;
-    addressSummary?: string | null;
-    pickupCode?: string | null;
-    notes?: string | null;
-    cancelInfo?: { reason: string; note?: string };
-    orderDetails?: string;
-  };
-  allowedActions: {
-    id: string;
-    label: string;
-    color: string;
-    icon: string;
-    requiresReason: boolean;
-  }[];
-  timestamps: { createdAt: string | null; updatedAt: string | null };
-}
-
-export const isOneTimeOrder = (item: { source?: string; entityType?: string }): boolean => {
-  return item.source === "one_time_order" || item.entityType === "order";
-};
-
-export const isSubscriptionDay = (item: { source?: string; entityType?: string }): boolean => {
-  return item.entityType === "subscription_day" || item.source === "subscription";
-};
-
-export const isPickupRequest = (item: { source?: string; entityType?: string }): boolean => {
-  return item.entityType === "subscription_pickup_request" || item.source === "subscription_pickup_request";
-};
-
-// ── API response wrappers ──
+export type UnifiedQueueItem = OperationItem;
 
 export interface DashboardOpsListResponse {
   status: boolean;
   data?: {
     contractVersion?: string;
-    date: string;
+    date?: string;
     items: UnifiedQueueItem[];
-    filters?: {
-      status: string[];
-      method: string;
-      q: string | null;
-      zoneId: string | null;
-      branchId: string | null;
-    };
+    filters?: unknown;
   };
   items?: UnifiedQueueItem[];
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 export interface DashboardOpsActionRequest {
   entityId: string;
   entityType: string;
   source?: string;
-  action: string;
-  reason?: string;
-  note?: string;
   payload?: {
     reason?: string;
     pickupCode?: string;
@@ -428,8 +302,6 @@ export interface DashboardOpsActionResponse {
   status: boolean;
   data: UnifiedQueueItem;
 }
-
-// ── Filter types ──
 
 export type DashboardOpsStatusFilter =
   | "all"
@@ -443,9 +315,6 @@ export type DashboardOpsStatusFilter =
   | "fulfilled"
   | "expired"
   | "pending_payment";
-
-// ── Status grouping helpers ──
-// Centralised status-matching so every component uses the same logic.
 
 const DELIVERED_STATUSES = ["delivered", "fulfilled"];
 const CANCELED_STATUSES = ["canceled", "cancelled", "delivery_canceled"];
@@ -466,20 +335,8 @@ export function matchesStatusFilter(
       return DELIVERED_STATUSES.includes(itemStatus);
     case "canceled":
       return CANCELED_STATUSES.includes(itemStatus);
-    case "confirmed":
-      return itemStatus === "confirmed";
-    case "in_preparation":
-      return itemStatus === "in_preparation";
-    case "ready_for_pickup":
-      return itemStatus === "ready_for_pickup";
-    case "fulfilled":
-      return itemStatus === "fulfilled";
-    case "expired":
-      return itemStatus === "expired";
-    case "pending_payment":
-      return itemStatus === "pending_payment";
     default:
-      return false;
+      return itemStatus === filter;
   }
 }
 
@@ -491,7 +348,15 @@ export function countByFilter(
   return items.filter((i) => matchesStatusFilter(i.status, filter)).length;
 }
 
-// ── Badge color helper ──
+export const isOneTimeOrder = (item: { source?: string; entityType?: string }) =>
+  item.source === "one_time_order" || item.entityType === "order";
+
+export const isSubscriptionDay = (item: { source?: string; entityType?: string }) =>
+  item.entityType === "subscription_day" || item.source === "subscription";
+
+export const isPickupRequest = (item: { source?: string; entityType?: string }) =>
+  item.entityType === "subscription_pickup_request" ||
+  item.source === "subscription_pickup_request";
 
 export type BadgeColorKey = "green" | "red" | "blue" | "orange" | "yellow";
 

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
-  CalendarDays,
   CheckCircle2,
   CreditCard,
   PackageCheck,
@@ -18,9 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { buildKitchenV2Presentation } from "@/lib/operationsKitchenV2Presentation";
 import { buildOperationsOrderPresentation } from "@/lib/operationsOrderPresentation";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
+import { OperationsKitchenAddonGroups } from "./OperationsKitchenAddonGroups";
+import { OperationsKitchenV2Card } from "./OperationsKitchenV2Card";
+import { OperationsKitchenWarnings } from "./OperationsKitchenWarnings";
 import { OperationsOrderItemSummary } from "./OperationsOrderItemSummary";
 import { OperationsPricingSummary } from "./OperationsPricingSummary";
 import { OperationsSelectionGroups } from "./OperationsSelectionGroups";
@@ -38,18 +41,6 @@ type DetailRow = {
   important?: boolean;
 };
 
-type RecordValue = Record<string, unknown>;
-
-function asRecord(value: unknown): RecordValue | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordValue)
-    : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
 function hasValue(value: unknown): boolean {
   if (value === null || value === undefined || value === "") return false;
   if (Array.isArray(value)) return value.length > 0;
@@ -62,26 +53,11 @@ function text(value: unknown, fallback = ""): string {
   if (typeof value === "number") return String(value);
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map((entry) => text(entry)).filter(Boolean).join("، ");
+  return fallback;
+}
 
-  const record = asRecord(value);
-  if (!record) return fallback;
-
-  const name = asRecord(record.name);
-  const display = asRecord(record.display);
-  return text(
-    record.displayName ||
-      record.ar ||
-      record.en ||
-      name?.ar ||
-      name?.en ||
-      display?.ar ||
-      display?.en ||
-      record.label ||
-      record.title ||
-      record.key ||
-      record.id,
-    fallback
-  );
+function customerName(item: UnifiedQueueItem) {
+  return item.customer?.name || item.customer?.phone || "عميل";
 }
 
 function sourceLabel(item: UnifiedQueueItem) {
@@ -94,24 +70,27 @@ function modeLabel(mode: string) {
   return mode === "delivery" ? "توصيل" : "استلام";
 }
 
-function getRawRecord(item: UnifiedQueueItem) {
-  return asRecord(item.rawData);
+function pickupInfo(item: UnifiedQueueItem) {
+  const pickup = item.fulfillment?.pickup || item.pickup || {};
+  const branch =
+    typeof pickup.branchName === "string"
+      ? pickup.branchName
+      : pickup.branchName?.ar || pickup.branchName?.en || pickup.branchId || pickup.locationId || "-";
+  return {
+    branch,
+    window: pickup.pickupWindow || item.fulfillment?.deliverySlot || "-",
+    code: pickup.pickupCode,
+    codeState: pickup.pickupCodeState,
+  };
 }
 
-function getOrderSummary(item: UnifiedQueueItem) {
-  return asRecord(getRawRecord(item)?.orderSummary) || item.orderSummary;
-}
-
-function getKitchen(item: UnifiedQueueItem) {
-  return asRecord(getRawRecord(item)?.kitchen) || item.kitchen;
-}
-
-function getFulfillment(item: UnifiedQueueItem) {
-  return asRecord(getRawRecord(item)?.fulfillment) || item.fulfillment;
-}
-
-function getPayment(item: UnifiedQueueItem) {
-  return asRecord(getRawRecord(item)?.payment) || item.payment || item.paymentValidity;
+function deliveryInfo(item: UnifiedQueueItem) {
+  const delivery = item.fulfillment?.delivery;
+  return {
+    address: delivery?.addressSummary || "-",
+    window: delivery?.window || delivery?.deliveryWindow || item.fulfillment?.deliverySlot || "-",
+    status: delivery?.status,
+  };
 }
 
 function Section({
@@ -153,184 +132,12 @@ function DetailGrid({ rows }: { rows: DetailRow[] }) {
           }`}
         >
           <p className="text-xs font-medium text-muted-foreground">{row.label}</p>
-          <p
-            className="mt-1 break-words text-sm font-semibold text-foreground"
-            dir={row.ltr ? "ltr" : "rtl"}
-          >
+          <p className="mt-1 break-words text-sm font-semibold" dir={row.ltr ? "ltr" : "rtl"}>
             {text(row.value)}
           </p>
         </div>
       ))}
     </div>
-  );
-}
-
-function getMealTitle(meal: RecordValue, index: number) {
-  const product = asRecord(meal.product);
-  const display = asRecord(meal.display);
-  return text(
-    display?.titleAr ||
-      meal.productName ||
-      meal.name ||
-      product?.displayName ||
-      product?.name ||
-      meal.mealTypeLabel ||
-      meal.mealType,
-    `وجبة ${index + 1}`
-  );
-}
-
-function MealCard({ meal, index }: { meal: unknown; index: number }) {
-  const record = asRecord(meal) || {};
-  const protein = asRecord(record.protein);
-  const premium = asRecord(record.premium);
-  const carbs = asArray(record.carbs || record.carbSelections);
-  const sauces = asArray(record.sauce || record.sauces);
-  const sides = asArray(record.sides);
-  const options = asArray(record.options || record.selectedOptions);
-  const display = asRecord(record.display);
-
-  return (
-    <div className="rounded-xl border border-border/60 bg-card/70 p-3">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-semibold">{getMealTitle(record, index)}</p>
-          {display?.subtitleAr || record.selectionType || record.mealType ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {text(display?.subtitleAr || record.selectionType || record.mealType)}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge variant="secondary" className="rounded-md">
-            ×{text(record.quantity || 1)}
-          </Badge>
-          {premium?.isPremium || record.isPremium ? (
-            <Badge className="rounded-md bg-amber-500 text-white">
-              {text(premium?.labelAr, "Premium")}
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-
-      {display?.preparationTextAr ? (
-        <p className="mb-3 rounded-lg bg-primary/5 px-3 py-2 text-sm font-medium text-primary">
-          {text(display.preparationTextAr)}
-        </p>
-      ) : null}
-
-      <DetailGrid
-        rows={[
-          { label: "البروتين", value: protein?.displayName || protein?.name || record.proteinName },
-          { label: "جرامات البروتين", value: protein?.grams || record.proteinGrams },
-          { label: "الكارب", value: carbs.map((entry) => text(entry)).filter(Boolean).join("، ") },
-          { label: "السلطة", value: record.salad || record.customSalad },
-          { label: "الصوص", value: sauces.map((entry) => text(entry)).filter(Boolean).join("، ") },
-          { label: "الجوانب", value: sides.map((entry) => text(entry)).filter(Boolean).join("، ") },
-          { label: "الاختيارات", value: options.map((entry) => text(entry)).filter(Boolean).join("، ") },
-          { label: "ملاحظات", value: record.notes },
-        ]}
-      />
-    </div>
-  );
-}
-
-function KitchenSection({ item }: { item: UnifiedQueueItem }) {
-  const kitchen = getKitchen(item);
-  const meals = asArray(asRecord(kitchen)?.meals).length
-    ? asArray(asRecord(kitchen)?.meals)
-    : item.kitchenDetails?.mealSlots?.length
-      ? item.kitchenDetails.mealSlots
-      : item.materializedMeals?.length
-        ? item.materializedMeals
-        : item.mealSlots || [];
-  const addons = asArray(asRecord(kitchen)?.addons).length
-    ? asArray(asRecord(kitchen)?.addons)
-    : item.kitchenDetails?.addons?.length
-      ? item.kitchenDetails.addons
-      : item.addonSelections || [];
-
-  return (
-    <div className="space-y-4">
-      {meals.length ? (
-        <div className="space-y-3">
-          {meals.map((meal, index) => (
-            <MealCard key={index} meal={meal} index={index} />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-          لا توجد تفاصيل وجبات محددة. اتبع ملاحظات الطلب أو اختيار الشيف إن وجدت.
-        </div>
-      )}
-
-      {addons.length ? (
-        <div className="rounded-xl border bg-muted/20 p-3">
-          <p className="mb-2 text-xs font-bold text-muted-foreground">الإضافات</p>
-          <div className="flex flex-wrap gap-2">
-            {addons.map((addon, index) => (
-              <Badge key={index} variant="secondary" className="rounded-md">
-                {text(addon, `إضافة ${index + 1}`)}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function PaymentNotice({ item }: { item: UnifiedQueueItem }) {
-  const payment = getPayment(item);
-  const record = asRecord(payment);
-  const hasWarning =
-    record?.pendingUnpaid ||
-    record?.superseded ||
-    record?.revisionMismatch ||
-    item.paymentValidity?.pendingUnpaid ||
-    item.paymentValidity?.superseded ||
-    item.paymentValidity?.revisionMismatch;
-
-  if (!hasWarning && !record?.paymentRequired && !item.paymentValidity?.paymentRequired) {
-    return null;
-  }
-
-  return (
-    <Section title="الدفع" icon={<CreditCard className="h-4 w-4" />}>
-      {hasWarning ? (
-        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-          يوجد مانع دفع أو مراجعة. تحقق قبل تنفيذ الإجراء.
-        </div>
-      ) : null}
-      <DetailGrid
-        rows={[
-          { label: "حالة الدفع", value: record?.paymentStatus || item.paymentStatus || item.paymentValidity?.paymentStatus },
-          { label: "الدفع مطلوب", value: record?.paymentRequired ?? item.paymentValidity?.paymentRequired },
-          { label: "سبب المنع", value: record?.reason || item.paymentValidity?.reason },
-        ]}
-      />
-    </Section>
-  );
-}
-
-function DataQualitySection({ item }: { item: UnifiedQueueItem }) {
-  const warnings = item.dataQuality?.warnings || [];
-  if (!warnings.length && item.dataQuality?.isComplete !== false) return null;
-
-  return (
-    <Section title="تنبيهات مهمة" icon={<AlertTriangle className="h-4 w-4" />}>
-      <div className="space-y-2">
-        {warnings.length ? (
-          warnings.map((warning, index) => (
-            <div key={`${warning.code}-${index}`} className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-300">
-              {warning.messageAr || warning.messageEn || warning.code}
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-muted-foreground">بعض بيانات الطلب غير مكتملة.</p>
-        )}
-      </div>
-    </Section>
   );
 }
 
@@ -342,101 +149,66 @@ function ActionsSummary({ item }: { item: UnifiedQueueItem }) {
   return (
     <div className="flex flex-wrap gap-2">
       {item.allowedActions.map((action) => (
-        <Badge key={action.id} variant="outline" className="rounded-md">
+        <Badge key={action.id} variant={action.disabled ? "outline" : "secondary"} className="rounded-md">
           {action.label}
+          {action.disabled ? " - غير متاح" : ""}
         </Badge>
       ))}
     </div>
   );
 }
 
-function OneTimeOrderDetailsContent({ item }: { item: UnifiedQueueItem }) {
+function KitchenDetails({ item }: { item: UnifiedQueueItem }) {
+  const kitchen = buildKitchenV2Presentation(item);
+
+  if (!kitchen.supported) {
+    return (
+      <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>{kitchen.unsupportedMessage}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <DetailGrid
+        rows={[
+          { label: "عدد الوجبات", value: kitchen.mealCount, important: true },
+          { label: "عدد الكروت", value: kitchen.cardCount },
+          { label: "الإضافات", value: kitchen.addonItemCount },
+        ]}
+      />
+      {kitchen.cards.map((card) => (
+        <OperationsKitchenV2Card key={card.key} card={card} />
+      ))}
+      <OperationsKitchenAddonGroups groups={kitchen.addonGroups} />
+      <OperationsKitchenWarnings warnings={kitchen.warningMessages} />
+    </div>
+  );
+}
+
+function OrderItemDetails({ item }: { item: UnifiedQueueItem }) {
+  if (!isOneTimeOrder(item)) return null;
   const presentation = buildOperationsOrderPresentation(item);
 
   return (
-    <>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Section title="العميل والطلب" icon={<User className="h-4 w-4" />}>
-          <DetailGrid
-            rows={[
-              { label: "الاسم", value: presentation.customerName, important: true },
-              { label: "الهاتف", value: presentation.customerPhone, ltr: true, important: true },
-              { label: "المرجع", value: presentation.reference, ltr: true },
-              { label: "الحالة", value: presentation.statusLabel },
-              { label: "نوع الطلب", value: presentation.sourceLabel },
-              { label: "طريقة الاستلام", value: presentation.modeLabel },
-            ]}
-          />
-        </Section>
-
-        <Section title="الدفع والتسعير" icon={<CreditCard className="h-4 w-4" />}>
-          <DetailGrid
-            rows={[
-              { label: "حالة الدفع", value: presentation.paymentLabel, important: true },
-              { label: "الإجمالي", value: presentation.totalLabel, important: true },
-            ]}
-          />
-          <div className="mt-3">
-            <OperationsPricingSummary pricing={presentation.pricing} />
+    <Section title="تفاصيل عناصر الطلب" icon={<PackageCheck className="h-4 w-4" />}>
+      <div className="space-y-4">
+        {presentation.items.map((orderItem) => (
+          <div key={orderItem.key} className="space-y-3">
+            <OperationsOrderItemSummary item={orderItem} showPaidSelections={false} />
+            <OperationsSelectionGroups groups={orderItem.selectionGroups} />
           </div>
-        </Section>
+        ))}
+        {!presentation.items.length ? (
+          <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+            لا توجد أصناف واضحة في الطلب الحالي.
+          </p>
+        ) : null}
+        <OperationsPricingSummary pricing={presentation.pricing} />
       </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="space-y-4">
-          <Section
-            title={item.mode === "delivery" ? "التوصيل" : "الاستلام"}
-            icon={item.mode === "delivery" ? <Truck className="h-4 w-4" /> : <Store className="h-4 w-4" />}
-          >
-            <DetailGrid
-              rows={[
-                {
-                  label: item.mode === "delivery" ? "العنوان" : "الفرع",
-                  value: presentation.fulfillment.destination,
-                  important: true,
-                },
-                { label: "النافذة", value: presentation.fulfillment.window, important: true },
-              ]}
-            />
-          </Section>
-
-          <Section title="ملاحظات وحساسية" icon={<AlertTriangle className="h-4 w-4" />}>
-            <DetailGrid
-              rows={[
-                { label: "ملاحظات", value: presentation.fulfillment.notes },
-                { label: "حساسية", value: presentation.fulfillment.allergies },
-              ]}
-            />
-          </Section>
-
-          <Section title="الحالة والإجراءات" icon={<CheckCircle2 className="h-4 w-4" />}>
-            <DetailGrid rows={[{ label: "الحالة الحالية", value: presentation.statusLabel }]} />
-            <div className="mt-3">
-              <ActionsSummary item={item} />
-            </div>
-          </Section>
-        </div>
-
-        <Section title="الأصناف ومكونات التحضير" icon={<Utensils className="h-4 w-4" />}>
-          <div className="space-y-4">
-            {presentation.items.map((orderItem) => (
-              <div key={orderItem.key} className="space-y-3">
-                <OperationsOrderItemSummary
-                  item={orderItem}
-                  showPaidSelections={false}
-                />
-                <OperationsSelectionGroups groups={orderItem.selectionGroups} />
-              </div>
-            ))}
-            {!presentation.items.length ? (
-              <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-                لا توجد أصناف واضحة في الطلب الحالي.
-              </p>
-            ) : null}
-          </div>
-        </Section>
-      </div>
-    </>
+    </Section>
   );
 }
 
@@ -447,17 +219,9 @@ export function OperationsOrderDetailsDialog({
 }: OperationsOrderDetailsDialogProps) {
   if (!item) return null;
 
-  const orderSummary = getOrderSummary(item);
-  const fulfillment = getFulfillment(item);
-  const delivery = asRecord(asRecord(fulfillment)?.delivery);
-  const pickup = asRecord(asRecord(fulfillment)?.pickup);
-  const address = item.context.addressSummary || item.delivery?.addressSummary;
-  const window = item.context.window || delivery?.window || item.delivery?.window || item.delivery?.deliveryWindow;
-  const notes = asRecord(orderSummary)?.notes || item.notes || item.context.notes;
-  const allergies = asRecord(orderSummary)?.allergies;
-  const oneTimePresentation = isOneTimeOrder(item)
-    ? buildOperationsOrderPresentation(item)
-    : null;
+  const orderPresentation = buildOperationsOrderPresentation(item);
+  const pickup = pickupInfo(item);
+  const delivery = deliveryInfo(item);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -469,82 +233,95 @@ export function OperationsOrderDetailsDialog({
           <DialogHeader className="gap-2 pl-10 text-right">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="rounded-md">
-                {oneTimePresentation?.sourceLabel || sourceLabel(item)}
+                {sourceLabel(item)}
               </Badge>
               <Badge variant="outline" className="rounded-md">
-                {oneTimePresentation?.modeLabel || modeLabel(item.mode)}
+                {modeLabel(item.mode)}
               </Badge>
-              <Badge className="rounded-md">
-                {oneTimePresentation?.statusLabel || item.statusLabel || item.status}
-              </Badge>
+              <Badge className="rounded-md">{item.statusLabel || item.status}</Badge>
             </div>
-            <DialogTitle className="text-xl font-bold">تفاصيل الطلب</DialogTitle>
+            <DialogTitle className="text-xl font-bold">تفاصيل العملية</DialogTitle>
             <DialogDescription className="text-right break-words">
-              عرض مختصر للبيانات المهمة للتجهيز والتوصيل فقط.
+              بيانات التحضير تأتي من Kitchen v2، وتفاصيل عناصر الطلب منفصلة للتسعير فقط.
             </DialogDescription>
           </DialogHeader>
         </div>
 
         <div className="custom-scrollbar min-h-0 overflow-y-auto px-5 py-4 sm:px-6">
-          {isOneTimeOrder(item) ? (
-            <OneTimeOrderDetailsContent item={item} />
-          ) : (
-            <>
           <div className="grid gap-4 xl:grid-cols-2">
-            <Section title="العميل" icon={<User className="h-4 w-4" />}>
+            <Section title="العميل وهوية العملية" icon={<User className="h-4 w-4" />}>
               <DetailGrid
                 rows={[
-                  { label: "الاسم", value: item.customer?.name, important: true },
+                  { label: "الاسم", value: customerName(item), important: true },
                   { label: "الهاتف", value: item.customer?.phone, ltr: true, important: true },
-                  { label: "المرجع", value: item.reference || item.orderNumber, ltr: true },
-                  { label: "عدد الوجبات", value: asRecord(orderSummary)?.mealCount ?? item.context?.mealCount },
-                  { label: "ملاحظات", value: notes },
-                  { label: "حساسية", value: allergies },
+                  { label: "المرجع", value: item.reference, ltr: true },
+                  { label: "رقم الطلب", value: item.orderNumber, ltr: true },
+                  { label: "الحالة", value: item.statusLabel || item.status },
+                  { label: "المصدر", value: sourceLabel(item) },
                 ]}
               />
             </Section>
 
-            <Section title="الموعد والمسار" icon={<CalendarDays className="h-4 w-4" />}>
+            <Section
+              title={item.mode === "delivery" ? "التوصيل" : "الاستلام"}
+              icon={item.mode === "delivery" ? <Truck className="h-4 w-4" /> : <Store className="h-4 w-4" />}
+            >
               <DetailGrid
-                rows={[
-                  { label: "التاريخ", value: item.context?.date || item.delivery?.date, important: true },
-                  { label: "الوقت", value: window, important: true },
-                  { label: "نوع التنفيذ", value: item.fulfillmentType || asRecord(fulfillment)?.type },
-                  { label: "الخطة", value: item.plan?.name || item.plan?.key },
-                  { label: "المتبقي", value: item.plan?.remainingMeals ?? item.pickup?.remainingMeals },
-                ]}
+                rows={
+                  item.mode === "delivery" && item.source === "subscription"
+                    ? [
+                        { label: "العنوان", value: delivery.address, important: true },
+                        { label: "النافذة", value: delivery.window, important: true },
+                        { label: "حالة التوصيل", value: delivery.status },
+                      ]
+                    : [
+                        { label: "الفرع", value: pickup.branch, important: true },
+                        { label: "نافذة الاستلام", value: pickup.window, important: true },
+                        { label: "كود الاستلام", value: pickup.code, ltr: true },
+                        { label: "حالة الكود", value: pickup.codeState },
+                      ]
+                }
               />
             </Section>
           </div>
 
           <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-            <Section title="تجهيز المطبخ" icon={<Utensils className="h-4 w-4" />}>
-              <KitchenSection item={item} />
+            <Section title="كروت المطبخ" icon={<Utensils className="h-4 w-4" />}>
+              <KitchenDetails item={item} />
             </Section>
 
             <div className="space-y-4">
-              <Section
-                title={item.mode === "delivery" ? "التوصيل" : "الاستلام"}
-                icon={item.mode === "delivery" ? <Truck className="h-4 w-4" /> : <Store className="h-4 w-4" />}
-              >
+              <Section title="التحذيرات" icon={<AlertTriangle className="h-4 w-4" />}>
                 <DetailGrid
                   rows={[
-                    { label: "العنوان", value: item.mode === "delivery" ? address : null, important: true },
-                    { label: "ملاحظات العنوان", value: item.mode === "delivery" ? item.context?.addressNotes : null },
-                    { label: "الفرع", value: pickup?.branchId || item.pickup?.branchId || item.context?.branch },
-                    { label: "كود الاستلام", value: item.context?.pickupCode || item.pickup?.pickupCode, ltr: true },
-                    { label: "حالة التوصيل", value: delivery?.status || item.delivery?.status },
+                    { label: "ملاحظات", value: item.orderSummary?.notes || item.fulfillment?.notes },
+                    { label: "حساسية", value: item.orderSummary?.allergies || item.fulfillment?.allergies },
                   ]}
                 />
               </Section>
 
-              <Section title="الإجراءات المتاحة" icon={<CheckCircle2 className="h-4 w-4" />}>
-                <ActionsSummary item={item} />
+              <Section title="الحالة والإجراءات" icon={<CheckCircle2 className="h-4 w-4" />}>
+                <DetailGrid rows={[{ label: "الحالة الحالية", value: item.statusLabel || item.status }]} />
+                <div className="mt-3">
+                  <ActionsSummary item={item} />
+                </div>
               </Section>
 
-              <PaymentNotice item={item} />
-              <DataQualitySection item={item} />
+              {isOneTimeOrder(item) ? (
+                <Section title="الدفع والتسعير" icon={<CreditCard className="h-4 w-4" />}>
+                  <DetailGrid
+                    rows={[
+                      { label: "حالة الدفع", value: orderPresentation.paymentLabel, important: true },
+                      { label: "الإجمالي", value: orderPresentation.totalLabel, important: true },
+                    ]}
+                  />
+                </Section>
+              ) : null}
             </div>
+          </div>
+
+          <div className="mt-4">
+            <OrderItemDetails item={item} />
           </div>
 
           <div className="mt-4 rounded-2xl border bg-muted/20 p-4 text-xs leading-6 text-muted-foreground">
@@ -552,12 +329,8 @@ export function OperationsOrderDetailsDialog({
               <PackageCheck className="h-4 w-4 text-primary" />
               ملاحظة تشغيلية
             </div>
-            يتم إخفاء الحقول الفارغة والبيانات الخام تلقائياً. الإجراءات نفسها تظل من الباكند فقط حسب allowedActions.
+            كروت المطبخ من item.kitchen.cards فقط، والإضافات من item.kitchen.addonGroups فقط.
           </div>
-            </>
-          )}
-
-          <div className="h-2" />
         </div>
       </DialogContent>
     </Dialog>

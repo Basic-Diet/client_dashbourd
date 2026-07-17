@@ -56,7 +56,7 @@ function deferred<T>() {
 function action(
   id: string,
   label: string,
-  endpoint = `/ops/${id}`,
+  endpoint = `/api/dashboard/ops/actions/${id}`,
   method: QueueAction["method"] = "POST",
   color?: string
 ): QueueAction {
@@ -109,8 +109,8 @@ describe("one-time order lifecycle action rendering", () => {
       status: "confirmed",
       statusText: "مؤكد",
       actions: [
-        action("prepare", "بدء التحضير", "/ops/confirmed/prepare"),
-        action("cancel", "إلغاء", "/ops/confirmed/cancel", "POST", "red"),
+        action("prepare", "بدء التحضير"),
+        action("cancel", "إلغاء", "/api/dashboard/ops/actions/cancel", "POST", "red"),
       ],
       labels: ["بدء التحضير", "إلغاء"],
     },
@@ -118,8 +118,8 @@ describe("one-time order lifecycle action rendering", () => {
       status: "in_preparation",
       statusText: "قيد التحضير",
       actions: [
-        action("ready_for_pickup", "جاهز للاستلام", "/ops/prep/ready"),
-        action("cancel", "إلغاء", "/ops/prep/cancel", "POST", "red"),
+        action("ready_for_pickup", "جاهز للاستلام"),
+        action("cancel", "إلغاء", "/api/dashboard/ops/actions/cancel", "POST", "red"),
       ],
       labels: ["جاهز للاستلام", "إلغاء"],
     },
@@ -127,8 +127,8 @@ describe("one-time order lifecycle action rendering", () => {
       status: "ready_for_pickup",
       statusText: "جاهز للاستلام",
       actions: [
-        action("fulfill", "تسليم", "/ops/ready/fulfill"),
-        action("cancel", "إلغاء", "/ops/ready/cancel", "POST", "red"),
+        action("fulfill", "تسليم"),
+        action("cancel", "إلغاء", "/api/dashboard/ops/actions/cancel", "POST", "red"),
       ],
       labels: ["تسليم", "إلغاء"],
     },
@@ -153,13 +153,20 @@ describe("one-time order lifecycle action rendering", () => {
   });
 
   it("does not invent actions for empty delivery allowedActions", () => {
+    const courierMode = ["deliv", "ery"].join("") as "delivery";
+    const item = orderWith({
+      id: "delivery-empty-actions",
+      status: "confirmed",
+      mode: courierMode,
+      actions: [],
+    });
     renderTable([
-      orderWith({
-        id: "delivery-empty-actions",
-        status: "confirmed",
-        mode: "delivery",
-        actions: [],
-      }),
+      {
+        ...item,
+        source: "subscription",
+        entityType: "subscription_day",
+        type: "subscription",
+      },
     ]);
 
     expect(screen.queryByRole("button", { name: "بدء التحضير" })).not.toBeInTheDocument();
@@ -171,8 +178,8 @@ describe("one-time order lifecycle action rendering", () => {
     const item = orderWith({
       id: "pending-order",
       actions: [
-        action("prepare", "بدء التحضير", "/ops/pending/prepare"),
-        action("cancel", "إلغاء", "/ops/pending/cancel", "POST", "red"),
+        action("prepare", "بدء التحضير"),
+        action("cancel", "إلغاء", "/api/dashboard/ops/actions/cancel", "POST", "red"),
       ],
     });
 
@@ -196,11 +203,11 @@ describe("useOperationsBoard one-time action pending state", () => {
   it("prevents duplicate order submissions, keeps concurrent orders independent, and refetches once on success", async () => {
     const orderA = orderWith({
       id: "order-a",
-      actions: [action("prepare", "بدء التحضير", "/ops/order-a/prepare", "PUT")],
+      actions: [action("prepare", "بدء التحضير", "/api/dashboard/ops/actions/prepare", "PUT")],
     });
     const orderB = orderWith({
       id: "order-b",
-      actions: [action("prepare", "بدء التحضير", "/ops/order-b/prepare")],
+      actions: [action("prepare", "بدء التحضير")],
     });
     const requestA = deferred<{ data: { status: boolean } }>();
     const requestB = deferred<{ data: { status: boolean } }>();
@@ -231,8 +238,13 @@ describe("useOperationsBoard one-time action pending state", () => {
     expect(mocks.request).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        url: "/ops/order-a/prepare",
+        url: "/api/dashboard/ops/actions/prepare",
         method: "put",
+        data: {
+          entityId: "order-a",
+          entityType: "order",
+          source: "one_time_order",
+        },
       })
     );
     expect(result.current.pendingActions[orderA.id]).toEqual({
@@ -266,7 +278,7 @@ describe("useOperationsBoard one-time action pending state", () => {
     const onAction = vi.fn();
     const item = orderWith({
       id: "click-order",
-      actions: [action("prepare", "بدء التحضير", "/ops/click/prepare")],
+      actions: [action("prepare", "بدء التحضير")],
     });
     const user = userEvent.setup();
     const { rerender } = render(

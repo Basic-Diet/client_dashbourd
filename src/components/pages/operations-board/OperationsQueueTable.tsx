@@ -1,20 +1,11 @@
 import {
-  AlertTriangle,
-  Bell,
   CheckCircle2,
   ChefHat,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
   Clock,
   Eye,
-  Flame,
   MapPin,
-  PackageCheck,
   PackageOpen,
   Phone,
-  RotateCcw,
   Search,
   Store,
   Truck,
@@ -26,26 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { PendingOperationsActions } from "@/hooks/useOperationsBoard";
-import { safeText } from "@/lib/operationsBoard";
-import {
-  buildOperationsOrderPresentation,
-  formatOperationsSar,
-} from "@/lib/operationsOrderPresentation";
+import { buildKitchenV2Presentation } from "@/lib/operationsKitchenV2Presentation";
+import { buildOperationsOrderPresentation } from "@/lib/operationsOrderPresentation";
 import type { QueueAction, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { isOneTimeOrder, isPickupRequest } from "@/types/dashboardOpsTypes";
-import { OperationsOrderItemSummary } from "./OperationsOrderItemSummary";
+import { OperationsKitchenV2Summary } from "./OperationsKitchenV2Summary";
 import { OperationsOrderDetailsDialog } from "./OperationsOrderDetailsDialog";
-import { OperationsSelectionGroups } from "./OperationsSelectionGroups";
 
 interface OperationsQueueTableProps {
   items: UnifiedQueueItem[];
@@ -68,129 +46,32 @@ type VisibleAction = QueueAction & {
   requiresReason: boolean;
 };
 
-type RawRecord = Record<string, unknown>;
-
-type PrepLine = {
-  id: string;
-  name: string;
-  quantity: number;
-  detailParts: string[];
-  badges: string[];
-  notes?: string | null;
-  kind: "meal" | "addon" | "item" | "summary";
-};
-
-type OrderDetails = {
-  meals: PrepLine[];
-  addons: PrepLine[];
-};
-
-type OrderStats = {
-  requiredMealCount: number;
-  specifiedMealCount: number;
-  unspecifiedMealCount: number;
-  addonCount: number;
-};
-
-const PAGE_SIZE_OPTIONS = [9, 18, 36, 72];
-
 const actionIcons: Record<string, ReactNode> = {
-  start_preparation: <ChefHat className="ml-1.5 h-3.5 w-3.5" />,
   prepare: <ChefHat className="ml-1.5 h-3.5 w-3.5" />,
-  ready_for_pickup: <PackageCheck className="ml-1.5 h-3.5 w-3.5" />,
+  start_preparation: <ChefHat className="ml-1.5 h-3.5 w-3.5" />,
+  ready_for_pickup: <CheckCircle2 className="ml-1.5 h-3.5 w-3.5" />,
   dispatch: <Truck className="ml-1.5 h-3.5 w-3.5" />,
-  notify_arrival: <Bell className="ml-1.5 h-3.5 w-3.5" />,
   fulfill: <CheckCircle2 className="ml-1.5 h-3.5 w-3.5" />,
   cancel: <XCircle className="ml-1.5 h-3.5 w-3.5" />,
-  no_show: <XCircle className="ml-1.5 h-3.5 w-3.5" />,
-  reopen: <RotateCcw className="ml-1.5 h-3.5 w-3.5" />,
 };
 
-function asRecord(value: unknown): RawRecord | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RawRecord)
-    : null;
-}
+const badgeClasses: Record<string, string> = {
+  green: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  emerald: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  blue: "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+  yellow: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  orange: "border-orange-500/20 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+  red: "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300",
+  gray: "border-muted bg-muted/40 text-muted-foreground",
+};
 
-function asString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function compactParts(parts: Array<string | null | undefined>) {
-  return parts.filter((part): part is string => Boolean(part && part.trim()));
-}
-
-function uniqueParts(parts: Array<string | null | undefined>) {
-  return Array.from(new Set(compactParts(parts)));
-}
-
-function localizedText(value: unknown): string | null {
-  if (typeof value === "string") return value.trim() || null;
-  if (typeof value === "number") return String(value);
-
-  const record = asRecord(value);
-  if (!record) return null;
-
-  return (
-    asString(record.ar) ||
-    asString(record.en) ||
-    asString(record.displayName) ||
-    asString(record.titleAr) ||
-    asString(record.name) ||
-    localizedText(record.nameI18n) ||
-    localizedText(record.name) ||
-    null
-  );
-}
-
-function recordText(record: RawRecord | null, keys: string[]): string | null {
-  if (!record) return null;
-
-  for (const key of keys) {
-    const direct = asString(record[key]);
-    if (direct) return direct;
-
-    const localized = localizedText(record[key]);
-    if (localized) return localized;
-  }
-
-  return null;
-}
-
-function entityName(value: unknown) {
-  return localizedText(value) || safeText(value, "");
-}
-
-function getStatusClasses(status: string) {
-  if (["fulfilled", "ready_for_pickup", "ready"].includes(status)) {
-    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  }
-
-  if (["in_preparation", "preparing"].includes(status)) {
-    return "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300";
-  }
-
-  if (["out_for_delivery"].includes(status)) {
-    return "border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300";
-  }
-
-  if (
-    ["canceled", "cancelled", "delivery_canceled", "canceled_at_branch", "no_show"].includes(
-      status
-    )
-  ) {
-    return "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300";
-  }
-
-  return "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+function getStatusClasses(item: UnifiedQueueItem) {
+  const badge = item.ui?.badge || item.ui?.color || "";
+  if (badgeClasses[badge]) return badgeClasses[badge];
+  if (["fulfilled", "ready_for_pickup"].includes(item.status)) return badgeClasses.green;
+  if (["in_preparation", "preparing"].includes(item.status)) return badgeClasses.blue;
+  if (["canceled", "cancelled", "no_show"].includes(item.status)) return badgeClasses.red;
+  return badgeClasses.yellow;
 }
 
 function getActionVariant(color: string): ButtonVariant {
@@ -209,333 +90,47 @@ function getModeLabel(mode: string) {
   return mode === "delivery" ? "توصيل" : "استلام";
 }
 
-function getDisplayName(value: unknown) {
-  return safeText(value, "عنصر");
+function getCustomerName(item: UnifiedQueueItem) {
+  return item.customer?.name || item.customer?.phone || "عميل";
 }
 
-function getDisplayQuantity(entry: unknown) {
-  if (!entry || typeof entry !== "object") return 1;
-  const item = entry as { quantity?: number; qty?: number };
-  return Number(item.quantity || item.qty || 1);
-}
-
-function nameWithGrams(
-  record: RawRecord | null,
-  nameKeys: string[],
-  gramsKeys: string[] = ["grams"]
-) {
-  if (!record) return "";
-  const name = recordText(record, nameKeys);
-  const grams = gramsKeys.map((key) => asNumber(record[key])).find(Boolean);
-  return compactParts([name, grams ? `${grams}g` : null]).join(" ");
-}
-
-function collectionDetail(
-  value: unknown,
-  label: string,
-  nameKeys: string[] = ["nameI18n", "name", "displayName"],
-  gramsKeys: string[] = ["grams"]
-) {
-  const values = asArray(value)
-    .map((entry) => {
-      const record = asRecord(entry);
-      return record ? nameWithGrams(record, nameKeys, gramsKeys) : entityName(entry);
-    })
-    .filter(Boolean);
-
-  return values.length ? `${label}: ${values.join(" + ")}` : null;
-}
-
-function getNormalizedMealDetail(
-  meal: NonNullable<UnifiedQueueItem["kitchen"]>["meals"][number],
-  index: number
-): PrepLine {
-  const protein = meal.protein
-    ? nameWithGrams(asRecord(meal.protein), ["displayName", "name", "nameI18n"], ["grams"])
-    : null;
-  const carbs = asArray(meal.carbs)
-    .map((carb) => nameWithGrams(asRecord(carb), ["displayName", "name", "nameI18n"], ["grams"]))
-    .filter(Boolean)
-    .join(" + ");
-  const sauces = asArray(meal.sauce).map(entityName).filter(Boolean).join(" + ");
-  const sides = asArray(meal.sides).map(entityName).filter(Boolean).join(" + ");
-  const options = asArray(meal.options).map(entityName).filter(Boolean).join(" + ");
-
-  const title = safeText(
-    meal.display?.titleAr ||
-      meal.sandwich?.displayName ||
-      meal.product?.displayName ||
-      protein ||
-      meal.protein?.displayName,
-    `وجبة ${index + 1}`
-  );
-
+function getPickupInfo(item: UnifiedQueueItem) {
+  const pickup = item.fulfillment?.pickup || item.pickup || {};
+  const branch =
+    typeof pickup.branchName === "string"
+      ? pickup.branchName
+      : pickup.branchName?.ar || pickup.branchName?.en || pickup.branchId || pickup.locationId || "-";
   return {
-    id: String(meal.slotKey || meal.slotIndex || `meal-${index}`),
-    name: title,
-    quantity: Number(meal.quantity || 1),
-    detailParts: uniqueParts([
-      protein ? `بروتين: ${protein}` : null,
-      carbs ? `كارب: ${carbs}` : null,
-      meal.salad ? `سلطة: ${entityName(meal.salad)}` : null,
-      sauces ? `صوص: ${sauces}` : null,
-      sides ? `جانبي: ${sides}` : null,
-      options ? `اختيارات: ${options}` : null,
-    ]),
-    badges: uniqueParts([
-      `وجبة ${index + 1}`,
-      meal.mealTypeLabel?.ar,
-      meal.premium?.isPremium ? meal.premium.labelAr || "Premium" : null,
-      ...(meal.display?.badgesAr || []),
-    ]),
-    notes: meal.notes,
-    kind: "meal",
+    branch,
+    window: pickup.pickupWindow || item.fulfillment?.deliverySlot || "-",
+    code: pickup.pickupCode,
+    codeState: pickup.pickupCodeState,
   };
 }
 
-function getResponseMealDetail(slot: unknown, index: number): PrepLine {
-  const record = asRecord(slot) || {};
-  const protein = nameWithGrams(record, ["proteinNameI18n", "proteinName"], ["proteinGrams"]);
-  const title =
-    recordText(record, [
-      "productNameI18n",
-      "productName",
-      "sandwichNameI18n",
-      "sandwichName",
-      "mealNameI18n",
-      "mealName",
-    ]) ||
-    protein ||
-    `وجبة ${index + 1}`;
-  const selectionType = recordText(record, ["selectionTypeI18n", "selectionType"]);
-  const saladRecord = asRecord(record.salad);
-  const salad = saladRecord
-    ? nameWithGrams(saladRecord, ["nameI18n", "name", "displayName"], ["grams"])
-    : entityName(record.salad);
-
+function getDeliveryInfo(item: UnifiedQueueItem) {
+  const delivery = item.fulfillment?.delivery;
   return {
-    id: String(record.slotKey || record.slotIndex || `slot-${index}`),
-    name: title,
-    quantity: Number(record.quantity || 1),
-    detailParts: uniqueParts([
-      protein ? `بروتين: ${protein}` : null,
-      collectionDetail(record.carbSelections, "كارب"),
-      salad ? `سلطة: ${salad}` : null,
-      collectionDetail(record.sauce, "صوص"),
-      collectionDetail(record.selectedOptions, "اختيارات"),
-      collectionDetail(record.sides, "جانبي"),
-    ]),
-    badges: uniqueParts([
-      `وجبة ${record.slotIndex || index + 1}`,
-      selectionType,
-      record.isPremium ? "Premium" : null,
-    ]),
-    notes: asString(record.notes),
-    kind: "meal",
+    address: delivery?.addressSummary || "-",
+    window: delivery?.window || delivery?.deliveryWindow || item.fulfillment?.deliverySlot || "-",
   };
 }
 
-function getNormalizedAddonDetail(
-  addon: NonNullable<UnifiedQueueItem["kitchen"]>["addons"][number],
-  index: number
-): PrepLine {
+function normalizeAction(action: QueueAction): VisibleAction | null {
+  if (!action.id) return null;
   return {
-    id: String(addon.key || addon.displayName || `addon-${index}`),
-    name: safeText(addon.display?.titleAr || addon.displayName, "إضافة"),
-    quantity: Number(addon.quantity || 1),
-    detailParts: [],
-    badges: ["إضافة"],
-    kind: "addon",
+    ...action,
+    label: action.label || action.id,
+    color: action.color || "gray",
+    icon: action.icon || "",
+    requiresReason: Boolean(action.requiresReason),
   };
 }
 
-function getResponseAddonDetail(addon: unknown, index: number): PrepLine {
-  const record = asRecord(addon) || {};
-  const name =
-    recordText(record, ["nameI18n", "name", "displayName", "titleAr"]) || "إضافة";
-
-  return {
-    id: String(record.key || name || `addon-${index}`),
-    name,
-    quantity: Number(record.quantity || 1),
-    detailParts: [],
-    badges: ["إضافة"],
-    kind: "addon",
-  };
-}
-
-function mergeAddonLines(lines: PrepLine[]): PrepLine[] {
-  const byName = new Map<string, PrepLine>();
-
-  lines.forEach((line) => {
-    const existing = byName.get(line.name);
-    if (!existing) {
-      byName.set(line.name, { ...line });
-      return;
-    }
-
-    existing.quantity += line.quantity;
-    existing.badges = uniqueParts([...existing.badges, ...line.badges]);
-  });
-
-  return Array.from(byName.values());
-}
-
-function getOrderDetails(item: UnifiedQueueItem): OrderDetails {
-  const itemRecord = item as UnifiedQueueItem & RawRecord;
-  const kitchenDetails = asRecord(itemRecord.kitchenDetails);
-  const responseMeals = asArray(kitchenDetails?.mealSlots);
-  const responseAddons = asArray(kitchenDetails?.addons);
-  const normalizedMeals = item.kitchen?.meals || [];
-  const normalizedAddons = item.kitchen?.addons || [];
-
-  const meals = responseMeals.length
-    ? responseMeals.map(getResponseMealDetail)
-    : normalizedMeals.map(getNormalizedMealDetail);
-  const addons = responseAddons.length
-    ? mergeAddonLines(responseAddons.map(getResponseAddonDetail))
-    : normalizedAddons.map(getNormalizedAddonDetail);
-
-  if (!meals.length && Array.isArray(item.items) && item.items.length) {
-    return {
-      meals: item.items.map((entry, index) => ({
-        id: String(entry.id || getDisplayName(entry.name) || index),
-        name: getDisplayName(entry.name),
-        quantity: getDisplayQuantity(entry),
-        detailParts: compactParts([entry.notes]),
-        badges: ["طلب فردي"],
-        notes: entry.notes,
-        kind: "item",
-      })),
-      addons,
-    };
-  }
-
-  return { meals, addons };
-}
-
-function contextNumber(item: UnifiedQueueItem, key: string) {
-  return asNumber(asRecord(item.context)?.[key]);
-}
-
-function getOrderStats(item: UnifiedQueueItem, details: OrderDetails): OrderStats {
-  const itemRecord = item as UnifiedQueueItem & RawRecord;
-  const mealsQuantity = details.meals.reduce((total, line) => total + line.quantity, 0);
-  const requiredMealCount =
-    contextNumber(item, "requiredMealCount") ??
-    contextNumber(item, "mealCount") ??
-    asNumber(itemRecord.mealCount) ??
-    mealsQuantity;
-  const specifiedMealCount = contextNumber(item, "specifiedMealCount") ?? mealsQuantity;
-  const unspecifiedMealCount =
-    contextNumber(item, "unspecifiedMealCount") ??
-    Math.max(requiredMealCount - specifiedMealCount, 0);
-  const addonCount = details.addons.reduce((total, line) => total + line.quantity, 0);
-
-  return {
-    requiredMealCount,
-    specifiedMealCount,
-    unspecifiedMealCount,
-    addonCount,
-  };
-}
-
-function getFallbackMealLines(
-  item: UnifiedQueueItem,
-  details: OrderDetails,
-  stats: OrderStats
-): PrepLine[] {
-  if (details.meals.length) return details.meals;
-  if (!stats.requiredMealCount) return [];
-
-  return [
-    {
-      id: "required-meals",
-      name: `${stats.requiredMealCount} وجبات مطلوبة`,
-      quantity: stats.requiredMealCount,
-      detailParts: compactParts([
-        stats.unspecifiedMealCount > 0 ? "الوجبات غير محددة من العميل" : null,
-        item.plan?.proteinGrams ? `بروتين: ${item.plan.proteinGrams}g` : null,
-        item.plan?.portionSize ? `الحجم: ${item.plan.portionSize}` : null,
-      ]),
-      badges: ["غير محدد"],
-      kind: "summary",
-    },
-  ];
-}
-
-function getSelectionModeLabel(item: UnifiedQueueItem) {
-  const itemRecord = item as UnifiedQueueItem & RawRecord;
-  const kitchenDetails = asRecord(itemRecord.kitchenDetails);
-  const mode = asString(kitchenDetails?.selectionMode) || asString(itemRecord.selectionMode);
-
-  switch (mode) {
-    case "customer_selected":
-      return "اختيارات العميل";
-    case "quantity_only":
-      return "عدد فقط — الوجبات غير محددة";
-    case "none":
-      return "لا توجد اختيارات محددة";
-    default:
-      return mode ? safeText(mode, "") : null;
-  }
-}
-
-function getPlanLabel(item: UnifiedQueueItem) {
-  if (!item.plan) return null;
-  const days = item.plan.daysCount || item.plan.durationDays;
-  return days ? `اشتراك ${days} أيام` : item.plan.name || null;
-}
-
-function getSummaryChips(item: UnifiedQueueItem) {
-  return compactParts([
-    getPlanLabel(item),
-    item.plan?.selectedMealsPerDay ? `${item.plan.selectedMealsPerDay} وجبة/يوم` : null,
-    item.plan?.proteinGrams ? `${item.plan.proteinGrams}g بروتين` : null,
-    item.plan?.remainingMeals != null ? `متبقي ${item.plan.remainingMeals}` : null,
-  ]);
-}
-
-function getPaymentWarning(item: UnifiedQueueItem) {
-  const itemRecord = item as UnifiedQueueItem & RawRecord;
-  const payment = asRecord(itemRecord.payment) || asRecord(itemRecord.paymentValidity);
-  if (!payment) return null;
-
-  const reason = asString(payment.reason);
-  if (payment.pendingUnpaid) return "الدفع معلق — راجع دفع الإضافات قبل التحضير";
-  if (payment.revisionMismatch) return "يوجد اختلاف في مراجعة الدفع";
-  if (payment.superseded) return "الدفع مرتبط بإصدار أقدم من الطلب";
-  if (payment.paymentRequired && payment.paymentApplied === false) {
-    return reason === "ADDON_PAYMENT_REQUIRED"
-      ? "إضافات تحتاج تأكيد دفع قبل التحضير"
-      : "مطلوب تأكيد الدفع قبل الإجراء";
-  }
-
-  return reason || null;
-}
-
-function getFulfillmentMeta(item: UnifiedQueueItem) {
-  const time =
-    item.context?.window ||
-    item.delivery?.window ||
-    item.delivery?.deliveryWindow ||
-    null;
-  const location =
-    item.mode === "delivery"
-      ? item.context?.addressSummary || item.delivery?.addressSummary
-      : item.context?.branch || item.pickup?.branchId || item.pickup?.locationId;
-  const notes =
-    item.context?.addressNotes ||
-    item.context?.notes ||
-    item.notes ||
-    item.orderSummary?.notes ||
-    null;
-
-  return {
-    time: time ? safeText(time, "") : null,
-    location: location ? safeText(location, "") : null,
-    notes,
-  };
+function getVisibleActions(item: UnifiedQueueItem) {
+  return (item.allowedActions || [])
+    .map(normalizeAction)
+    .filter((action): action is VisibleAction => action !== null);
 }
 
 function isActionDisabled(
@@ -543,109 +138,28 @@ function isActionDisabled(
   action: VisibleAction,
   pendingActions?: PendingOperationsActions
 ) {
-  if (pendingActions?.[item.id]) return true;
-  if (action.disabled) return true;
-  if (isOneTimeOrder(item)) return false;
-
-  switch (action.id) {
-    case "prepare":
-    case "start_preparation":
-      return item.actions?.canPrepare === false;
-    case "ready_for_pickup":
-      return item.actions?.canReadyForPickup === false;
-    case "fulfill":
-      return item.actions?.canFulfill === false;
-    case "cancel":
-      return item.actions?.canCancel === false;
-    case "no_show":
-      return item.actions?.canNoShow === false;
-    case "reopen":
-      return item.actions?.canReopen === false;
-    default:
-      return false;
-  }
-}
-
-function disabledReason(action: QueueAction) {
-  return safeText(action.reasonLabel || action.reason || action.disabledReason, "");
-}
-
-function normalizeAction(action: QueueAction): VisibleAction | null {
-  const id = safeText(action.id, "").trim();
-  if (!id) return null;
-
-  return {
-    id,
-    label: safeText(action.label, id),
-    color: action.color || "gray",
-    icon: action.icon || "",
-    endpoint: action.endpoint,
-    method: action.method,
-    disabled: action.disabled,
-    disabledReason: action.disabledReason,
-    reason: action.reason,
-    reasonLabel: action.reasonLabel,
-    requiresReason: Boolean(action.requiresReason),
-  };
-}
-
-function actionLabelKey(action: VisibleAction) {
-  return safeText(action.label, action.id).trim().toLowerCase();
-}
-
-function appendUniqueAction(
-  target: VisibleAction[],
-  action: QueueAction,
-  seenIds: Set<string>,
-  seenLabels: Set<string>
-) {
-  const normalized = normalizeAction(action);
-  if (!normalized) return;
-
-  const labelKey = actionLabelKey(normalized);
-  if (seenIds.has(normalized.id) || (labelKey && seenLabels.has(labelKey))) {
-    return;
-  }
-
-  seenIds.add(normalized.id);
-  if (labelKey) seenLabels.add(labelKey);
-  target.push(normalized);
-}
-
-function getVisibleActions(item: UnifiedQueueItem) {
-  const result: VisibleAction[] = [];
-  const seenIds = new Set<string>();
-  const seenLabels = new Set<string>();
-
-  (item.allowedActions || []).forEach((action) =>
-    appendUniqueAction(result, action, seenIds, seenLabels)
-  );
-
-  return result;
+  return Boolean(pendingActions?.[item.id] || action.disabled);
 }
 
 function searchableText(item: UnifiedQueueItem) {
-  const presentation = buildOperationsOrderPresentation(item);
-  const details = getOrderDetails(item);
-  const prep = [...details.meals, ...details.addons]
-    .flatMap((line) => [line.name, line.notes, ...line.detailParts, ...line.badges])
-    .join(" ");
+  const kitchen = buildKitchenV2Presentation(item);
+  const order = buildOperationsOrderPresentation(item);
+  const pickup = getPickupInfo(item);
+  const delivery = getDeliveryInfo(item);
 
   return [
-    item.customer?.name,
+    getCustomerName(item),
     item.customer?.phone,
     item.reference,
+    item.orderNumber,
+    item.status,
     item.statusLabel,
-    item.ui?.label,
-    item.context?.window,
-    item.context?.addressSummary,
-    item.context?.branch,
-    item.plan?.name,
-    item.orderSummary?.display?.titleAr,
-    item.orderSummary?.display?.subtitleAr,
-    getSelectionModeLabel(item),
-    presentation.searchText,
-    prep,
+    pickup.branch,
+    pickup.window,
+    delivery.address,
+    delivery.window,
+    kitchen.searchText,
+    order.searchText,
   ]
     .filter(Boolean)
     .join(" ")
@@ -665,291 +179,83 @@ function ActionButtons({
   onFulfill?: OperationsQueueTableProps["onFulfill"];
   onDetails: (item: UnifiedQueueItem) => void;
 }) {
-  const visibleActions = getVisibleActions(item);
-  const pendingAction = pendingActions?.[item.id];
-  const presentation = isOneTimeOrder(item)
-    ? buildOperationsOrderPresentation(item)
-    : null;
-  const detailsLabel =
-    presentation && presentation.uniqueSelectionCount > 0
-      ? `عرض التفاصيل الكاملة (${presentation.uniqueSelectionCount} اختياراً)`
-      : "عرض التفاصيل الكاملة";
+  const actions = getVisibleActions(item);
+  const pending = pendingActions?.[item.id];
 
   return (
     <div className="flex flex-wrap gap-2">
-      {!visibleActions.length && isOneTimeOrder(item) ? (
-        <div className="min-h-9 rounded-lg bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground">
-          لا توجد إجراءات متاحة من النظام الآن
-        </div>
-      ) : null}
-      {visibleActions.map((action) => {
+      {actions.map((action) => {
         const disabled = isActionDisabled(item, action, pendingActions);
-        const isThisPending = pendingAction?.actionId === action.id;
+        const label =
+          pending?.actionId === action.id ? `جار ${pending.label}...` : action.label;
+        const handleClick = () => {
+          if (disabled) return;
+          if (action.id === "fulfill" && onFulfill) {
+            onFulfill(item);
+            return;
+          }
+          onAction(item, action.id, action.label, action.color === "red");
+        };
+
         return (
           <Button
             key={action.id}
-            variant={getActionVariant(action.color)}
             size="sm"
-            className="min-h-9 justify-center px-3 text-xs font-semibold"
+            variant={getActionVariant(action.color)}
             disabled={disabled}
-            title={disabled ? disabledReason(action) : undefined}
-            onClick={() => {
-              if (disabled) return;
-              if (
-                action.id === "fulfill" &&
-                item.mode === "pickup" &&
-                onFulfill
-              ) {
-                onFulfill(item);
-                return;
-              }
-
-              onAction(
-                item,
-                action.id,
-                action.label,
-                action.color === "red" || action.color === "danger"
-              );
-            }}
+            title={action.disabledReason || undefined}
+            onClick={handleClick}
           >
-            {actionIcons[action.id]}
-            {isThisPending && pendingAction
-              ? `جار ${pendingAction.label}...`
-              : action.label}
+            {actionIcons[action.id] ?? null}
+            {label}
           </Button>
         );
       })}
-      <Button
-        variant="outline"
-        size="sm"
-        className="min-h-9 justify-center px-3 text-xs font-semibold"
-        onClick={() => onDetails(item)}
-      >
+      <Button size="sm" variant="outline" onClick={() => onDetails(item)}>
         <Eye className="ml-1.5 h-3.5 w-3.5" />
-        {detailsLabel}
+        عرض التفاصيل الكاملة
       </Button>
-    </div>
-  );
-}
-
-function InfoPill({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <div className="flex min-h-8 items-center gap-1.5 rounded-lg bg-muted/45 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
-      {icon}
-      <span className="break-words">{label}</span>
-    </div>
-  );
-}
-
-function SummaryMetric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border bg-background/60 px-2.5 py-2 text-center">
-      <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-bold text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function MealCompactCard({ line }: { line: PrepLine }) {
-  const detailPreview = line.detailParts.slice(0, 3);
-
-  return (
-    <div className="rounded-xl border border-border/70 bg-background/70 p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-foreground">{line.name}</p>
-          {detailPreview.length ? (
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {detailPreview.join(" • ")}
-            </p>
-          ) : null}
-        </div>
-        <Badge variant="secondary" className="shrink-0 rounded-md text-[11px]">
-          ×{line.quantity}
-        </Badge>
-      </div>
-
-      {line.badges.length ? (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {Array.from(new Set(line.badges)).slice(0, 3).map((badge) => (
-            <Badge key={badge} variant="outline" className="rounded-md text-[10px]">
-              {badge}
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-
-      {line.notes ? (
-        <p className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-800">
-          ملاحظة: {line.notes}
+      {!actions.length ? (
+        <p className="w-full text-xs text-muted-foreground">
+          لا توجد إجراءات متاحة من النظام الآن
         </p>
       ) : null}
     </div>
   );
 }
 
-function AddonChip({ addon }: { addon: PrepLine }) {
-  return (
-    <div className="inline-flex min-h-9 items-center gap-2 rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
-      <span className="max-w-[11rem] truncate">{addon.name}</span>
-      <Badge variant="secondary" className="rounded-full px-1.5 text-[10px]">
-        ×{addon.quantity}
-      </Badge>
-    </div>
-  );
-}
-
-function SectionHeader({ title, count }: { title: string; count: number }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <p className="text-sm font-bold">{title}</p>
-      <Badge variant="outline" className="rounded-md">
-        {count}
-      </Badge>
-    </div>
-  );
-}
-
-function OneTimeOrderCardBody({ item }: { item: UnifiedQueueItem }) {
-  const presentation = buildOperationsOrderPresentation(item);
-  const visibleItems = presentation.items.slice(0, 2);
-  const hiddenItems = presentation.items.slice(2);
-  const hiddenPaidSelections = hiddenItems.flatMap((presentedItem) =>
-    presentedItem.paidSelections.map((selection) => ({
-      itemName: presentedItem.name,
-      selection,
-    }))
-  );
-  const visibleItemsWithSelections = visibleItems.filter(
-    (presentedItem) => presentedItem.selectionGroups.length > 0
-  );
-
-  return (
-    <>
-      <div className="rounded-xl border border-primary/10 bg-primary/5 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-            <Flame className="h-4 w-4 text-primary" />
-            {presentation.itemCount} أصناف
-          </p>
-          <span className="text-xs text-muted-foreground">•</span>
-          <p className="text-sm font-bold text-foreground">
-            {presentation.uniqueSelectionCount} اختيار
-          </p>
-          <span className="text-xs text-muted-foreground">•</span>
-          <p className="text-sm font-bold text-foreground">
-            {presentation.paidSelections.length
-              ? `${presentation.paidSelections.length} اختيار مدفوع`
-              : "بدون اختيارات مدفوعة"}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <SummaryMetric label="الأصناف" value={presentation.itemCount} />
-        <SummaryMetric label="الكمية" value={presentation.quantityCount} />
-        <SummaryMetric label="الاختيارات" value={presentation.uniqueSelectionCount} />
-        <SummaryMetric label="الإضافات" value={presentation.addonCount} />
-      </div>
-
+function FulfillmentSummary({ item }: { item: UnifiedQueueItem }) {
+  if (item.mode === "delivery" && item.source === "subscription") {
+    const delivery = getDeliveryInfo(item);
+    return (
       <div className="grid gap-2 sm:grid-cols-2">
-        {presentation.fulfillment.window ? (
-          <InfoPill
-            icon={<Clock className="h-3.5 w-3.5" />}
-            label={presentation.fulfillment.window}
-          />
-        ) : null}
-        {presentation.fulfillment.destination ? (
-          <InfoPill
-            icon={<MapPin className="h-3.5 w-3.5" />}
-            label={presentation.fulfillment.destination}
-          />
-        ) : null}
+        <InfoPill icon={<Truck className="h-3.5 w-3.5" />} label={delivery.address} />
+        <InfoPill icon={<Clock className="h-3.5 w-3.5" />} label={delivery.window} />
       </div>
+    );
+  }
 
-      {presentation.fulfillment.notes || presentation.fulfillment.allergies ? (
-        <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-800">
-          {presentation.fulfillment.notes ? (
-            <p>ملاحظات: {presentation.fulfillment.notes}</p>
-          ) : null}
-          {presentation.fulfillment.allergies ? (
-            <p>حساسية: {presentation.fulfillment.allergies}</p>
-          ) : null}
-        </div>
+  const pickup = getPickupInfo(item);
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      <InfoPill icon={<Store className="h-3.5 w-3.5" />} label={pickup.branch} />
+      <InfoPill icon={<Clock className="h-3.5 w-3.5" />} label={pickup.window} />
+      {pickup.code ? (
+        <InfoPill icon={<MapPin className="h-3.5 w-3.5" />} label={pickup.code} />
       ) : null}
+      {pickup.codeState ? (
+        <InfoPill icon={<MapPin className="h-3.5 w-3.5" />} label={pickup.codeState} />
+      ) : null}
+    </div>
+  );
+}
 
-      <div className="grid gap-2">
-        <SectionHeader title="الأصناف" count={presentation.items.length} />
-        {visibleItems.length ? (
-          <>
-            {visibleItems.map((presentedItem) => (
-              <OperationsOrderItemSummary
-                key={presentedItem.key}
-                item={presentedItem}
-                compact
-              />
-            ))}
-            {hiddenItems.length ? (
-              <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground">
-                +{hiddenItems.length} أصناف أخرى
-              </div>
-            ) : null}
-            {hiddenPaidSelections.length ? (
-              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200">
-                <p className="mb-1 font-bold">اختيارات مدفوعة من أصناف أخرى</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {hiddenPaidSelections.map(({ itemName, selection }) => (
-                    <span
-                      key={`${itemName}-${selection.signature}`}
-                      className="rounded-md bg-background/70 px-2 py-1 font-semibold"
-                    >
-                      {itemName}: {selection.optionName}
-                      {selection.priceHalala > 0
-                        ? ` (${formatOperationsSar(selection.priceHalala)})`
-                        : ""}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            لا توجد أصناف واضحة في الطلب الحالي.
-          </p>
-        )}
-      </div>
-
-      <div className="grid gap-2">
-        <SectionHeader title="مكونات الطلب" count={presentation.uniqueSelectionCount} />
-        {visibleItemsWithSelections.length ? (
-          visibleItemsWithSelections.map((presentedItem) => (
-            <div
-              key={`${presentedItem.key}-selection-preview`}
-              className="rounded-lg bg-muted/25 p-2"
-            >
-              <p className="mb-1 text-xs font-bold text-muted-foreground">
-                {presentedItem.name}
-              </p>
-              <OperationsSelectionGroups
-                groups={presentedItem.selectionGroups}
-                preview
-                limit={3}
-              />
-            </div>
-          ))
-        ) : (
-          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            لا توجد مكونات محددة لهذا الطلب.
-          </p>
-        )}
-        {hiddenItems.length ? (
-          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground">
-            تفاصيل مكونات الأصناف الأخرى متاحة في التفاصيل الكاملة.
-          </p>
-        ) : null}
-      </div>
-    </>
+function InfoPill({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-muted/45 px-3 py-2 text-xs font-semibold text-muted-foreground">
+      {icon}
+      <span className="truncate">{label}</span>
+    </div>
   );
 }
 
@@ -966,15 +272,9 @@ function OperationsQueueCard({
   onFulfill?: OperationsQueueTableProps["onFulfill"];
   onDetails: (item: UnifiedQueueItem) => void;
 }) {
-  const presentation = buildOperationsOrderPresentation(item);
-  const oneTimeOrder = presentation.isOneTimeOrder;
-  const orderDetails = getOrderDetails(item);
-  const stats = getOrderStats(item, orderDetails);
-  const mealLines = getFallbackMealLines(item, orderDetails, stats);
-  const selectionMode = getSelectionModeLabel(item);
-  const summaryChips = getSummaryChips(item);
-  const fulfillment = getFulfillmentMeta(item);
-  const paymentWarning = getPaymentWarning(item);
+  const kitchen = buildKitchenV2Presentation(item);
+  const order = buildOperationsOrderPresentation(item);
+  const customerName = getCustomerName(item);
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -982,171 +282,50 @@ function OperationsQueueCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/10 bg-primary/10 text-sm font-bold text-primary uppercase">
-              {item.customer?.name?.charAt(0) || "?"}
+              {customerName.charAt(0)}
             </div>
             <div className="min-w-0">
-              <p className="break-words text-base font-bold">
-                {oneTimeOrder
-                  ? presentation.customerName
-                  : item.customer?.name || "عميل بدون اسم"}
-              </p>
+              <p className="break-words text-base font-bold">{customerName}</p>
               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground" dir="ltr">
                 <Phone className="h-3 w-3" />
-                {oneTimeOrder ? presentation.customerPhone : item.customer?.phone || "—"}
+                {item.customer?.phone || "-"}
               </p>
             </div>
           </div>
           <Badge
             variant="outline"
-            className={`shrink-0 rounded-md ${getStatusClasses(item.status)}`}
+            className={`shrink-0 rounded-md ${getStatusClasses(item)}`}
           >
-            {oneTimeOrder
-              ? presentation.statusLabel
-              : item.ui?.label || item.statusLabel || item.status}
+            {item.statusLabel || item.status}
           </Badge>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge variant="secondary" className="rounded-lg px-2.5 py-1">
-            {oneTimeOrder ? presentation.sourceLabel : getSourceLabel(item)}
+            {getSourceLabel(item)}
           </Badge>
-          <Badge
-            variant="outline"
-            className={
-              item.mode === "delivery"
-                ? "gap-1 rounded-lg border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-sky-700"
-                : "gap-1 rounded-lg border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-purple-700"
-            }
-          >
-            {item.mode === "delivery" ? <Truck className="h-3 w-3" /> : <Store className="h-3 w-3" />}
+          <Badge variant="outline" className="rounded-lg px-2.5 py-1" dir="ltr">
+            {item.reference}
+          </Badge>
+          {item.orderNumber ? (
+            <Badge variant="outline" className="rounded-lg px-2.5 py-1" dir="ltr">
+              {item.orderNumber}
+            </Badge>
+          ) : null}
+          <Badge variant="outline" className="rounded-lg px-2.5 py-1">
             {getModeLabel(item.mode)}
           </Badge>
-          {oneTimeOrder ? (
-            <>
-              <Badge variant="outline" className="rounded-lg px-2.5 py-1">
-                {presentation.paymentLabel}
-              </Badge>
-              <Badge variant="outline" className="rounded-lg px-2.5 py-1" dir="ltr">
-                {presentation.totalLabel}
-              </Badge>
-              <Badge variant="outline" className="rounded-lg px-2.5 py-1" dir="ltr">
-                {presentation.reference}
-              </Badge>
-            </>
-          ) : null}
-          {selectionMode ? (
-            <Badge variant="outline" className="rounded-lg px-2.5 py-1">
-              {selectionMode}
+          {isOneTimeOrder(item) ? (
+            <Badge variant="outline" className="rounded-lg px-2.5 py-1" dir="ltr">
+              {order.totalLabel}
             </Badge>
           ) : null}
         </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-3.5">
-        {oneTimeOrder ? (
-          <OneTimeOrderCardBody item={item} />
-        ) : (
-          <>
-        <div className="rounded-xl border border-primary/10 bg-primary/5 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-              <Flame className="h-4 w-4 text-primary" />
-              {stats.requiredMealCount || mealLines.length} وجبات
-            </p>
-            <span className="text-xs text-muted-foreground">•</span>
-            <p className="text-sm font-bold text-foreground">
-              {stats.addonCount ? `${stats.addonCount} إضافات` : "بدون إضافات"}
-            </p>
-            {stats.unspecifiedMealCount ? (
-              <Badge variant="outline" className="rounded-md border-amber-500/30 bg-amber-500/10 text-amber-700">
-                {stats.unspecifiedMealCount} غير محددة
-              </Badge>
-            ) : null}
-          </div>
-
-          {summaryChips.length ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {summaryChips.map((chip) => (
-                <span
-                  key={chip}
-                  className="rounded-md bg-background/75 px-2 py-1 text-[11px] font-medium text-muted-foreground"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <SummaryMetric label="الوجبات" value={stats.requiredMealCount || mealLines.length} />
-          <SummaryMetric label="محددة" value={stats.specifiedMealCount} />
-          <SummaryMetric label="الإضافات" value={stats.addonCount} />
-          <SummaryMetric label="الحالة" value={item.ui?.label || item.statusLabel || item.status} />
-        </div>
-
-        {fulfillment.time || fulfillment.location ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {fulfillment.time ? (
-              <InfoPill icon={<Clock className="h-3.5 w-3.5" />} label={fulfillment.time} />
-            ) : null}
-            {fulfillment.location ? (
-              <InfoPill icon={<MapPin className="h-3.5 w-3.5" />} label={fulfillment.location} />
-            ) : null}
-          </div>
-        ) : null}
-
-        {paymentWarning ? (
-          <div className="flex gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-800 dark:text-red-300">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>{paymentWarning}</span>
-          </div>
-        ) : null}
-
-        {fulfillment.notes ? (
-          <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-800">
-            ملاحظات: {fulfillment.notes}
-          </div>
-        ) : null}
-
-        {item.dataQuality?.isComplete === false ? (
-          <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-800">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>بيانات غير مكتملة — راجع التفاصيل قبل الإجراء.</span>
-          </div>
-        ) : null}
-
-        <div className="grid gap-2">
-          <SectionHeader title="الطلب الأساسي" count={stats.requiredMealCount || mealLines.length} />
-          {mealLines.length ? (
-            <div className="grid gap-2 md:grid-cols-2">
-              {mealLines.map((line) => (
-                <MealCompactCard key={`${line.kind}-${line.id}-${line.name}`} line={line} />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              لا توجد تفاصيل وجبات واضحة في الـ response الحالي.
-            </p>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <SectionHeader title="الإضافات" count={stats.addonCount} />
-          {orderDetails.addons.length ? (
-            <div className="flex flex-wrap gap-2">
-              {orderDetails.addons.map((addon) => (
-                <AddonChip key={`${addon.id}-${addon.name}`} addon={addon} />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              لا توجد إضافات على هذا الطلب.
-            </p>
-          )}
-        </div>
-          </>
-        )}
+        <FulfillmentSummary item={item} />
+        <OperationsKitchenV2Summary presentation={kitchen} compact />
       </div>
 
       <div className="border-t bg-muted/15 p-3.5">
@@ -1162,107 +341,6 @@ function OperationsQueueCard({
   );
 }
 
-function CardsPagination({
-  pageIndex,
-  pageCount,
-  pageSize,
-  totalItems,
-  onPageIndexChange,
-  onPageSizeChange,
-}: {
-  pageIndex: number;
-  pageCount: number;
-  pageSize: number;
-  totalItems: number;
-  onPageIndexChange: (value: number) => void;
-  onPageSizeChange: (value: number) => void;
-}) {
-  const canPrevious = pageIndex > 0;
-  const canNext = pageIndex < pageCount - 1;
-
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
-      <div className="text-sm text-muted-foreground">
-        إجمالي الطلبات ({totalItems})
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="operations-cards-page-size" className="text-sm font-medium">
-            الكروت في الصفحة
-          </Label>
-          <Select
-            value={`${pageSize}`}
-            onValueChange={(value) => {
-              onPageSizeChange(Number(value));
-              onPageIndexChange(0);
-            }}
-          >
-            <SelectTrigger size="sm" className="w-20" id="operations-cards-page-size">
-              <SelectValue placeholder={`${pageSize}`} />
-            </SelectTrigger>
-            <SelectContent side="top">
-              <SelectGroup>
-                {PAGE_SIZE_OPTIONS.map((option) => (
-                  <SelectItem key={option} value={`${option}`}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="text-sm font-medium">
-          صفحة {pageIndex + 1} من {pageCount || 1}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="hidden size-8 sm:flex"
-            onClick={() => onPageIndexChange(0)}
-            disabled={!canPrevious}
-          >
-            <span className="sr-only">الصفحة الأولى</span>
-            <ChevronsRightIcon className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8"
-            onClick={() => onPageIndexChange(Math.max(pageIndex - 1, 0))}
-            disabled={!canPrevious}
-          >
-            <span className="sr-only">الصفحة السابقة</span>
-            <ChevronRightIcon className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8"
-            onClick={() => onPageIndexChange(Math.min(pageIndex + 1, pageCount - 1))}
-            disabled={!canNext}
-          >
-            <span className="sr-only">الصفحة التالية</span>
-            <ChevronLeftIcon className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="hidden size-8 sm:flex"
-            onClick={() => onPageIndexChange(pageCount - 1)}
-            disabled={!canNext}
-          >
-            <span className="sr-only">الصفحة الأخيرة</span>
-            <ChevronsLeftIcon className="size-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function OperationsQueueTable({
   items = [],
   pendingActions,
@@ -1270,8 +348,6 @@ export function OperationsQueueTable({
   onFulfill,
 }: OperationsQueueTableProps) {
   const [globalFilter, setGlobalFilter] = useState("");
-  const [pageSize, setPageSize] = useState(9);
-  const [pageIndex, setPageIndex] = useState(0);
   const [detailsItem, setDetailsItem] = useState<UnifiedQueueItem | null>(null);
 
   const filteredItems = useMemo(() => {
@@ -1280,19 +356,12 @@ export function OperationsQueueTable({
     return items.filter((item) => searchableText(item).includes(query));
   }, [globalFilter, items]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
-  const safePageIndex = Math.min(pageIndex, pageCount - 1);
-  const pagedItems = filteredItems.slice(
-    safePageIndex * pageSize,
-    safePageIndex * pageSize + pageSize
-  );
-
   if (!items.length) {
     return (
       <EmptyState
         icon={PackageOpen}
         title="لا توجد طلبات"
-        description="لا توجد طلبات مطابقة في هذا المسار حاليا."
+        description="لا توجد طلبات مطابقة في هذا المسار حالياً."
       />
     );
   }
@@ -1311,46 +380,33 @@ export function OperationsQueueTable({
         <div>
           <p className="text-sm font-bold">طلبات العمليات</p>
           <p className="text-xs text-muted-foreground">
-            عرض عملي مختصر يوضح الوجبات، الإضافات، الدفع، والحالة بدون بيانات تقنية.
+            عرض مختصر من حقول Kitchen v2 وبيانات العميل والتنفيذ والإجراءات من الباكند.
           </p>
         </div>
         <div className="relative w-full sm:max-w-sm">
           <Search className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="بحث بالعميل، الوجبة، الإضافة، الهاتف أو الحالة..."
+            placeholder="بحث بالعميل، الهاتف، المرجع، الكارت، القسم أو الإضافة..."
             value={globalFilter}
-            onChange={(e) => {
-              setGlobalFilter(e.target.value);
-              setPageIndex(0);
-            }}
+            onChange={(e) => setGlobalFilter(e.target.value)}
             className="h-10 pr-9"
           />
         </div>
       </div>
 
       {filteredItems.length ? (
-        <>
-          <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-            {pagedItems.map((item) => (
-              <OperationsQueueCard
-                key={item.id}
-                item={item}
-                pendingActions={pendingActions}
-                onAction={onAction}
-                onFulfill={onFulfill}
-                onDetails={setDetailsItem}
-              />
-            ))}
-          </div>
-          <CardsPagination
-            pageIndex={safePageIndex}
-            pageCount={pageCount}
-            pageSize={pageSize}
-            totalItems={filteredItems.length}
-            onPageIndexChange={setPageIndex}
-            onPageSizeChange={setPageSize}
-          />
-        </>
+        <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+          {filteredItems.map((item) => (
+            <OperationsQueueCard
+              key={item.id}
+              item={item}
+              pendingActions={pendingActions}
+              onAction={onAction}
+              onFulfill={onFulfill}
+              onDetails={setDetailsItem}
+            />
+          ))}
+        </div>
       ) : (
         <EmptyState
           icon={PackageOpen}

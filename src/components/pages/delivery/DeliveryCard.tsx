@@ -80,8 +80,7 @@ function numericValue(value: unknown) {
 }
 
 function getMapUrl(item: UnifiedQueueItem) {
-  const address =
-    asRecord(item.delivery?.address) || asRecord(item.context.address);
+  const address = asRecord(item.delivery?.address);
   const lat = numericValue(address?.lat ?? address?.latitude);
   const lng = numericValue(address?.lng ?? address?.longitude);
 
@@ -97,27 +96,12 @@ function getMapUrl(item: UnifiedQueueItem) {
     : null;
 }
 
-function mealTitle(
-  meal: NonNullable<UnifiedQueueItem["kitchen"]>["meals"][number]
-) {
-  return safeText(
-    meal.display?.titleAr ||
-      meal.mealTypeLabel?.ar ||
-      meal.product?.displayName ||
-      meal.product?.name?.ar ||
-      meal.product?.name?.en ||
-      meal.sandwich?.displayName ||
-      meal.protein?.displayName,
-    "وجبة"
-  );
-}
-
 function getMealRows(item: UnifiedQueueItem) {
-  if (item.kitchen?.meals?.length) {
-    return item.kitchen.meals.map((meal, index) => ({
-      id: String(meal.slotKey || meal.slotIndex || `meal-${index}`),
-      title: mealTitle(meal),
-      quantity: Number(meal.quantity || 1),
+  if (item.kitchen?.version === "v2" && item.kitchen.cards.length) {
+    return item.kitchen.cards.map((card, index) => ({
+      id: String(card.id || `${card.type}-${index}`),
+      title: safeText(card.title, "وجبة"),
+      quantity: Number(card.quantity || 1),
     }));
   }
 
@@ -154,8 +138,6 @@ export function DeliveryCard({
     item.context?.mealCount ??
     item.plan?.selectedMealsPerDay ??
     mealRows.length;
-  const selectionNotice =
-    item.selectionNotice?.ar || item.selectionNotice?.en || "";
   const addressNotes = item.context.addressNotes || "";
   const deliveryWindow =
     item.context.window ||
@@ -164,9 +146,7 @@ export function DeliveryCard({
   const hasDetails =
     Boolean(
       item.context.notes ||
-      item.context.addressNotes ||
-      item.notes ||
-      selectionNotice
+      item.context.addressNotes
     ) ||
     mealRows.length > 0 ||
     Boolean(item.dataQuality?.warnings?.length);
@@ -177,7 +157,7 @@ export function DeliveryCard({
     onActionClick(
       item,
       action,
-      buildOperationsActionPayload(item, action.id, action.reason ?? undefined)
+      buildOperationsActionPayload(item, action.id)
     );
   };
 
@@ -203,7 +183,7 @@ export function DeliveryCard({
 
         {item.ui?.label ? (
           <div
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${getBadgeClasses(item.ui.color)}`}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${getBadgeClasses(item.ui.color || "blue")}`}
           >
             {item.statusLabel || item.ui.label}
           </div>
@@ -263,14 +243,9 @@ export function DeliveryCard({
             الوجبات
           </span>
           <Badge variant="secondary" className="rounded-md">
-            {item.orderSummary?.mealCountTextAr || `${mealCount} وجبة`}
+            {`${mealCount} وجبة`}
           </Badge>
         </div>
-        {item.selectionMode === "chef_choice" && selectionNotice ? (
-          <p className="mb-2 rounded-lg bg-amber-500/10 px-2 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
-            {selectionNotice}
-          </p>
-        ) : null}
         {mealRows.length ? (
           <div className="flex flex-wrap gap-1.5">
             {mealRows.slice(0, 4).map((meal) => (
@@ -318,7 +293,7 @@ export function DeliveryCard({
                   size="sm"
                   className={`h-10 flex-1 rounded-xl px-3 text-xs font-bold active:scale-95 ${config.className ?? ""}`}
                   disabled={isActionLoading || action.disabled}
-                  title={action.disabledReason || action.reason || undefined}
+                  title={action.disabledReason || undefined}
                   onClick={() => handleAction(action)}
                 >
                   {getActionLabel(action)}
@@ -364,24 +339,13 @@ export function DeliveryCard({
             </div>
           ) : null}
 
-          {item.context.notes || item.notes ? (
+          {item.context.notes ? (
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-xs dark:border-blue-900/50 dark:bg-blue-950/30">
               <span className="mb-1.5 block font-black text-blue-700 dark:text-blue-400">
                 ملاحظة:
               </span>
               <p className="leading-relaxed font-medium text-blue-800 dark:text-blue-300">
-                {item.context.notes || item.notes}
-              </p>
-            </div>
-          ) : null}
-
-          {selectionNotice ? (
-            <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
-              <span className="mb-1.5 block font-black text-amber-700 dark:text-amber-400">
-                اختيار الوجبات:
-              </span>
-              <p className="leading-relaxed font-medium text-amber-800 dark:text-amber-300">
-                {selectionNotice}
+                {item.context.notes}
               </p>
             </div>
           ) : null}
