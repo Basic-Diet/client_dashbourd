@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,7 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Package } from "lucide-react";
+import { ImageIcon, Package, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller } from "react-hook-form";
 import type {
   FieldPath,
@@ -31,14 +33,61 @@ import {
   useMenuCategoriesQuery,
   useMenuCategoryDetailQuery,
 } from "@/hooks/useMenuQuery";
-import {
-  MENU_PRODUCT_CARD_SIZE_OPTIONS,
-} from "@/constants/menuCatalog";
+import { MENU_PRODUCT_CARD_SIZE_OPTIONS } from "@/constants/menuCatalog";
 import type { MenuCategory } from "@/types/menuTypes";
 
 interface Props {
   form: UseFormReturn<MenuProductSchemaInput, unknown, MenuProductSchemaType>;
   isEdit?: boolean;
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : null;
+}
+
+function resolveExistingImageUrl(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+
+  const root = asRecord(value);
+  const nestedImage = asRecord(root?.image);
+  const data = asRecord(root?.data);
+
+  const candidates = [
+    root?.imageUrl,
+    root?.image_url,
+    root?.secureUrl,
+    root?.secure_url,
+    root?.url,
+    nestedImage?.imageUrl,
+    nestedImage?.image_url,
+    nestedImage?.secureUrl,
+    nestedImage?.secure_url,
+    nestedImage?.url,
+    data?.imageUrl,
+    data?.image_url,
+    data?.secureUrl,
+    data?.secure_url,
+    data?.url,
+  ];
+
+  return (
+    candidates.find(
+      (candidate): candidate is string =>
+        typeof candidate === "string" && candidate.trim().length > 0
+    )?.trim() || ""
+  );
+}
+
+function isImageFile(value: unknown): value is File {
+  return (
+    typeof File !== "undefined" &&
+    value instanceof File &&
+    (!value.type || value.type.startsWith("image/"))
+  );
 }
 
 export function MenuProductFormFields({ form, isEdit }: Props) {
@@ -56,13 +105,13 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
 
   const { data: catsData } = useMenuCategoriesQuery({ limit: 100 });
   const { data: selectedCatData } = useMenuCategoryDetailQuery(selectedCategoryId);
-  
+
   const categories = mergeCategoriesWithSelected(
     catsData?.data?.items || [],
     selectedCatData?.data,
     selectedCategoryId
-  )
-  
+  );
+
   return (
     <div className="space-y-6">
       <Card>
@@ -93,24 +142,27 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>التصنيف</Label>
-                <Controller
-                  control={form.control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                      <SelectTrigger className="min-w-full" dir="rtl">
-                        <SelectValue placeholder="اختر التصنيف" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name.ar || category.name.en || category.key || category.id}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
+              <Controller
+                control={form.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                    <SelectTrigger className="min-w-full" dir="rtl">
+                      <SelectValue placeholder="اختر التصنيف" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name.ar ||
+                            category.name.en ||
+                            category.key ||
+                            category.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div className="space-y-2">
@@ -172,38 +224,7 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>صورة المنتج</Label>
-            <div className="flex items-center gap-3">
-              {(form.watch("imageFile") || form.watch("imageUrl")) && (
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md border bg-muted">
-                  <img
-                    src={
-                      form.watch("imageFile")
-                        ? URL.createObjectURL(
-                            form.watch("imageFile") as unknown as File
-                          )
-                        : form.watch("imageUrl")!
-                    }
-                    alt="Preview"
-                    className="size-full object-cover"
-                  />
-                </div>
-              )}
-              <Input
-                type="file"
-                accept="image/*"
-                dir="ltr"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  form.setValue("imageFile", file, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                }}
-              />
-            </div>
-          </div>
+          <MenuProductImageField form={form} isEdit={isEdit} />
         </CardContent>
       </Card>
 
@@ -245,11 +266,36 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
 
           {pricingModel === "per_100g" ? (
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
-              <Field label="وحدة الوزن (جم)" type="number" min="1" inputProps={numberInput("baseUnitGrams")} />
-              <Field label="الوزن الافتراضي" type="number" min="0" inputProps={numberInput("defaultWeightGrams")} />
-              <Field label="الحد الأدنى" type="number" min="0" inputProps={numberInput("minWeightGrams")} />
-              <Field label="الحد الأقصى" type="number" min="0" inputProps={numberInput("maxWeightGrams")} />
-              <Field label="خطوة الوزن" type="number" min="1" inputProps={numberInput("weightStepGrams")} />
+              <Field
+                label="وحدة الوزن (جم)"
+                type="number"
+                min="1"
+                inputProps={numberInput("baseUnitGrams")}
+              />
+              <Field
+                label="الوزن الافتراضي"
+                type="number"
+                min="0"
+                inputProps={numberInput("defaultWeightGrams")}
+              />
+              <Field
+                label="الحد الأدنى"
+                type="number"
+                min="0"
+                inputProps={numberInput("minWeightGrams")}
+              />
+              <Field
+                label="الحد الأقصى"
+                type="number"
+                min="0"
+                inputProps={numberInput("maxWeightGrams")}
+              />
+              <Field
+                label="خطوة الوزن"
+                type="number"
+                min="1"
+                inputProps={numberInput("weightStepGrams")}
+              />
             </div>
           ) : null}
         </CardContent>
@@ -258,7 +304,9 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
       <Card>
         <CardHeader>
           <CardTitle>إعدادات الحالة والظهور</CardTitle>
-          <CardDescription>تحكم في ترتيب وتفعيل وظهور المنتج في التطبيق</CardDescription>
+          <CardDescription>
+            تحكم في ترتيب وتفعيل وظهور المنتج في التطبيق
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <Field
@@ -295,6 +343,139 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function MenuProductImageField({
+  form,
+  isEdit,
+}: {
+  form: UseFormReturn<MenuProductSchemaInput, unknown, MenuProductSchemaType>;
+  isEdit?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const imageFileValue = form.watch("imageFile");
+  const currentImageUrl = resolveExistingImageUrl(form.watch("imageUrl"));
+  const replacementFile = isImageFile(imageFileValue) ? imageFileValue : null;
+  const [failedSource, setFailedSource] = useState("");
+
+  const replacementPreviewUrl = useMemo(() => {
+    if (
+      !replacementFile ||
+      typeof URL === "undefined" ||
+      typeof URL.createObjectURL !== "function"
+    ) {
+      return "";
+    }
+    return URL.createObjectURL(replacementFile);
+  }, [replacementFile]);
+
+  useEffect(() => {
+    return () => {
+      if (
+        replacementPreviewUrl &&
+        typeof URL !== "undefined" &&
+        typeof URL.revokeObjectURL === "function"
+      ) {
+        URL.revokeObjectURL(replacementPreviewUrl);
+      }
+    };
+  }, [replacementPreviewUrl]);
+
+  const previewUrl = replacementPreviewUrl || currentImageUrl;
+  const previewFailed = Boolean(previewUrl && failedSource === previewUrl);
+  const imageError = form.formState.errors.imageFile?.message;
+
+  const clearReplacement = () => {
+    form.setValue("imageFile", undefined, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.clearErrors("imageFile");
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="menu-product-image">صورة المنتج</Label>
+      <div className="grid gap-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center">
+        <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-xl border bg-muted">
+          {previewUrl && !previewFailed ? (
+            <img
+              key={previewUrl}
+              src={previewUrl}
+              alt="معاينة صورة المنتج"
+              className="size-full object-cover"
+              onError={() => setFailedSource(previewUrl)}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-2 px-2 text-center text-xs text-muted-foreground">
+              <ImageIcon className="size-7" />
+              <span>{previewFailed ? "تعذر عرض الصورة" : "لا توجد صورة"}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Input
+            ref={inputRef}
+            id="menu-product-image"
+            type="file"
+            accept="image/*"
+            dir="ltr"
+            aria-label={isEdit ? "استبدال صورة المنتج" : "اختيار صورة المنتج"}
+            onClick={(event) => {
+              event.currentTarget.value = "";
+            }}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+
+              if (!file.type.startsWith("image/")) {
+                form.setError("imageFile", {
+                  type: "validate",
+                  message: "اختر ملف صورة صالحاً",
+                });
+                event.currentTarget.value = "";
+                return;
+              }
+
+              form.clearErrors("imageFile");
+              form.setValue("imageFile", file, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+              setFailedSource("");
+            }}
+          />
+
+          <p className="text-xs text-muted-foreground">
+            {replacementFile
+              ? `الصورة الجديدة: ${replacementFile.name}`
+              : isEdit && currentImageUrl
+                ? "ستبقى الصورة الحالية ما لم تختر صورة جديدة."
+                : "اختر صورة واضحة للمنتج."}
+          </p>
+
+          {typeof imageError === "string" ? (
+            <p className="text-xs text-destructive">{imageError}</p>
+          ) : null}
+
+          {replacementFile ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={clearReplacement}
+            >
+              <RotateCcw className="size-4" />
+              التراجع عن الصورة الجديدة
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
