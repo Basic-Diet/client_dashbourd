@@ -271,22 +271,23 @@ export function buildManualDeductionPayload(
 ): ManualDeductionPayload {
   const regularMeals = toNonNegativeInteger(values.regularMeals);
   const premiumMeals = toNonNegativeInteger(values.premiumMeals);
-  const addons = values.addons
+  const normalizedAddons = values.addons
     .map((addon) => ({
       addonId: addon.addonId,
       qty: toNonNegativeInteger(addon.qty),
-    }))
-    .filter((addon) => addon.qty > 0);
+    }));
   const reason = values.reason.trim();
   const notes = values.notes?.trim();
 
-  if (!Number.isFinite(regularMeals) || !Number.isFinite(premiumMeals)) {
+  if (
+    !Number.isFinite(regularMeals) ||
+    !Number.isFinite(premiumMeals) ||
+    normalizedAddons.some((addon) => !Number.isFinite(addon.qty))
+  ) {
     throw new Error("INVALID_LOCAL_QUANTITY");
   }
 
-  if (addons.some((addon) => !Number.isFinite(addon.qty))) {
-    throw new Error("INVALID_LOCAL_QUANTITY");
-  }
+  const addons = normalizedAddons.filter((addon) => addon.qty > 0);
 
   const payload: ManualDeductionPayload = {
     regularMeals,
@@ -315,7 +316,10 @@ const MANUAL_DEDUCTION_ERROR_FALLBACKS: Record<string, string> = {
   FORBIDDEN: "ليست لديك صلاحية تنفيذ هذا الإجراء.",
 };
 
-export function mapManualDeductionError(error: unknown) {
+export function mapManualDeductionError(
+  error: unknown,
+  fallbackMessage = "تعذر تنفيذ الخصم اليدوي. حاول مرة أخرى."
+) {
   const parsed = parseApiError(error);
   const fallback = parsed.code ? MANUAL_DEDUCTION_ERROR_FALLBACKS[parsed.code] : undefined;
   const hasArabicMessage = /[\u0600-\u06FF]/.test(parsed.message);
@@ -323,7 +327,7 @@ export function mapManualDeductionError(error: unknown) {
     hasArabicMessage && parsed.message !== parsed.code ? parsed.message : fallback;
 
   return {
-    message: message ?? "حدث خطأ أثناء تنفيذ الخصم اليدوي.",
+    message: message ?? fallbackMessage,
     code: parsed.code,
     detail: parsed.code ? `رمز الدعم: ${parsed.code}` : undefined,
   };
@@ -332,8 +336,11 @@ export function mapManualDeductionError(error: unknown) {
 export const getReasonLabel = (reason: string) =>
   REASON_LABELS[reason] ?? reason;
 
-export const getFulfillmentLabel = (method: FulfillmentMethod | null | undefined) =>
-  method === "delivery" ? "توصيل" : "استلام";
+export const getFulfillmentLabel = (method: FulfillmentMethod | null | undefined) => {
+  if (method === "delivery") return "توصيل";
+  if (method === "pickup") return "استلام";
+  return "غير متاح";
+};
 
 export const getAddonName = (
   addonId: string,

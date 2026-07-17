@@ -172,6 +172,53 @@ describe("manual deduction page", () => {
     );
   });
 
+  it("same-phone retry works after an initial search failure", async () => {
+    apiGetMock
+      .mockRejectedValueOnce({
+        response: { status: 500, data: { error: { code: "SERVER_ERROR" } } },
+      })
+      .mockResolvedValueOnce({ status: 200, data: searchResponse })
+      .mockResolvedValue({ status: 200, data: emptyHistory });
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("رقم الهاتف"), "0501234567");
+    await user.click(screen.getByRole("button", { name: "بحث" }));
+    expect(await screen.findByText("تعذر البحث عن العميل. حاول مرة أخرى.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "بحث" }));
+    expect(await screen.findAllByText("Delivery Plan")).toHaveLength(2);
+    expect(
+      apiGetMock.mock.calls.filter(([url]) =>
+        String(url).includes("/api/dashboard/subscriptions/search")
+      )
+    ).toHaveLength(2);
+  });
+
+  it("same-phone retry works for expected no-result responses", async () => {
+    apiGetMock
+      .mockResolvedValueOnce({
+        status: 404,
+        data: { error: { code: "CUSTOMER_NOT_FOUND" } },
+      })
+      .mockResolvedValueOnce({ status: 200, data: searchResponse })
+      .mockResolvedValue({ status: 200, data: emptyHistory });
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("رقم الهاتف"), "0501234567");
+    await user.click(screen.getByRole("button", { name: "بحث" }));
+    expect(await screen.findByText(/لم يتم العثور/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "بحث" }));
+    expect(await screen.findAllByText("Delivery Plan")).toHaveLength(2);
+    expect(
+      apiGetMock.mock.calls.filter(([url]) =>
+        String(url).includes("/api/dashboard/subscriptions/search")
+      )
+    ).toHaveLength(2);
+  });
+
   it("requires confirmation before posting the mutation payload", async () => {
     apiPostMock.mockResolvedValueOnce({ status: 200, data: successMutation });
     renderPage();
@@ -202,7 +249,8 @@ describe("manual deduction page", () => {
         addons: [{ addonId: "addon-water", qty: 2 }],
         reason: "cashier_walk_in",
         notes: "needs receipt",
-      }
+      },
+      { suppressGlobalForbiddenToast: true }
     );
   });
 
@@ -237,7 +285,41 @@ describe("manual deduction page", () => {
     expect(screen.getAllByRole("button", { name: "اختيار" }).length).toBeGreaterThan(0);
   });
 
-  it("backend rejection preserves entered values and blocks only the affected delivery subscription", async () => {
+  it("keeps success receipt when a post-success search refresh fails", async () => {
+    apiPostMock.mockResolvedValueOnce({ status: 200, data: successMutation });
+    apiGetMock.mockImplementation((url: string) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("/manual-deductions")) {
+        return Promise.resolve({ status: 200, data: emptyHistory });
+      }
+      const searchCalls = apiGetMock.mock.calls.filter(([calledUrl]) =>
+        String(calledUrl).includes("/api/dashboard/subscriptions/search")
+      ).length;
+      if (searchCalls > 1) {
+        return Promise.reject({
+          response: { status: 500, data: { error: { code: "SERVER_ERROR" } } },
+        });
+      }
+      return Promise.resolve({ status: 200, data: searchResponse });
+    });
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("رقم الهاتف"), "0501234567");
+    await user.click(screen.getByRole("button", { name: "بحث" }));
+    await user.click((await screen.findAllByRole("button", { name: "اختيار" }))[0]);
+    await user.clear(screen.getByLabelText("وجبات عادية"));
+    await user.type(screen.getByLabelText("وجبات عادية"), "1");
+    await user.click(screen.getByRole("button", { name: "مراجعة الخصم" }));
+    await user.click(await screen.findByRole("button", { name: "تنفيذ الخصم" }));
+
+    expect(await screen.findByText("تم تنفيذ الخصم")).toBeInTheDocument();
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("تعذر تنفيذ الخصم اليدوي. حاول مرة أخرى.")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("وجبات عادية")).not.toBeInTheDocument();
+  });
+
+  it("delivery duplicate rejection becomes terminal and blocks only the affected delivery subscription", async () => {
     apiPostMock.mockRejectedValueOnce({
       response: {
         status: 409,
@@ -261,11 +343,13 @@ describe("manual deduction page", () => {
     await user.click(await screen.findByRole("button", { name: "تنفيذ الخصم" }));
 
     await screen.findAllByText(/توصيل/);
-    expect(screen.getByLabelText("وجبات عادية")).toHaveValue(3);
-
-    await user.click(screen.getByRole("button", { name: "رجوع" }));
+    await waitFor(() =>
+      expect(screen.queryByLabelText("وجبات عادية")).not.toBeInTheDocument()
+    );
     expect(screen.getAllByText("غير متاح").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "اختيار" }).length).toBeGreaterThan(0);
+    await user.keyboard("{Enter}");
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
   });
 
   it("renders history loading, empty, error, and populated states safely", async () => {
@@ -336,6 +420,6 @@ describe("manual deduction page", () => {
     await user.type(screen.getByLabelText("رقم الهاتف"), "0501234567");
     await user.click(screen.getByRole("button", { name: "بحث" }));
     await user.click((await screen.findAllByRole("button", { name: "اختيار" }))[0]);
-    expect(await screen.findByText("حدث خطأ أثناء تنفيذ الخصم اليدوي.")).toBeInTheDocument();
+    expect(await screen.findByText("تعذر تحميل سجل الخصومات. حاول مرة أخرى.")).toBeInTheDocument();
   });
 });

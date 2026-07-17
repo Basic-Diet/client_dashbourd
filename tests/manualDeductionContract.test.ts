@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildManualDeductionPayload,
+  getFulfillmentLabel,
   mapManualDeductionError,
   normalizeManualDeductionSearchResponse,
   type ManualDeductionSearchSuccessResponse,
@@ -85,7 +86,10 @@ describe("manual deduction contract helpers", () => {
     assert.equal(response.status, true);
     expect(apiGetMock).toHaveBeenCalledWith(
       "/api/dashboard/subscriptions/search?phone=050%20123",
-      expect.objectContaining({ validateStatus: expect.any(Function) })
+      expect.objectContaining({
+        suppressGlobalForbiddenToast: true,
+        validateStatus: expect.any(Function),
+      })
     );
   });
 
@@ -156,6 +160,27 @@ describe("manual deduction contract helpers", () => {
         notes: "needs receipt",
       }
     );
+  });
+
+  it("rejects malformed add-on quantities before filtering zero quantities", () => {
+    expect(() =>
+      buildManualDeductionPayload({
+        regularMeals: 1,
+        premiumMeals: 0,
+        addons: [
+          { addonId: "a1", name: "Water", qty: 0 },
+          { addonId: "a2", name: "Juice", qty: Number.NaN },
+        ],
+        reason: "cashier_walk_in",
+      })
+    ).toThrow("INVALID_LOCAL_QUANTITY");
+  });
+
+  it("labels missing fulfillment as unavailable", () => {
+    assert.equal(getFulfillmentLabel("delivery"), "توصيل");
+    assert.equal(getFulfillmentLabel("pickup"), "استلام");
+    assert.equal(getFulfillmentLabel(null), "غير متاح");
+    assert.equal(getFulfillmentLabel(undefined), "غير متاح");
   });
 
   it("maps backend English/code errors to stable Arabic fallbacks", () => {

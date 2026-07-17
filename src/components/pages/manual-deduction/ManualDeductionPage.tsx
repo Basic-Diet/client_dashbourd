@@ -260,7 +260,7 @@ export default function ManualDeductionPage() {
     setReceipt(null);
     setMutationError(null);
 
-    if (normalizedPhone === searchPhone && searchQuery.data) {
+    if (normalizedPhone === searchPhone) {
       await searchQuery.refetch();
       return;
     }
@@ -306,14 +306,20 @@ export default function ManualDeductionPage() {
       }
       setSelectedSubscriptionId(null);
       toast.success("تم تنفيذ الخصم اليدوي بنجاح");
-      await searchQuery.refetch();
     } catch (error) {
-      const mapped = mapManualDeductionError(error);
+      const mapped = mapManualDeductionError(
+        error,
+        "تعذر تنفيذ الخصم اليدوي. حاول مرة أخرى."
+      );
       if (mapped.code === "DELIVERY_ALREADY_DEDUCTED_TODAY") {
         setBlockedBySubscriptionId((current) => ({
           ...current,
           [selectedSubscription.id]: "backend-rejection",
         }));
+        setSelectedSubscriptionId(null);
+        setMutationError(mapped.message);
+        toast.error(mapped.message);
+        return;
       }
       setMutationError(mapped.message);
       form.setError("root", {

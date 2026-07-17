@@ -291,6 +291,7 @@ export const searchSubscriptionsByPhone = async (
   const response = await api.get(
     `/api/dashboard/subscriptions/search?phone=${encodeURIComponent(phone)}`,
     {
+      suppressGlobalForbiddenToast: true,
       validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
     }
   );
@@ -322,7 +323,8 @@ export const fetchSubscriptionManualDeductions = async (
   subscriptionId: string
 ): Promise<ManualDeductionHistoryResponse> => {
   const response = await api.get(
-    `/api/dashboard/subscriptions/${subscriptionId}/manual-deductions`
+    `/api/dashboard/subscriptions/${subscriptionId}/manual-deductions`,
+    { suppressGlobalForbiddenToast: true }
   );
   return response.data;
 };
@@ -336,7 +338,8 @@ export const manualDeductSubscription = async ({
 }): Promise<ManualDeductionMutationResponse> => {
   const response = await api.post(
     `/api/dashboard/subscriptions/${id}/manual-deduction`,
-    data
+    data,
+    { suppressGlobalForbiddenToast: true }
   );
   return response.data;
 };

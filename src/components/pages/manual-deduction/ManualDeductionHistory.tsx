@@ -53,7 +53,14 @@ export function ManualDeductionHistory({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span>{mapManualDeductionError(query.error).message}</span>
+              <span>
+                {
+                  mapManualDeductionError(
+                    query.error,
+                    "تعذر تحميل سجل الخصومات. حاول مرة أخرى."
+                  ).message
+                }
+              </span>
               <Button
                 type="button"
                 variant="outline"

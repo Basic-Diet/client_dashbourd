@@ -95,7 +95,10 @@ export const CustomerSearch: React.FC<CustomerSearchProps> = ({
           <Alert variant="destructive" className="mt-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {mapManualDeductionError(error).message}
+              {mapManualDeductionError(
+                error,
+                "تعذر البحث عن العميل. حاول مرة أخرى."
+              ).message}
             </AlertDescription>
           </Alert>
         )}

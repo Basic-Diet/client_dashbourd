@@ -275,6 +275,7 @@ export function DeductionForm({
                         <FormControl>
                           <Input
                             type="number"
+                            min={0}
                             step={1}
                             inputMode="numeric"
                             disabled={isBusy}
@@ -302,6 +303,7 @@ export function DeductionForm({
                         <FormControl>
                           <Input
                             type="number"
+                            min={0}
                             step={1}
                             inputMode="numeric"
                             disabled={isBusy}
@@ -348,6 +350,7 @@ export function DeductionForm({
                               <FormControl>
                                 <Input
                                   type="number"
+                                  min={0}
                                   step={1}
                                   inputMode="numeric"
                                   disabled={isBusy}
@@ -481,6 +484,10 @@ export function DeductionForm({
                 <p>
                   <span className="text-muted-foreground">وجبات مميزة: </span>
                   {pendingValues.premiumMeals}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">إجمالي الوجبات: </span>
+                  {pendingValues.regularMeals + pendingValues.premiumMeals}
                 </p>
                 <p>
                   <span className="text-muted-foreground">سبب الخصم: </span>
