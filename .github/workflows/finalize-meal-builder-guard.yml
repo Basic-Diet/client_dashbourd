@@ -32,117 +32,90 @@ jobs:
           path = Path("src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx")
           content = path.read_text(encoding="utf-8")
 
-          def replace_once(old: str, new: str) -> None:
-              global content
-              count = content.count(old)
-              if count != 1:
-                  raise RuntimeError(f"Expected exactly one match, found {count}: {old[:120]!r}")
-              content = content.replace(old, new, 1)
+          old_import = 'import { useDeferredValue, useEffect, useMemo, useState } from "react";'
+          new_import = 'import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";'
+          if old_import in content:
+              content = content.replace(old_import, new_import, 1)
+          elif new_import not in content:
+              raise RuntimeError("React import shape was not recognized")
 
-          replace_once(
-              'import { useDeferredValue, useEffect, useMemo, useState } from "react";',
-              'import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";',
-          )
-          replace_once(
-              'import { isDirectMealBuilderCandidateSelectable } from "./mealBuilderFrontendUtils";\n',
-              'import { isDirectMealBuilderCandidateSelectable } from "./mealBuilderFrontendUtils";\nimport { mealBuilderIssueText } from "./mealBuilderIssueText";\n',
-          )
-          replace_once(
-              '''  const queryClient = useQueryClient();
-          const [dialogMode, setDialogMode] = useState<DialogMode>(null);''',
-              '''  const queryClient = useQueryClient();
-          const actionLockRef = useRef(false);
-          const [dialogMode, setDialogMode] = useState<DialogMode>(null);''',
-          )
-          replace_once(
-              '''  async function runAction(
-            action: () => Promise<MealBuilderCardActionResponse>,
-            successMessage: string,
-            options: { closeDialog?: boolean; closeDelete?: boolean } = {}
-          ) {
-            if (pending) return;
-            try {
-              await onBeforeAction();
-              const response = await action();
-              onActionApplied(response);
-              setDialogDirty(false);
-              if (options.closeDialog) setDialogMode(null);
-              if (options.closeDelete) setDeleteSection(null);
-              toast.success(successMessage);
-            } catch (error) {
-              const parsed = parseApiError(error);
-              if (
-                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
-                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_FOUND" ||
-                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_IN_CARD" ||
-                parsed.code === "MEAL_BUILDER_CONFLICT" ||
-                parsed.code === "MEAL_BUILDER_PRODUCT_ALREADY_ASSIGNED"
-              ) {
-                await invalidateMealBuilderQueries(queryClient);
-              }
-              if (
-                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
-                parsed.code === "MEAL_BUILDER_CARD_TYPE_UNSUPPORTED"
-              ) {
-                setDialogMode(null);
-                setDeleteSection(null);
-              }
-              toast.error(cardActionErrorMessage(error));
+          picker_import = 'import { isDirectMealBuilderCandidateSelectable } from "./mealBuilderFrontendUtils";\n'
+          issue_import = 'import { mealBuilderIssueText } from "./mealBuilderIssueText";\n'
+          if issue_import not in content:
+              if picker_import not in content:
+                  raise RuntimeError("Picker helper import was not found")
+              content = content.replace(picker_import, picker_import + issue_import, 1)
+
+          query_client = '  const queryClient = useQueryClient();\n'
+          action_lock = '  const actionLockRef = useRef(false);\n'
+          if action_lock not in content:
+              query_index = content.find(query_client)
+              if query_index < 0:
+                  raise RuntimeError("Query client declaration was not found")
+              insert_at = query_index + len(query_client)
+              content = content[:insert_at] + action_lock + content[insert_at:]
+
+          run_start = content.find('  async function runAction(')
+          run_end = content.find('  async function updateVisibility(', run_start)
+          if run_start < 0 or run_end < 0:
+              raise RuntimeError("runAction boundaries were not found")
+          run_block = content[run_start:run_end]
+
+          old_guard = '    if (pending) return;'
+          new_guard = '    if (pending || actionLockRef.current) return;\n    actionLockRef.current = true;'
+          if new_guard not in run_block:
+              if old_guard not in run_block:
+                  raise RuntimeError("runAction pending guard was not found")
+              run_block = run_block.replace(old_guard, new_guard, 1)
+
+          old_catch_end = '''      toast.error(cardActionErrorMessage(error));
               throw error;
             }
-          }''',
-              '''  async function runAction(
-            action: () => Promise<MealBuilderCardActionResponse>,
-            successMessage: string,
-            options: { closeDialog?: boolean; closeDelete?: boolean } = {}
-          ) {
-            if (pending || actionLockRef.current) return;
-            actionLockRef.current = true;
-            try {
-              await onBeforeAction();
-              const response = await action();
-              onActionApplied(response);
-              setDialogDirty(false);
-              if (options.closeDialog) setDialogMode(null);
-              if (options.closeDelete) setDeleteSection(null);
-              toast.success(successMessage);
-            } catch (error) {
-              const parsed = parseApiError(error);
-              if (
-                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
-                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_FOUND" ||
-                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_IN_CARD" ||
-                parsed.code === "MEAL_BUILDER_CONFLICT" ||
-                parsed.code === "MEAL_BUILDER_PRODUCT_ALREADY_ASSIGNED"
-              ) {
-                await invalidateMealBuilderQueries(queryClient);
-              }
-              if (
-                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
-                parsed.code === "MEAL_BUILDER_CARD_TYPE_UNSUPPORTED"
-              ) {
-                setDialogMode(null);
-                setDeleteSection(null);
-              }
-              toast.error(cardActionErrorMessage(error));
+          }
+
+          '''
+          new_catch_end = '''      toast.error(cardActionErrorMessage(error));
               throw error;
             } finally {
               actionLockRef.current = false;
             }
-          }''',
-          )
-          replace_once(
+          }
+
+          '''
+          if 'actionLockRef.current = false;' not in run_block:
+              if old_catch_end not in run_block:
+                  compact_old = '''      toast.error(cardActionErrorMessage(error));
+              throw error;
+            }
+          }
+'''
+                  compact_new = '''      toast.error(cardActionErrorMessage(error));
+              throw error;
+            } finally {
+              actionLockRef.current = false;
+            }
+          }
+'''
+                  if compact_old not in run_block:
+                      raise RuntimeError("runAction catch ending was not found")
+                  run_block = run_block.replace(compact_old, compact_new, 1)
+              else:
+                  run_block = run_block.replace(old_catch_end, new_catch_end, 1)
+
+          content = content[:run_start] + run_block + content[run_end:]
+
+          content = content.replace(
               '{issueMessage(issues[0])}',
               '{localizedIssueMessage(issues[0])}',
+              1,
           )
-          replace_once(
-              '''function issueMessage(issue: Record<string, unknown>) {
-            if (typeof issue.message === "string" && issue.message.trim()) return issue.message;
-            if (typeof issue.code === "string" && issue.code.trim()) return issue.code;
-            return "توجد مشكلة تحتاج مراجعة في هذه البطاقة.";
-          }
-          ''',
-              '''function localizedIssueMessage(issue: MealBuilderCheck) {
+
+          helper_start = content.find('function issueMessage(')
+          helper_end = content.find('function candidateName(', helper_start)
+          if helper_start >= 0:
+              if helper_end < 0:
+                  raise RuntimeError("issueMessage helper ending was not found")
+              localized_helper = '''function localizedIssueMessage(issue: MealBuilderCheck) {
             const localized = mealBuilderIssueText({
               ...issue,
               message: undefined,
@@ -152,8 +125,11 @@ jobs:
               ? localized
               : "توجد مشكلة تحتاج مراجعة في هذه البطاقة.";
           }
-          ''',
-          )
+
+          '''
+              content = content[:helper_start] + localized_helper + content[helper_end:]
+          elif 'function localizedIssueMessage(' not in content:
+              raise RuntimeError("Issue helper was not found")
 
           path.write_text(content, encoding="utf-8")
 
