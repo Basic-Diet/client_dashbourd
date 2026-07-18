@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -62,6 +62,7 @@ import {
   selectedProductsForDirectCard,
 } from "./mealBuilderDirectCardUtils";
 import { isDirectMealBuilderCandidateSelectable } from "./mealBuilderFrontendUtils";
+import { mealBuilderIssueText } from "./mealBuilderIssueText";
 
 const KEY_PATTERN = /^[a-z0-9][a-z0-9_-]{1,63}$/;
 
@@ -89,6 +90,7 @@ export function MealBuilderDirectCards({
   onBusyChange?: (state: BusyState) => void;
 }) {
   const queryClient = useQueryClient();
+  const actionLockRef = useRef(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [dialogDirty, setDialogDirty] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -140,7 +142,8 @@ export function MealBuilderDirectCards({
     successMessage: string,
     options: { closeDialog?: boolean; closeDelete?: boolean } = {}
   ) {
-    if (pending) return;
+    if (pending || actionLockRef.current) return;
+    actionLockRef.current = true;
     try {
       await onBeforeAction();
       const response = await action();
@@ -169,6 +172,8 @@ export function MealBuilderDirectCards({
       }
       toast.error(cardActionErrorMessage(error));
       throw error;
+    } finally {
+      actionLockRef.current = false;
     }
   }
 
@@ -396,7 +401,7 @@ function DirectCard({
 
       {issues.length ? (
         <div className="mt-3 rounded-xl border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">
-          {issueMessage(issues[0])}
+          {localizedIssueMessage(issues[0])}
         </div>
       ) : null}
 
@@ -1086,10 +1091,15 @@ function validationIssuesForSection(
   });
 }
 
-function issueMessage(issue: Record<string, unknown>) {
-  if (typeof issue.message === "string" && issue.message.trim()) return issue.message;
-  if (typeof issue.code === "string" && issue.code.trim()) return issue.code;
-  return "توجد مشكلة تحتاج مراجعة في هذه البطاقة.";
+function localizedIssueMessage(issue: MealBuilderCheck) {
+  const localized = mealBuilderIssueText({
+    ...issue,
+    message: undefined,
+    title: undefined,
+  });
+  return /[\u0600-\u06FF]/.test(localized)
+    ? localized
+    : "توجد مشكلة تحتاج مراجعة في هذه البطاقة.";
 }
 
 function candidateName(candidate: MealBuilderPickerCandidate) {
