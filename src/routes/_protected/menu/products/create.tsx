@@ -18,7 +18,10 @@ import {
   resolveUploadedImageUrl,
 } from "@/utils/fetchUploadImage";
 import { saveMenuProductWithWeightPricing } from "@/utils/menuProductMutationFlow";
-import type { MenuProductRetryStage } from "@/utils/menuProductMutationFlow";
+import type {
+  MenuProductRetryStage,
+  ModernTransitionIntent,
+} from "@/utils/menuProductMutationFlow";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import {
   getMenuProductCreateDefaults,
@@ -39,6 +42,7 @@ type PartialCreateState = {
   retryStage: MenuProductRetryStage;
   product: MenuProduct;
   weightPricing?: WeightPricingDescriptor | null;
+  transitionIntent?: ModernTransitionIntent;
 };
 
 const errorSummary = (error: unknown) => {
@@ -116,6 +120,7 @@ export function CreateMenuProductPage({
         retryStage: partialCreate?.retryStage ?? "full",
         restoredWeightPricing: partialCreate?.weightPricing ?? null,
         restoredProduct: partialCreate?.product ?? null,
+        transitionIntent: partialCreate?.transitionIntent ?? null,
       });
 
       invalidateProductCaches(queryClient);
@@ -129,6 +134,7 @@ export function CreateMenuProductPage({
           retryStage: "full",
           product: result.product,
           weightPricing: result.weightPricing ?? null,
+          transitionIntent: result.transitionIntent,
         });
         setSubmitError("");
         ToastMessage("تم إنشاء المنتج لكن فشل إعداد تسعير الوزن", "error");
@@ -144,6 +150,7 @@ export function CreateMenuProductPage({
           retryStage: "final_metadata_restore",
           product: result.product,
           weightPricing: result.weightPricing,
+          transitionIntent: result.transitionIntent,
         });
         setWeightPreview(result.weightPricing);
         setSubmitError("");

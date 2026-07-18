@@ -18,7 +18,10 @@ import { MenuProductFormFields } from "@/components/pages/menu/products/MenuProd
 import { ProductCustomizationPanel } from "@/components/pages/menu/products/ProductCustomizationPanel";
 import { ProductWeightPricingPreview } from "@/components/pages/menu/products/ProductWeightPricingPreview";
 import { saveMenuProductWithWeightPricing } from "@/utils/menuProductMutationFlow";
-import type { MenuProductRetryStage } from "@/utils/menuProductMutationFlow";
+import type {
+  MenuProductRetryStage,
+  ModernTransitionIntent,
+} from "@/utils/menuProductMutationFlow";
 import {
   deriveWeightPricingFormMode,
   isModernWeightPricingFormMode,
@@ -58,6 +61,7 @@ type PartialEditState = {
   retryStage: MenuProductRetryStage;
   product: MenuProduct;
   weightPricing?: WeightPricingDescriptor | null;
+  transitionIntent?: ModernTransitionIntent;
 };
 
 function invalidateProductCaches(queryClient: ReturnType<typeof useQueryClient>) {
@@ -156,6 +160,7 @@ export function UpdateMenuProductForm({
           retryStage: partialEdit?.retryStage ?? "full",
           restoredWeightPricing: partialEdit?.weightPricing ?? null,
           restoredProduct: partialEdit?.product ?? canonicalProduct,
+          transitionIntent: partialEdit?.transitionIntent ?? null,
         });
 
         invalidateProductCaches(queryClient);
@@ -169,13 +174,11 @@ export function UpdateMenuProductForm({
             product: result.product,
             weightPricing:
               result.weightPricing ?? canonicalProduct.weightPricing ?? null,
+            transitionIntent: result.transitionIntent,
           });
           setWeightPreview(
             result.weightPricing ?? canonicalProduct.weightPricing ?? null
           );
-          form.reset(getMenuProductFormValues(result.product), {
-            keepDirtyValues: true,
-          });
           ToastMessage("تم حفظ بيانات المنتج لكن فشل تسعير الوزن", "error");
           invalidateProductCaches(queryClient);
           return;
@@ -189,11 +192,9 @@ export function UpdateMenuProductForm({
             retryStage: "final_metadata_restore",
             product: result.product,
             weightPricing: result.weightPricing,
+            transitionIntent: result.transitionIntent,
           });
           setWeightPreview(result.weightPricing);
-          form.reset(getMenuProductFormValues(result.product), {
-            keepDirtyValues: true,
-          });
           ToastMessage("تم حفظ تسعير الوزن لكن فشل إظهار المنتج أو استعادة حالته", "error");
           invalidateProductCaches(queryClient);
           return;

@@ -8,7 +8,21 @@ import {
 import menuProductSchema, {
   type MenuProductSchemaType,
 } from "../src/lib/validations/menuProductSchema";
-import type { MenuProduct } from "../src/types/menuTypes";
+import type { MenuProduct, UpdateMenuProductPayload } from "../src/types/menuTypes";
+
+const weightPricing = {
+  contractVersion: "weight_pricing.v1",
+  strategy: "base_plus_steps" as const,
+  requiresWeightSelection: true,
+  basePriceHalala: 1900,
+  baseWeightGrams: 100,
+  defaultWeightGrams: 100,
+  minWeightGrams: 100,
+  maxWeightGrams: 300,
+  stepGrams: 50,
+  stepPriceHalala: 500,
+  choices: [{ weightGrams: 100, priceHalala: 1900 }],
+};
 
 const localized = { ar: "منتج", en: "Product" };
 
@@ -121,6 +135,29 @@ function dependencies() {
     }),
   };
   return { calls, deps };
+}
+
+function assertModernFinalRestorePayload(
+  payload: UpdateMenuProductPayload,
+  expected: {
+    pricingModel?: "fixed" | "per_100g";
+    isActive: boolean;
+    isVisible: boolean;
+    isAvailable: boolean;
+  }
+) {
+  assert.equal(payload.pricingModel, expected.pricingModel ?? "per_100g");
+  assert.equal(payload.isActive, expected.isActive);
+  assert.equal(payload.isVisible, expected.isVisible);
+  assert.equal(payload.isAvailable, expected.isAvailable);
+  assert.equal("priceHalala" in payload, false);
+  assert.equal("baseUnitGrams" in payload, false);
+  assert.equal("defaultWeightGrams" in payload, false);
+  assert.equal("minWeightGrams" in payload, false);
+  assert.equal("maxWeightGrams" in payload, false);
+  assert.equal("weightStepGrams" in payload, false);
+  assert.equal("weightStepPriceHalala" in payload, false);
+  assert.equal("isCustomizable" in payload, false);
 }
 
 describe("saveMenuProductWithWeightPricing", () => {
@@ -383,6 +420,11 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.deepEqual(calls, ["create", "weight:created-product"]);
     assert.equal(deps.updateProduct.mock.calls.length, 1);
     assert.equal(first.status === "partial_final_metadata_restore_failed" ? first.weightPricing.choices.length : 0, 1);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[0][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
 
     calls.length = 0;
     const retryFailure = await saveMenuProductWithWeightPricing({
@@ -399,12 +441,21 @@ describe("saveMenuProductWithWeightPricing", () => {
         first.status === "partial_final_metadata_restore_failed"
           ? first.product
           : null,
+      transitionIntent:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.transitionIntent
+          : null,
       dependencies: deps,
     });
 
     assert.equal(retryFailure.status, "partial_final_metadata_restore_failed");
     assert.deepEqual(calls, []);
     assert.equal(deps.updateProduct.mock.calls.length, 2);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[1][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
     assert.equal(deps.createProduct.mock.calls.length, 1);
     assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
 
@@ -423,6 +474,10 @@ describe("saveMenuProductWithWeightPricing", () => {
         retryFailure.status === "partial_final_metadata_restore_failed"
           ? retryFailure.product
           : null,
+      transitionIntent:
+        retryFailure.status === "partial_final_metadata_restore_failed"
+          ? retryFailure.transitionIntent
+          : null,
       dependencies: deps,
     });
 
@@ -431,6 +486,11 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.equal(deps.createProduct.mock.calls.length, 1);
     assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
     assert.equal(deps.updateProduct.mock.calls.length, 3);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[2][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
   });
 
   it("edits a legacy weight product without migration through ordinary PATCH only", async () => {
@@ -497,5 +557,383 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
     assert.equal(deps.updateProduct.mock.calls[1][1].isVisible, true);
     assert.equal(deps.updateProduct.mock.calls[1][1].isAvailable, true);
+  });
+
+  it("retries fixed-to-modern final restore with the original intended status payload", async () => {
+    const { deps } = dependencies();
+    const stagedProduct = product({
+      id: "fixed-product",
+      pricingModel: "per_100g",
+      isVisible: false,
+      isAvailable: false,
+      weightPricing: null,
+      weightStepPriceHalala: null,
+    });
+    const finalProduct = product({
+      id: "fixed-product",
+      pricingModel: "per_100g",
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+    deps.updateProduct
+      .mockResolvedValueOnce({ status: true, data: stagedProduct })
+      .mockRejectedValueOnce(new Error("restore failed"))
+      .mockRejectedValueOnce(new Error("restore failed again"))
+      .mockResolvedValueOnce({ status: true, data: finalProduct });
+
+    const first = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "fixed-product",
+      values: values({ weightPricingFormMode: "fixed_to_modern" }),
+      imageUrl: "",
+      initialProduct: product({
+        id: "fixed-product",
+        pricingModel: "fixed",
+        isActive: true,
+        isVisible: true,
+        isAvailable: true,
+      }),
+      dependencies: deps,
+    });
+
+    assert.equal(first.status, "partial_final_metadata_restore_failed");
+    assert.equal(deps.createProduct.mock.calls.length, 0);
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+    assert.equal(deps.updateProduct.mock.calls.length, 2);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, false);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[1][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+
+    const staleValues = values({
+      weightPricingFormMode: "legacy",
+      isActive: true,
+      isVisible: false,
+      isAvailable: false,
+    });
+    const retryFailure = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "fixed-product",
+      values: staleValues,
+      imageUrl: "",
+      initialProduct: stagedProduct,
+      retryStage: "final_metadata_restore",
+      restoredWeightPricing:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.weightPricing
+          : null,
+      restoredProduct:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.product
+          : null,
+      transitionIntent:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.transitionIntent
+          : null,
+      dependencies: deps,
+    });
+
+    assert.equal(retryFailure.status, "partial_final_metadata_restore_failed");
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+    assert.equal(deps.updateProduct.mock.calls.length, 3);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[2][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+
+    const retry = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "fixed-product",
+      values: staleValues,
+      imageUrl: "",
+      initialProduct: stagedProduct,
+      retryStage: "final_metadata_restore",
+      restoredWeightPricing:
+        retryFailure.status === "partial_final_metadata_restore_failed"
+          ? retryFailure.weightPricing
+          : null,
+      restoredProduct:
+        retryFailure.status === "partial_final_metadata_restore_failed"
+          ? retryFailure.product
+          : null,
+      transitionIntent:
+        retryFailure.status === "partial_final_metadata_restore_failed"
+          ? retryFailure.transitionIntent
+          : null,
+      dependencies: deps,
+    });
+
+    assert.equal(retry.status, "complete");
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+    assert.equal(deps.updateProduct.mock.calls.length, 4);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[3][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+  });
+
+  it("keeps fixed-to-modern weight-pricing retry modern and restores intended status", async () => {
+    const { deps } = dependencies();
+    deps.updateWeightPricing
+      .mockRejectedValueOnce(new Error("pricing failed"))
+      .mockResolvedValueOnce({
+        status: true,
+        data: {
+          contractVersion: "dashboard_weight_pricing.v1",
+          product: product({
+            id: "fixed-product",
+            pricingModel: "per_100g",
+            isVisible: false,
+            isAvailable: false,
+            weightPricing,
+          }),
+          weightPricing,
+        },
+      });
+
+    const first = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "fixed-product",
+      values: values({ weightPricingFormMode: "fixed_to_modern" }),
+      imageUrl: "",
+      initialProduct: product({
+        id: "fixed-product",
+        pricingModel: "fixed",
+        isActive: true,
+        isVisible: true,
+        isAvailable: true,
+      }),
+      dependencies: deps,
+    });
+
+    assert.equal(first.status, "partial_weight_pricing_failed");
+    assert.equal(deps.updateProduct.mock.calls.length, 1);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, false);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+
+    const retry = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "fixed-product",
+      values: values({
+        weightPricingFormMode: "legacy",
+        isVisible: false,
+        isAvailable: false,
+      }),
+      imageUrl: "",
+      initialProduct:
+        first.status === "partial_weight_pricing_failed"
+          ? first.product
+          : null,
+      transitionIntent:
+        first.status === "partial_weight_pricing_failed"
+          ? first.transitionIntent
+          : null,
+      dependencies: deps,
+    });
+
+    assert.equal(retry.status, "complete");
+    assert.equal(deps.createProduct.mock.calls.length, 0);
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 2);
+    assert.equal(deps.updateProduct.mock.calls.length, 3);
+    assert.equal(deps.updateProduct.mock.calls[1][1].isVisible, false);
+    assert.equal(deps.updateProduct.mock.calls[1][1].isAvailable, false);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[2][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+  });
+
+  it("keeps legacy migration retries modern and restores intended status", async () => {
+    const { deps } = dependencies();
+    const legacyProduct = product({
+      id: "legacy-product",
+      pricingModel: "per_100g",
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+      weightPricing: null,
+      weightStepPriceHalala: null,
+    });
+    deps.updateWeightPricing
+      .mockRejectedValueOnce(new Error("pricing failed"))
+      .mockResolvedValueOnce({
+        status: true,
+        data: {
+          contractVersion: "dashboard_weight_pricing.v1",
+          product: product({
+            id: "legacy-product",
+            pricingModel: "per_100g",
+            isVisible: false,
+            isAvailable: false,
+            weightPricing,
+          }),
+          weightPricing,
+        },
+      });
+
+    const first = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "legacy-product",
+      values: values({ weightPricingFormMode: "legacy_migration" }),
+      imageUrl: "",
+      initialProduct: legacyProduct,
+      dependencies: deps,
+    });
+
+    assert.equal(first.status, "partial_weight_pricing_failed");
+    assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, false);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
+
+    const retry = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "legacy-product",
+      values: values({
+        weightPricingFormMode: "legacy",
+        isVisible: false,
+        isAvailable: false,
+      }),
+      imageUrl: "",
+      initialProduct:
+        first.status === "partial_weight_pricing_failed"
+          ? first.product
+          : null,
+      transitionIntent:
+        first.status === "partial_weight_pricing_failed"
+          ? first.transitionIntent
+          : null,
+      dependencies: deps,
+    });
+
+    assert.equal(retry.status, "complete");
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 2);
+    assert.equal(deps.updateProduct.mock.calls.length, 3);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[2][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+  });
+
+  it("retries legacy migration final restore with the original intended status payload", async () => {
+    const { deps } = dependencies();
+    const legacyProduct = product({
+      id: "legacy-product",
+      pricingModel: "per_100g",
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+      weightPricing: null,
+      weightStepPriceHalala: null,
+    });
+    deps.updateProduct
+      .mockResolvedValueOnce({
+        status: true,
+        data: product({
+          id: "legacy-product",
+          pricingModel: "per_100g",
+          isVisible: false,
+          isAvailable: false,
+          weightPricing: null,
+          weightStepPriceHalala: null,
+        }),
+      })
+      .mockRejectedValueOnce(new Error("restore failed"))
+      .mockResolvedValueOnce({
+        status: true,
+        data: product({ id: "legacy-product", pricingModel: "per_100g" }),
+      });
+
+    const first = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "legacy-product",
+      values: values({ weightPricingFormMode: "legacy_migration" }),
+      imageUrl: "",
+      initialProduct: legacyProduct,
+      dependencies: deps,
+    });
+
+    assert.equal(first.status, "partial_final_metadata_restore_failed");
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[1][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+
+    const retry = await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "legacy-product",
+      values: values({
+        weightPricingFormMode: "legacy",
+        isVisible: false,
+        isAvailable: false,
+      }),
+      imageUrl: "",
+      initialProduct:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.product
+          : null,
+      retryStage: "final_metadata_restore",
+      restoredWeightPricing:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.weightPricing
+          : null,
+      restoredProduct:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.product
+          : null,
+      transitionIntent:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.transitionIntent
+          : null,
+      dependencies: deps,
+    });
+
+    assert.equal(retry.status, "complete");
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+    assert.equal(deps.updateProduct.mock.calls.length, 3);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[2][1], {
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    });
+  });
+
+  it("edits an existing modern product without safe-transition restore retry", async () => {
+    const { calls, deps } = dependencies();
+
+    await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "modern-product",
+      values: values({
+        isActive: false,
+        isVisible: false,
+        isAvailable: true,
+        weightPricingFormMode: "existing_modern",
+      }),
+      imageUrl: "",
+      initialProduct: product({
+        id: "modern-product",
+        pricingModel: "per_100g",
+        weightStepPriceHalala: 500,
+        weightPricing,
+      }),
+      dependencies: deps,
+    });
+
+    assert.deepEqual(calls, ["update:modern-product", "weight:modern-product"]);
+    assert.equal(deps.updateProduct.mock.calls.length, 1);
+    assertModernFinalRestorePayload(deps.updateProduct.mock.calls[0][1], {
+      isActive: false,
+      isVisible: false,
+      isAvailable: true,
+    });
   });
 });

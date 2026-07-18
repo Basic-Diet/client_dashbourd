@@ -159,6 +159,25 @@ const modernProductFields = {
   isCustomizable: true,
 };
 
+function expectModernFinalRestorePayload(payload: Record<string, unknown>) {
+  expect(payload).toEqual(
+    expect.objectContaining({
+      pricingModel: "per_100g",
+      isActive: true,
+      isVisible: true,
+      isAvailable: true,
+    })
+  );
+  expect(payload).not.toHaveProperty("priceHalala");
+  expect(payload).not.toHaveProperty("baseUnitGrams");
+  expect(payload).not.toHaveProperty("defaultWeightGrams");
+  expect(payload).not.toHaveProperty("minWeightGrams");
+  expect(payload).not.toHaveProperty("maxWeightGrams");
+  expect(payload).not.toHaveProperty("weightStepGrams");
+  expect(payload).not.toHaveProperty("weightStepPriceHalala");
+  expect(payload).not.toHaveProperty("isCustomizable");
+}
+
 beforeEach(() => {
   navigate.mockReset();
   invalidateQueries.mockReset();
@@ -425,15 +444,18 @@ describe("menu product page flows", () => {
     await userEvent.click(screen.getByRole("button", { name: /إضافة المنتج/ }));
 
     expect(await screen.findAllByText(/فشل إظهار المنتج/)).toHaveLength(1);
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[0][1]);
     expect(screen.getByText("100 جم")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /إكمال إظهار المنتج/ }));
 
     await waitFor(() => expect(updateProductMock).toHaveBeenCalledTimes(2));
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[1][1]);
     expect(screen.getByRole("button", { name: /إكمال إظهار المنتج/ })).toBeEnabled();
     expect(screen.getByText("100 جم")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /إكمال إظهار المنتج/ }));
 
     await waitFor(() => expect(updateProductMock).toHaveBeenCalledTimes(3));
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[2][1]);
     expect(createProductMock).toHaveBeenCalledTimes(1);
     expect(updateWeightPricingMock).toHaveBeenCalledTimes(1);
   });
@@ -491,16 +513,170 @@ describe("menu product page flows", () => {
     await userEvent.click(screen.getByRole("button", { name: /حفظ/ }));
 
     expect(await screen.findAllByText(/فشل إظهار المنتج/)).toHaveLength(2);
+    expect(updateProductMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ isVisible: false, isAvailable: false })
+    );
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[1][1]);
     expect(screen.getByText("100 جم")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /إكمال إظهار المنتج/ }));
 
     await waitFor(() => expect(updateProductMock).toHaveBeenCalledTimes(3));
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[2][1]);
     expect(screen.getByRole("button", { name: /إكمال إظهار المنتج/ })).toBeEnabled();
     expect(screen.getByText("100 جم")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /إكمال إظهار المنتج/ }));
 
     await waitFor(() => expect(updateProductMock).toHaveBeenCalledTimes(4));
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[3][1]);
     expect(createProductMock).not.toHaveBeenCalled();
     expect(updateWeightPricingMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps fixed-to-modern pricing failure retry on the modern path", async () => {
+    const fixedProduct = product({
+      id: "fixed-product",
+      pricingModel: "fixed",
+      isCustomizable: false,
+      isVisible: true,
+      isAvailable: true,
+    });
+    const stagedProduct = product({
+      id: "fixed-product",
+      pricingModel: "per_100g",
+      isVisible: false,
+      isAvailable: false,
+    });
+    const canonicalModernProduct = product({
+      id: "fixed-product",
+      ...modernProductFields,
+    });
+
+    updateProductMock
+      .mockResolvedValueOnce({ status: true, data: stagedProduct })
+      .mockResolvedValueOnce({ status: true, data: stagedProduct })
+      .mockResolvedValueOnce({ status: true, data: canonicalModernProduct });
+    updateWeightPricingMock
+      .mockRejectedValueOnce(new Error("pricing failed"))
+      .mockResolvedValueOnce({
+        status: true,
+        data: {
+          contractVersion: "dashboard_weight_pricing.v1",
+          product: stagedProduct,
+          weightPricing,
+        },
+      });
+
+    render(
+      <UpdateMenuProductForm
+        product={fixedProduct}
+        productId="fixed-product"
+        initialValues={{
+          ...getMenuProductFormValues(fixedProduct),
+          pricingModel: "per_100g",
+          useWeightStepPricing: true,
+          weightPricingFormMode: "fixed_to_modern",
+          baseUnitGrams: 100,
+          defaultWeightGrams: 100,
+          minWeightGrams: 100,
+          maxWeightGrams: 300,
+          weightStepGrams: 50,
+          weightStepPriceSar: 5,
+        }}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /حفظ/ }));
+
+    await screen.findByText(/فشل تسعير الوزن/);
+    expect(updateProductMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ isVisible: false, isAvailable: false })
+    );
+    expect(updateWeightPricingMock).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: /إكمال تسعير الوزن/ }));
+
+    await waitFor(() => expect(updateWeightPricingMock).toHaveBeenCalledTimes(2));
+    await screen.findByText(/تم حفظ تسعير الوزن بنجاح/);
+    expect(updateProductMock).toHaveBeenCalledTimes(3);
+    expect(updateProductMock.mock.calls[1][1]).toEqual(
+      expect.objectContaining({ isVisible: false, isAvailable: false })
+    );
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[2][1]);
+    expect(createProductMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps legacy migration pricing failure retry on the modern path", async () => {
+    const legacyProduct = product({
+      id: "legacy-product",
+      pricingModel: "per_100g",
+      weightStepPriceHalala: null,
+      weightPricing: null,
+      baseUnitGrams: 100,
+      defaultWeightGrams: 100,
+      minWeightGrams: 100,
+      maxWeightGrams: 300,
+      weightStepGrams: 50,
+      isVisible: true,
+      isAvailable: true,
+    });
+    const stagedProduct = product({
+      id: "legacy-product",
+      pricingModel: "per_100g",
+      isVisible: false,
+      isAvailable: false,
+      weightPricing: null,
+      weightStepPriceHalala: null,
+    });
+    const canonicalModernProduct = product({
+      id: "legacy-product",
+      ...modernProductFields,
+    });
+
+    updateProductMock
+      .mockResolvedValueOnce({ status: true, data: stagedProduct })
+      .mockResolvedValueOnce({ status: true, data: stagedProduct })
+      .mockResolvedValueOnce({ status: true, data: canonicalModernProduct });
+    updateWeightPricingMock
+      .mockRejectedValueOnce(new Error("pricing failed"))
+      .mockResolvedValueOnce({
+        status: true,
+        data: {
+          contractVersion: "dashboard_weight_pricing.v1",
+          product: stagedProduct,
+          weightPricing,
+        },
+      });
+
+    render(
+      <UpdateMenuProductForm
+        product={legacyProduct}
+        productId="legacy-product"
+        initialValues={{
+          ...getMenuProductFormValues(legacyProduct),
+          useWeightStepPricing: true,
+          weightPricingFormMode: "legacy_migration",
+          weightStepPriceSar: 5,
+        }}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /حفظ/ }));
+
+    await screen.findByText(/فشل تسعير الوزن/);
+    expect(updateProductMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ isVisible: false, isAvailable: false })
+    );
+    expect(updateWeightPricingMock).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: /إكمال تسعير الوزن/ }));
+
+    await waitFor(() => expect(updateWeightPricingMock).toHaveBeenCalledTimes(2));
+    await screen.findByText(/تم حفظ تسعير الوزن بنجاح/);
+    expect(updateProductMock).toHaveBeenCalledTimes(3);
+    expect(updateProductMock.mock.calls[1][1]).toEqual(
+      expect.objectContaining({ isVisible: false, isAvailable: false })
+    );
+    expectModernFinalRestorePayload(updateProductMock.mock.calls[2][1]);
+    expect(createProductMock).not.toHaveBeenCalled();
   });
 });

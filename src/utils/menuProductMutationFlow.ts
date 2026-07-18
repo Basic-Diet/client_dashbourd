@@ -1,7 +1,6 @@
 import type { MenuProductSchemaType } from "@/lib/validations/menuProductSchema";
 import {
   toCreateMenuProductPayload,
-  toCreateModernWeightProductPayload,
   toCreateSafeModernWeightProductPayload,
   toLegacyWeightProductPayload,
   toUpdateModernWeightProductPayload,
@@ -32,6 +31,13 @@ export type MenuProductSavePricingOutcome =
   | "modern_weight";
 export type MenuProductRetryStage = "full" | "final_metadata_restore";
 
+export type ModernTransitionIntent = {
+  values: MenuProductSchemaType;
+  finalMetadataPayload: ReturnType<typeof toUpdateModernWeightProductPayload>;
+  transitionOriginProduct: MenuProduct | null;
+  imageUrl: string;
+};
+
 export type MenuProductSaveResult =
   | {
       status: "complete";
@@ -45,6 +51,7 @@ export type MenuProductSaveResult =
       productId: string;
       error: unknown;
       weightPricing?: WeightPricingDescriptor | null;
+      transitionIntent?: ModernTransitionIntent;
     }
   | {
       status: "partial_final_metadata_restore_failed";
@@ -52,6 +59,7 @@ export type MenuProductSaveResult =
       productId: string;
       error: unknown;
       weightPricing: WeightPricingDescriptor;
+      transitionIntent: ModernTransitionIntent;
     };
 
 export interface MenuProductSaveDependencies {
@@ -78,6 +86,7 @@ export interface SaveMenuProductInput {
   retryStage?: MenuProductRetryStage;
   restoredWeightPricing?: WeightPricingDescriptor | null;
   restoredProduct?: MenuProduct | null;
+  transitionIntent?: ModernTransitionIntent | null;
   dependencies?: MenuProductSaveDependencies;
 }
 
@@ -91,6 +100,7 @@ export async function saveMenuProductWithWeightPricing({
   retryStage = "full",
   restoredWeightPricing,
   restoredProduct,
+  transitionIntent: storedTransitionIntent,
   dependencies = {},
 }: SaveMenuProductInput): Promise<MenuProductSaveResult> {
   const createProduct = dependencies.createProduct ?? fetchCreateMenuProduct;
@@ -99,15 +109,72 @@ export async function saveMenuProductWithWeightPricing({
     dependencies.updateWeightPricing ?? fetchUpdateMenuProductWeightPricing;
   const nextValues = { ...values, imageFile: undefined, imageUrl };
   const existingProductId = partialProductId ?? productId ?? "";
+
+  if (retryStage === "final_metadata_restore") {
+    if (!existingProductId) {
+      throw new Error("Missing product id for final metadata restore retry.");
+    }
+    if (!storedTransitionIntent) {
+      throw new Error(
+        "Missing transition intent for final metadata restore retry."
+      );
+    }
+    if (!restoredWeightPricing) {
+      throw new Error("Missing weight pricing for final metadata restore retry.");
+    }
+
+    try {
+      const finalResponse = await updateProduct(
+        existingProductId,
+        storedTransitionIntent.finalMetadataPayload
+      );
+      return {
+        status: "complete",
+        pricingOutcome: "modern_weight",
+        product: {
+          ...assertSavedProduct(finalResponse.data),
+          weightPricing: restoredWeightPricing,
+          weightStepPriceHalala:
+            restoredWeightPricing.stepPriceHalala ??
+            finalResponse.data.weightStepPriceHalala,
+        },
+        weightPricing: restoredWeightPricing,
+      };
+    } catch (error) {
+      const retryProduct = assertSavedProduct(
+        restoredProduct ??
+          initialProduct ??
+          ({ id: existingProductId } as MenuProduct)
+      );
+      return {
+        status: "partial_final_metadata_restore_failed",
+        product: {
+          ...retryProduct,
+          weightPricing: restoredWeightPricing,
+          weightStepPriceHalala:
+            restoredWeightPricing.stepPriceHalala ??
+            retryProduct.weightStepPriceHalala,
+        },
+        productId: existingProductId,
+        error,
+        weightPricing: restoredWeightPricing,
+        transitionIntent: storedTransitionIntent,
+      };
+    }
+  }
+
+  const operationValues = storedTransitionIntent?.values ?? nextValues;
   const useModernPricing = shouldUseModernWeightPricing({
     mode,
-    values: nextValues,
-    initialProduct,
+    values: operationValues,
+    initialProduct:
+      storedTransitionIntent?.transitionOriginProduct ?? initialProduct,
   });
   const useSafeTransition = requiresSafeModernTransition({
     mode,
-    values: nextValues,
-    initialProduct,
+    values: operationValues,
+    initialProduct:
+      storedTransitionIntent?.transitionOriginProduct ?? initialProduct,
   });
 
   if (!useModernPricing) {
@@ -130,65 +197,30 @@ export async function saveMenuProductWithWeightPricing({
     };
   }
 
-  if (retryStage === "final_metadata_restore") {
-    try {
-      const finalResponse = await updateProduct(
-        existingProductId,
-        mode === "create"
-          ? toCreateModernWeightProductPayload(nextValues)
-          : toUpdateModernWeightProductPayload(nextValues)
-      );
-      return {
-        status: "complete",
-        pricingOutcome: "modern_weight",
-        product: {
-          ...assertSavedProduct(finalResponse.data),
-          weightPricing: restoredWeightPricing ?? null,
-          weightStepPriceHalala:
-            restoredWeightPricing?.stepPriceHalala ??
-            finalResponse.data.weightStepPriceHalala,
-        },
-        weightPricing: restoredWeightPricing ?? null,
-      };
-    } catch (error) {
-      const retryProduct = assertSavedProduct(
-        restoredProduct ?? initialProduct ?? ({ id: existingProductId } as MenuProduct)
-      );
-      const retryWeightPricing =
-        restoredWeightPricing ?? retryProduct.weightPricing;
-      if (!retryWeightPricing) {
-        throw error;
-      }
-      return {
-        status: "partial_final_metadata_restore_failed",
-        product: {
-          ...retryProduct,
-          weightPricing: retryWeightPricing,
-          weightStepPriceHalala:
-            retryWeightPricing.stepPriceHalala ?? retryProduct.weightStepPriceHalala,
-        },
-        productId: existingProductId,
-        error,
-        weightPricing: retryWeightPricing,
-      };
-    }
-  }
+  const transitionIntent: ModernTransitionIntent = storedTransitionIntent ?? {
+    values: operationValues,
+    finalMetadataPayload: toUpdateModernWeightProductPayload(operationValues),
+    transitionOriginProduct: initialProduct ?? null,
+    imageUrl: operationValues.imageUrl ?? imageUrl,
+  };
 
   const stagedResponse =
     mode === "create" && !partialProductId
-      ? await createProduct(toCreateSafeModernWeightProductPayload(nextValues))
+      ? await createProduct(
+          toCreateSafeModernWeightProductPayload(operationValues)
+        )
       : await updateProduct(
           existingProductId,
           useSafeTransition
-            ? toUpdateSafeModernWeightProductPayload(nextValues)
-            : toUpdateModernWeightProductPayload(nextValues)
+            ? toUpdateSafeModernWeightProductPayload(operationValues)
+            : toUpdateModernWeightProductPayload(operationValues)
         );
   const stagedProduct = assertSavedProduct(stagedResponse.data);
 
   try {
     const weightResponse = await updateWeightPricing(
       stagedProduct.id,
-      toWeightPricingPayload(nextValues)
+      toWeightPricingPayload(operationValues)
     );
     let finalResponse: MenuProductMutationResponse | null = null;
     try {
@@ -196,9 +228,7 @@ export async function saveMenuProductWithWeightPricing({
         mode === "create" || useSafeTransition
           ? await updateProduct(
               stagedProduct.id,
-              mode === "create"
-                ? toCreateModernWeightProductPayload(nextValues)
-                : toUpdateModernWeightProductPayload(nextValues)
+              transitionIntent.finalMetadataPayload
             )
           : null;
     } catch (error) {
@@ -208,6 +238,7 @@ export async function saveMenuProductWithWeightPricing({
         productId: stagedProduct.id,
         error,
         weightPricing: weightResponse.data.weightPricing,
+        transitionIntent,
       };
     }
 
@@ -237,6 +268,7 @@ export async function saveMenuProductWithWeightPricing({
       productId: stagedProduct.id,
       error,
       weightPricing: initialProduct?.weightPricing ?? stagedProduct.weightPricing ?? null,
+      transitionIntent,
     };
   }
 }
