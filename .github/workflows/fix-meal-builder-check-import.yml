@@ -1,0 +1,47 @@
+name: Repair Meal Builder Check Import
+
+on:
+  push:
+    branches:
+      - feat/meal-builder-simplified-workspace-ux
+    paths:
+      - .github/workflows/fix-meal-builder-check-import.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-simplified-workspace-ux
+          fetch-depth: 0
+
+      - name: Add missing type import
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx")
+          content = path.read_text(encoding="utf-8")
+          old = '''import type {
+            MealBuilderCardActionResponse,'''
+          new = '''import type {
+            MealBuilderCardActionResponse,
+            MealBuilderCheck,'''
+          if "MealBuilderCheck," not in content:
+              if old not in content:
+                  raise RuntimeError("Meal Builder type import block was not found")
+              content = content.replace(old, new, 1)
+          path.write_text(content, encoding="utf-8")
+
+      - name: Commit import repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Basic Diet Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx
+          git commit -m "fix(meal-builder): import lifecycle validation type"
+          git push origin HEAD:feat/meal-builder-simplified-workspace-ux
