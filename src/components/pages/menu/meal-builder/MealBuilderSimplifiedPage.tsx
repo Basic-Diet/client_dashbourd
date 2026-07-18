@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
-  ChevronLeft,
-  CircleDashed,
   ClipboardCheck,
   Eye,
   FileEdit,
@@ -16,7 +14,6 @@ import {
   RefreshCw,
   RotateCcw,
   Send,
-  Settings2,
   StickyNote,
   TriangleAlert,
 } from "lucide-react";
@@ -78,6 +75,7 @@ import type {
   MealBuilderCardActionResponse,
   MealBuilderCheck,
   MealBuilderConfig,
+  MealBuilderHydratedItem,
   MealBuilderPremiumSection,
   MealBuilderSection,
   MealBuilderValidation,
@@ -92,6 +90,7 @@ import {
   mealBuilderErrorMessage,
   toEditableMealBuilderSections,
 } from "./mealBuilderFrontendUtils";
+import { mealBuilderIssueText } from "./mealBuilderIssueText";
 import { orderSections, toBackendSections } from "./mealBuilderUtils";
 import {
   buildMealBuilderVisualCards,
@@ -114,7 +113,19 @@ type Catalog = {
   options: MenuOption[];
 };
 
+type WorkspaceSnapshot = {
+  sections: MealBuilderSection[];
+  notes: string;
+  validation: MealBuilderValidation | null;
+};
+
 type DirectBusyState = { dirty: boolean; pending: boolean };
+
+type BuiltCards = {
+  direct: MealBuilderSection[];
+  visual: MealBuilderVisualCard[];
+  totalCount: number;
+};
 
 export function MealBuilderSimplifiedPage({
   externalNavigationBlocked = false,
@@ -124,11 +135,12 @@ export function MealBuilderSimplifiedPage({
   onNavigationStateChange?: (state: MealBuilderNavigationState) => void;
 }) {
   const queryClient = useQueryClient();
-  const [mode, setMode] = useState<PageMode>("loading");
-  const [sections, setSections] = useState<MealBuilderSection[]>([]);
-  const [notes, setNotes] = useState("");
-  const [validation, setValidation] = useState<MealBuilderValidation | null>(null);
-  const [directBusy, setDirectBusy] = useState<DirectBusyState>({ dirty: false, pending: false });
+  const [modeOverride, setMode] = useState<Exclude<PageMode, "loading"> | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
+  const [directBusy, setDirectBusy] = useState<DirectBusyState>({
+    dirty: false,
+    pending: false,
+  });
   const [legacyEditorKey, setLegacyEditorKey] = useState<string | null>(null);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -139,12 +151,15 @@ export function MealBuilderSimplifiedPage({
   const [legacyDiscardOpen, setLegacyDiscardOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [showPublishedConfirm, setShowPublishedConfirm] = useState(false);
-  const initializedRef = useRef(false);
 
   const builderQuery = useMealBuilderQuery();
   const publishedQuery = useMealBuilderPublishedQuery();
   const state = builderQuery.data?.data ?? null;
   const hasDraft = Boolean(state?.metadata?.hasDraft || state?.draft);
+  const mode: PageMode =
+    modeOverride ??
+    (builderQuery.isSuccess ? (hasDraft ? "draft" : "published") : "loading");
+
   const draftQuery = useMealBuilderDraftQuery(mode === "draft" || hasDraft);
   const hydratedQuery = useMealBuilderHydratedQuery(
     (mode === "draft" || hasDraft) && draftQuery.isSuccess
@@ -174,12 +189,19 @@ export function MealBuilderSimplifiedPage({
   const publishDraft = usePublishMealBuilderDraftMutation();
   const resetDraft = useResetMealBuilderDraftMutation();
 
-  const catalog: Catalog = {
-    products: productsQuery.data?.data.items ?? [],
-    categories: categoriesQuery.data?.data.items ?? [],
-    groups: groupsQuery.data?.data.items ?? [],
-    options: optionsQuery.data?.data.items ?? [],
-  };
+  const catalogProducts = productsQuery.data?.data.items;
+  const catalogCategories = categoriesQuery.data?.data.items;
+  const catalogGroups = groupsQuery.data?.data.items;
+  const catalogOptions = optionsQuery.data?.data.items;
+  const catalog = useMemo<Catalog>(
+    () => ({
+      products: catalogProducts ?? [],
+      categories: catalogCategories ?? [],
+      groups: catalogGroups ?? [],
+      options: catalogOptions ?? [],
+    }),
+    [catalogCategories, catalogGroups, catalogOptions, catalogProducts]
+  );
   const catalogReady =
     productsQuery.isSuccess &&
     categoriesQuery.isSuccess &&
@@ -200,9 +222,19 @@ export function MealBuilderSimplifiedPage({
   const publishedPremium =
     publishedQuery.data?.data.premiumSection ?? state?.premiumSection ?? null;
   const authoritativeValidation =
-    hydratedQuery.data?.data.validation ??
-    state?.validation?.draft ??
-    null;
+    hydratedQuery.data?.data.validation ?? state?.validation?.draft ?? null;
+
+  const serverSections = useMemo(
+    () =>
+      authoritativeDraft
+        ? toEditableMealBuilderSections(orderSections(authoritativeDraft.sections))
+        : [],
+    [authoritativeDraft]
+  );
+  const serverNotes = authoritativeDraft?.notes ?? "";
+  const sections = workspace?.sections ?? serverSections;
+  const notes = workspace?.notes ?? serverNotes;
+  const validation = workspace?.validation ?? authoritativeValidation;
 
   const ownPending =
     createDraft.isPending ||
@@ -216,24 +248,23 @@ export function MealBuilderSimplifiedPage({
   const draftWorkspaceReady =
     mode === "draft" && Boolean(authoritativeDraft) && hydratedQuery.isSuccess;
 
-  useEffect(() => {
-    if (initializedRef.current || !builderQuery.isSuccess) return;
-    initializedRef.current = true;
-    setMode(hasDraft ? "draft" : "published");
-  }, [builderQuery.isSuccess, hasDraft]);
-
-  useEffect(() => {
-    if (!authoritativeDraft || pending || directBusy.dirty || legacyEditorKey) return;
-    setSections(toEditableMealBuilderSections(orderSections(authoritativeDraft.sections)));
-    setNotes(authoritativeDraft.notes ?? "");
-    setValidation(authoritativeValidation);
-  }, [
-    authoritativeDraft,
-    authoritativeValidation,
-    directBusy.dirty,
-    legacyEditorKey,
-    pending,
-  ]);
+  const draftCards = useMemo(
+    () => buildCards(sections, catalog, validation, draftPremium),
+    [catalog, draftPremium, sections, validation]
+  );
+  const publishedCards = useMemo(
+    () =>
+      buildCards(
+        publishedConfig?.sections ?? [],
+        catalog,
+        state?.validation?.published ?? null,
+        publishedPremium
+      ),
+    [catalog, publishedConfig?.sections, publishedPremium, state?.validation?.published]
+  );
+  const selectedLegacyCard = legacyEditorKey
+    ? draftCards.visual.find((card) => card.key === legacyEditorKey) ?? null
+    : null;
 
   useEffect(() => {
     onNavigationStateChange?.({ dirty, pending, draftWorkspaceReady });
@@ -258,30 +289,29 @@ export function MealBuilderSimplifiedPage({
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty, pending]);
 
-  const draftCards = useMemo(
-    () =>
-      buildCards(
-        sections,
-        catalog,
-        validation,
-        draftPremium
-      ),
-    [catalog, draftPremium, sections, validation]
-  );
+  function updateWorkspaceSections(nextSections: MealBuilderSection[]) {
+    setWorkspace((current) => ({
+      sections: nextSections,
+      notes: current?.notes ?? serverNotes,
+      validation: current?.validation ?? authoritativeValidation,
+    }));
+  }
 
-  const publishedCards = useMemo(
-    () =>
-      buildCards(
-        publishedConfig?.sections ?? [],
-        catalog,
-        state?.validation?.published ?? null,
-        publishedPremium
-      ),
-    [catalog, publishedConfig?.sections, publishedPremium, state?.validation?.published]
-  );
-  const selectedLegacyCard = legacyEditorKey
-    ? draftCards.visual.find((card) => card.key === legacyEditorKey) ?? null
-    : null;
+  function updateWorkspaceNotes(nextNotes: string) {
+    setWorkspace((current) => ({
+      sections: current?.sections ?? serverSections,
+      notes: nextNotes,
+      validation: current?.validation ?? authoritativeValidation,
+    }));
+  }
+
+  function updateWorkspaceValidation(nextValidation: MealBuilderValidation | null) {
+    setWorkspace((current) => ({
+      sections: current?.sections ?? serverSections,
+      notes: current?.notes ?? serverNotes,
+      validation: nextValidation,
+    }));
+  }
 
   async function refreshAll(showToast = true) {
     await Promise.all([
@@ -292,6 +322,7 @@ export function MealBuilderSimplifiedPage({
       groupsQuery.refetch(),
       optionsQuery.refetch(),
     ]);
+    setWorkspace(null);
     if (showToast) toast.success("تم تحديث منشئ الوجبات");
   }
 
@@ -304,13 +335,15 @@ export function MealBuilderSimplifiedPage({
     try {
       const response = await createDraft.mutateAsync();
       const created = response.data;
-      setSections(toEditableMealBuilderSections(orderSections(created.sections)));
-      setNotes(created.notes ?? "");
-      setValidation(null);
+      setWorkspace({
+        sections: toEditableMealBuilderSections(orderSections(created.sections)),
+        notes: created.notes ?? "",
+        validation: null,
+      });
       setMode("draft");
       await refreshAll(false);
     } catch {
-      // The mutation hook owns the Arabic error toast.
+      // Mutation hook presents the localized error.
     }
   }
 
@@ -323,9 +356,11 @@ export function MealBuilderSimplifiedPage({
       notes: nextNotes,
     });
     const saved = response.data;
-    setSections(toEditableMealBuilderSections(orderSections(saved.sections)));
-    setNotes(saved.notes ?? nextNotes);
-    setValidation(null);
+    setWorkspace({
+      sections: toEditableMealBuilderSections(orderSections(saved.sections)),
+      notes: saved.notes ?? nextNotes,
+      validation: null,
+    });
     return saved;
   }
 
@@ -334,7 +369,7 @@ export function MealBuilderSimplifiedPage({
       await saveFullDraft(nextSections, notes);
       setLegacyEditorKey(null);
     } catch {
-      // Keep the editor open; the mutation hook owns the error toast.
+      // Keep the editor open so the user can retry.
     }
   }
 
@@ -344,7 +379,7 @@ export function MealBuilderSimplifiedPage({
       setNotesOpen(false);
       setNotesDiscardOpen(false);
     } catch {
-      // Keep entered notes and dialog open.
+      // Keep the entered notes and dialog open.
     }
   }
 
@@ -368,24 +403,25 @@ export function MealBuilderSimplifiedPage({
 
   function applyDirectAction(response: MealBuilderCardActionResponse) {
     const nextDraft = response.data.draft;
-    setSections(toEditableMealBuilderSections(orderSections(nextDraft.sections)));
-    setNotes(nextDraft.notes ?? notes);
-    setValidation(response.data.validation);
+    setWorkspace({
+      sections: toEditableMealBuilderSections(orderSections(nextDraft.sections)),
+      notes: nextDraft.notes ?? notes,
+      validation: response.data.validation,
+    });
   }
 
   async function reviewAndPublish() {
-    if (pending || directBusy.dirty || legacyEditorKey) return;
+    if (pending || dirty) return;
     try {
-      if (notesDirty) await saveFullDraft(sections, notesDraft);
       const response = await validateDraft.mutateAsync(undefined);
-      setValidation(response.data);
+      updateWorkspaceValidation(response.data);
       if (response.data.ready && response.data.errors.length === 0) {
         setPublishOpen(true);
       } else {
         setIssuesOpen(true);
       }
     } catch {
-      // The mutation hook owns the error toast.
+      // Mutation hook presents the localized error.
     }
   }
 
@@ -397,7 +433,7 @@ export function MealBuilderSimplifiedPage({
       setMode("published");
       await refreshAll(false);
     } catch {
-      // Keep dialog open for retry.
+      // Keep the confirmation dialog open for retry.
     }
   }
 
@@ -406,11 +442,11 @@ export function MealBuilderSimplifiedPage({
       await resetDraft.mutateAsync();
       setResetOpen(false);
       setLegacyEditorKey(null);
-      setValidation(null);
+      setWorkspace(null);
       setMode("draft");
       await refreshAll(false);
     } catch {
-      // The mutation hook owns the error toast.
+      // Mutation hook presents the localized error.
     }
   }
 
@@ -425,8 +461,13 @@ export function MealBuilderSimplifiedPage({
 
   const firstLoadError =
     builderQuery.error ||
-    publishedQuery.error ||
-    (mode === "draft" ? draftQuery.error || hydratedQuery.error : null);
+    (mode === "published"
+      ? publishedQuery.error
+      : draftQuery.error || hydratedQuery.error) ||
+    productsQuery.error ||
+    categoriesQuery.error ||
+    groupsQuery.error ||
+    optionsQuery.error;
 
   if (mode === "loading" || builderQuery.isLoading) {
     return <MealBuilderLoading />;
@@ -435,10 +476,7 @@ export function MealBuilderSimplifiedPage({
   if (firstLoadError) {
     return (
       <LoadError
-        message={mealBuilderErrorMessage(
-          firstLoadError,
-          "تعذر تحميل منشئ الوجبات"
-        )}
+        message={mealBuilderErrorMessage(firstLoadError, "تعذر تحميل منشئ الوجبات")}
         onRetry={() => void refreshAll(false)}
       />
     );
@@ -449,7 +487,8 @@ export function MealBuilderSimplifiedPage({
       <div className="space-y-5" dir="rtl">
         <WorkspaceHero
           mode="published"
-          pending={pending}
+          busy={pending}
+          reviewDisabled
           onOpenDraft={() => void openDraft()}
           onShowPublished={() => undefined}
           onReview={() => undefined}
@@ -460,7 +499,7 @@ export function MealBuilderSimplifiedPage({
         />
         <PublishedNotice publishedAt={publishedConfig?.publishedAt ?? null} />
         {publishedConfig ? (
-          <UnifiedReadOnlyCards cards={publishedCards} />
+          <ReadOnlyCards cards={publishedCards} />
         ) : (
           <EmptyPublished onStart={() => void openDraft()} pending={pending} />
         )}
@@ -476,7 +515,8 @@ export function MealBuilderSimplifiedPage({
     <div className="space-y-5" dir="rtl">
       <WorkspaceHero
         mode="draft"
-        pending={pending}
+        busy={pending}
+        reviewDisabled={dirty || !catalogReady}
         onOpenDraft={() => undefined}
         onShowPublished={requestPublishedView}
         onReview={() => void reviewAndPublish()}
@@ -490,7 +530,12 @@ export function MealBuilderSimplifiedPage({
       />
 
       <DraftNotice />
-      <WorkspaceStatus validation={validation} pending={pending} dirty={dirty} onReview={() => setIssuesOpen(true)} />
+      <WorkspaceStatus
+        validation={validation}
+        pending={pending}
+        dirty={dirty}
+        onReview={() => setIssuesOpen(true)}
+      />
 
       <section className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -515,12 +560,11 @@ export function MealBuilderSimplifiedPage({
             onBusyChange={setDirectBusy}
           />
           {draftCards.visual.map((card) => (
-            <LegacyOrPremiumCard
+            <LegacyCard
               key={card.key}
               card={card}
               pending={pending || !catalogReady}
               onEdit={() => setLegacyEditorKey(card.key)}
-              readOnly={false}
             />
           ))}
         </div>
@@ -592,6 +636,7 @@ export function MealBuilderSimplifiedPage({
         onConfirm={() => {
           setShowPublishedConfirm(false);
           setLegacyEditorKey(null);
+          setWorkspace(null);
           setMode("published");
         }}
       />
@@ -604,28 +649,29 @@ function buildCards(
   catalog: Catalog,
   validation: MealBuilderValidation | null,
   premiumSection: MealBuilderPremiumSection | null
-) {
-  const directKeys = new Set(
-    sections.filter(isDirectProductCard).map((section) => section.key).filter(Boolean)
-  );
+): BuiltCards {
+  const direct = sections.filter(isDirectProductCard);
+  const directKeys = new Set(direct.map((section) => section.key).filter(Boolean));
+  const issues = validation ? [...validation.errors, ...validation.warnings] : [];
   const visual = buildMealBuilderVisualCards({
     sections,
     products: catalog.products,
     categories: catalog.categories,
     options: catalog.options,
-    issues: validation ? [...validation.errors, ...validation.warnings] : [],
+    issues,
     premiumSection,
   }).filter((card) => !directKeys.has(card.key));
   return {
-    direct: sections.filter(isDirectProductCard),
+    direct,
     visual,
-    totalCount: sections.filter(isDirectProductCard).length + visual.length,
+    totalCount: direct.length + visual.length,
   };
 }
 
 function WorkspaceHero({
   mode,
-  pending,
+  busy,
+  reviewDisabled,
   onOpenDraft,
   onShowPublished,
   onReview,
@@ -635,7 +681,8 @@ function WorkspaceHero({
   hasDraft,
 }: {
   mode: "draft" | "published";
-  pending: boolean;
+  busy: boolean;
+  reviewDisabled: boolean;
   onOpenDraft: () => void;
   onShowPublished: () => void;
   onReview: () => void;
@@ -667,25 +714,55 @@ function WorkspaceHero({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {mode === "draft" ? (
             <>
-              <Button type="button" disabled={pending} onClick={onReview} className="w-full sm:w-auto">
-                {pending ? <Loader2 className="size-4 animate-spin" /> : <ClipboardCheck className="size-4" />}
+              <Button
+                type="button"
+                disabled={busy || reviewDisabled}
+                onClick={onReview}
+                className="w-full sm:w-auto"
+              >
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ClipboardCheck className="size-4" />
+                )}
                 مراجعة ونشر
               </Button>
-              <Button type="button" variant="outline" disabled={pending} onClick={onShowPublished} className="w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={onShowPublished}
+                className="w-full sm:w-auto"
+              >
                 <Eye className="size-4" />
                 عرض النسخة المنشورة
               </Button>
             </>
           ) : (
-            <Button type="button" disabled={pending} onClick={onOpenDraft} className="w-full sm:w-auto">
-              {pending ? <Loader2 className="size-4 animate-spin" /> : <FileEdit className="size-4" />}
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={onOpenDraft}
+              className="w-full sm:w-auto"
+            >
+              {busy ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileEdit className="size-4" />
+              )}
               {hasDraft ? "العودة إلى المسودة" : "ابدأ التعديل"}
             </Button>
           )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" size="icon" variant="outline" disabled={pending} aria-label="المزيد من إجراءات منشئ الوجبات">
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                disabled={busy}
+                aria-label="المزيد من إجراءات منشئ الوجبات"
+              >
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -703,7 +780,10 @@ function WorkspaceHero({
               {mode === "draft" ? (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onReset}>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={onReset}
+                  >
                     <RotateCcw className="size-4" />
                     إعادة المسودة للنسخة المنشورة
                   </DropdownMenuItem>
@@ -716,14 +796,22 @@ function WorkspaceHero({
 
       <div className="grid border-t bg-muted/20 sm:grid-cols-3">
         <Step number="1" title="عدّل البطاقات" description="الإجراءات موجودة داخل كل بطاقة" />
-        <Step number="2" title="راجع المشاكل" description="الـBackend يحدد الجاهزية" />
+        <Step number="2" title="راجع المشاكل" description="الخادم يحدد الجاهزية" />
         <Step number="3" title="انشر" description="التطبيق يتغير بعد النشر فقط" />
       </div>
     </header>
   );
 }
 
-function Step({ number, title, description }: { number: string; title: string; description: string }) {
+function Step({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="flex items-center gap-3 border-b p-3 last:border-b-0 sm:border-b-0 sm:border-l sm:last:border-l-0 sm:p-4">
       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-background text-sm font-semibold ring-1 ring-border">
@@ -756,9 +844,11 @@ function PublishedNotice({ publishedAt }: { publishedAt: string | null }) {
     <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-100">
       <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
       <div>
-        <p className="font-medium">هذه النسخة الظاهرة حاليا للعميل</p>
-        <p className="mt-1 text-sm opacity-85">
-          {publishedAt ? `آخر نشر: ${formatDate(publishedAt)}` : "لم يتم تسجيل وقت النشر."}
+        <p className="font-medium">هذه هي النسخة الظاهرة للعملاء</p>
+        <p className="mt-1 text-sm leading-6 opacity-85">
+          {publishedAt
+            ? `آخر نشر: ${formatDate(publishedAt)}`
+            : "لا يوجد تاريخ نشر متاح من الخادم."}
         </p>
       </div>
     </div>
@@ -776,53 +866,70 @@ function WorkspaceStatus({
   dirty: boolean;
   onReview: () => void;
 }) {
-  const errors = validation?.errors.length ?? 0;
-  const warnings = validation?.warnings.length ?? 0;
-  const ready = Boolean(validation?.ready && errors === 0);
-  const state = pending
-    ? { title: "جاري تنفيذ العملية...", description: "انتظر حتى ينتهي الحفظ أو التحديث.", icon: Loader2, tone: "border-primary/30 bg-primary/5" }
-    : dirty
-      ? { title: "توجد تعديلات لم تُحفظ بعد", description: "أكمل التعديل أو احفظ قبل المراجعة والنشر.", icon: CircleDashed, tone: "border-amber-300 bg-amber-50 dark:bg-amber-950/20" }
-      : ready
-        ? { title: "المسودة جاهزة للنشر", description: warnings ? `توجد ${warnings} تنبيهات لا تمنع النشر.` : "لا توجد أخطاء تمنع النشر.", icon: CheckCircle2, tone: "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20" }
-        : errors
-          ? { title: `يوجد ${errors} أخطاء تمنع النشر`, description: "راجع المشاكل المرتبطة بالبطاقات ثم أعد الفحص.", icon: AlertCircle, tone: "border-destructive/35 bg-destructive/5" }
-          : { title: "المسودة تحتاج مراجعة", description: "اضغط «مراجعة ونشر» ليقوم الـBackend بفحص الجاهزية.", icon: ClipboardCheck, tone: "border-border bg-muted/20" };
-  const Icon = state.icon;
+  const errorCount = validation?.errors.length ?? 0;
+  const warningCount = validation?.warnings.length ?? 0;
+  const ready = Boolean(validation?.ready && errorCount === 0);
+
+  let icon = <ClipboardCheck className="size-5" />;
+  let title = "المسودة لم تُراجع بعد";
+  let description = "بعد الانتهاء من التعديل اضغط «مراجعة ونشر» لفحص المسودة من الخادم.";
+  let classes = "border-border bg-card";
+
+  if (pending) {
+    icon = <Loader2 className="size-5 animate-spin" />;
+    title = "جاري تنفيذ العملية";
+    description = "انتظر حتى تكتمل العملية الحالية قبل تنفيذ إجراء آخر.";
+  } else if (dirty) {
+    icon = <Pencil className="size-5" />;
+    title = "توجد نافذة تعديل مفتوحة أو تغييرات غير محفوظة";
+    description = "أكمل الحفظ أو أغلق نافذة التعديل قبل مراجعة المسودة ونشرها.";
+    classes = "border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/25";
+  } else if (ready) {
+    icon = <CheckCircle2 className="size-5" />;
+    title = warningCount ? "المسودة جاهزة مع تنبيهات" : "المسودة جاهزة للنشر";
+    description = warningCount
+      ? `يوجد ${warningCount} تنبيهات لا تمنع النشر. راجعها قبل المتابعة.`
+      : "لم يُرجع الخادم أخطاء تمنع النشر.";
+    classes = "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/25";
+  } else if (validation) {
+    icon = <TriangleAlert className="size-5" />;
+    title = "المسودة تحتاج مراجعة";
+    description = errorCount
+      ? `يوجد ${errorCount} أخطاء تمنع النشر و${warningCount} تنبيهات.`
+      : `يوجد ${warningCount} تنبيهات تحتاج مراجعة.`;
+    classes = "border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/25";
+  }
 
   return (
-    <div className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${state.tone}`}>
+    <div className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${classes}`}>
       <div className="flex items-start gap-3">
-        <Icon className={`mt-0.5 size-5 shrink-0 ${pending ? "animate-spin" : ""}`} />
+        <span className="mt-0.5 shrink-0">{icon}</span>
         <div>
-          <p className="font-medium">{state.title}</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">{state.description}</p>
+          <p className="font-medium">{title}</p>
+          <p className="mt-1 text-sm leading-6 opacity-80">{description}</p>
         </div>
       </div>
-      {(errors || warnings) && validation ? (
-        <Button type="button" variant="outline" size="sm" onClick={onReview} className="w-full sm:w-auto">
-          مراجعة المشاكل
-          <ChevronLeft className="size-4" />
+      {validation && (errorCount > 0 || warningCount > 0) ? (
+        <Button type="button" variant="outline" size="sm" onClick={onReview}>
+          عرض التفاصيل
         </Button>
       ) : null}
     </div>
   );
 }
 
-function LegacyOrPremiumCard({
+function LegacyCard({
   card,
   pending,
   onEdit,
-  readOnly,
 }: {
   card: MealBuilderVisualCard;
   pending: boolean;
   onEdit: () => void;
-  readOnly: boolean;
 }) {
   const premium = card.key === "premium";
-  const issueCount = card.errors.length + card.backendIssues.filter((issue) => issue.level === "error").length;
-  const previewItems = card.items.slice(0, 3);
+  const issueCount = card.errors.length + card.backendIssues.filter(isErrorIssue).length;
+  const warningCount = card.warnings.length + card.backendIssues.filter((issue) => !isErrorIssue(issue)).length;
 
   return (
     <article className="flex min-h-64 flex-col rounded-2xl border bg-card p-4 shadow-sm transition hover:shadow-md sm:p-5">
@@ -830,48 +937,51 @@ function LegacyOrPremiumCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold">{card.labelAr}</h3>
-            <Badge variant={premium ? "secondary" : issueCount ? "destructive" : "outline"}>
-              {premium ? "تدار تلقائيا" : issueCount ? `${issueCount} مشاكل` : "جاهزة"}
-            </Badge>
+            {premium ? <Badge variant="secondary">تلقائية</Badge> : null}
+            {issueCount ? (
+              <Badge variant="destructive">{issueCount} مشاكل</Badge>
+            ) : warningCount ? (
+              <Badge variant="outline">{warningCount} تنبيهات</Badge>
+            ) : (
+              <Badge variant="outline">جاهزة</Badge>
+            )}
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             {card.items.length} {card.items.length === 1 ? "عنصر" : "عناصر"}
           </p>
         </div>
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
-          {premium ? <Settings2 className="size-4" /> : <Package className="size-4" />}
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted">
+          {premium ? <CheckCircle2 className="size-5" /> : <Package className="size-5" />}
         </span>
       </div>
 
       <div className="mt-4 grid gap-2">
-        {previewItems.map((item) => (
-          <VisualItemPreview key={`${item.kind}:${item.id}`} item={item} />
+        {card.items.slice(0, 3).map((item) => (
+          <ItemPreview key={`${item.kind}:${item.id}`} item={item} />
         ))}
-        {!previewItems.length ? (
+        {!card.items.length ? (
           <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
-            لا توجد عناصر ظاهرة حاليا في هذه البطاقة.
+            لا توجد عناصر ظاهرة في هذه البطاقة حاليًا.
           </p>
         ) : null}
         {card.items.length > 3 ? (
-          <p className="text-xs text-muted-foreground">+{card.items.length - 3} عناصر أخرى</p>
+          <p className="text-xs text-muted-foreground">+ {card.items.length - 3} عناصر أخرى</p>
         ) : null}
       </div>
 
-      {card.backendIssues.length || card.errors.length || card.warnings.length ? (
-        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100">
-          {firstCardMessage(card)}
-        </div>
-      ) : null}
-
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-5">
         {premium ? (
-          <p className="rounded-xl bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
-            محتوى Premium يُدار تلقائيا من الـBackend ولا يحتاج إجراء يدوي هنا.
+          <p className="rounded-xl bg-muted/60 p-3 text-xs leading-5 text-muted-foreground">
+            هذه البطاقة يديرها الخادم تلقائيًا من إعدادات الوجبات المميزة.
           </p>
-        ) : readOnly ? (
-          <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">عرض فقط ضمن النسخة المنشورة.</p>
         ) : (
-          <Button type="button" variant="outline" disabled={pending} onClick={onEdit} className="w-full">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={pending}
+            onClick={onEdit}
+          >
             <Pencil className="size-4" />
             تعديل المكونات
           </Button>
@@ -881,67 +991,104 @@ function LegacyOrPremiumCard({
   );
 }
 
-function UnifiedReadOnlyCards({
-  cards,
-}: {
-  cards: ReturnType<typeof buildCards>;
-}) {
+function ItemPreview({ item }: { item: MealBuilderVisualItem }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-background p-2.5">
+      {item.imageUrl ? (
+        <img
+          src={item.imageUrl}
+          alt=""
+          className="size-10 rounded-lg object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted">
+          <Package className="size-4 text-muted-foreground" />
+        </span>
+      )}
+      <p className="min-w-0 flex-1 truncate text-sm font-medium">{item.name}</p>
+    </div>
+  );
+}
+
+function ReadOnlyCards({ cards }: { cards: BuiltCards }) {
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">البطاقات المنشورة</h2>
-        <p className="mt-1 text-sm text-muted-foreground">عرض فقط للنسخة التي يستهلكها التطبيق حاليا.</p>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">البطاقات المنشورة</h2>
+          <p className="mt-1 text-sm text-muted-foreground">عرض للقراءة فقط كما يصل من الخادم.</p>
+        </div>
+        <Badge variant="outline">{cards.totalCount} بطاقات</Badge>
       </div>
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-        {cards.direct.map((section) => {
-          const products = selectedProductsForDirectCard(section);
-          return (
-            <article key={section.key} className="rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold">{section.titleOverride?.ar || section.titleOverride?.en || section.key}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{products.length} منتجات</p>
-                </div>
-                <Badge variant="outline">{section.visible === false ? "مخفية" : "ظاهرة"}</Badge>
-              </div>
-              <div className="mt-4 grid gap-2">
-                {products.slice(0, 3).map((product) => (
-                  <div key={product.productId || product.id || product.key} className="flex items-center gap-3 rounded-xl border p-2.5">
-                    <ProductPlaceholder imageUrl={product.imageUrl} />
-                    <p className="truncate text-sm font-medium">{product.name?.ar || product.name?.en || product.label || product.key}</p>
-                  </div>
-                ))}
-              </div>
-            </article>
-          );
-        })}
+        {cards.direct.map((section) => (
+          <ReadOnlyDirectCard key={section.key || section.id} section={section} />
+        ))}
         {cards.visual.map((card) => (
-          <LegacyOrPremiumCard key={card.key} card={card} pending onEdit={() => undefined} readOnly />
+          <LegacyCard key={card.key} card={card} pending onEdit={() => undefined} />
         ))}
       </div>
     </section>
   );
 }
 
-function VisualItemPreview({ item }: { item: MealBuilderVisualItem }) {
+function ReadOnlyDirectCard({ section }: { section: MealBuilderSection }) {
+  const products = selectedProductsForDirectCard(section);
+  const title =
+    section.titleOverride?.ar || section.titleOverride?.en || section.key || "بطاقة منتجات";
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-background p-2.5">
-      <ProductPlaceholder imageUrl={item.imageUrl} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{item.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{item.kind === "product" ? "منتج" : "خيار"}</p>
+    <article className="flex min-h-64 flex-col rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold">{title}</h3>
+            <Badge variant={section.visible === false ? "outline" : "secondary"}>
+              {section.visible === false ? "مخفية" : "ظاهرة"}
+            </Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {products.length} {products.length === 1 ? "منتج" : "منتجات"}
+          </p>
+        </div>
+        <span className="grid size-10 place-items-center rounded-xl bg-muted">
+          <Package className="size-5" />
+        </span>
       </div>
-    </div>
+      <div className="mt-4 grid gap-2">
+        {products.slice(0, 4).map((product, index) => (
+          <HydratedItemPreview
+            key={product.productId || product.id || product.key || index}
+            item={product}
+          />
+        ))}
+        {!products.length ? (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            لا توجد منتجات منشورة في هذه البطاقة.
+          </p>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
-function ProductPlaceholder({ imageUrl }: { imageUrl?: string | null }) {
-  return imageUrl ? (
-    <img src={imageUrl} alt="" className="size-10 shrink-0 rounded-lg object-cover" loading="lazy" />
-  ) : (
-    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-      <Package className="size-4" />
-    </span>
+function HydratedItemPreview({ item }: { item: MealBuilderHydratedItem }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-background p-2.5">
+      {item.imageUrl ? (
+        <img
+          src={item.imageUrl}
+          alt=""
+          className="size-10 rounded-lg object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted">
+          <Package className="size-4 text-muted-foreground" />
+        </span>
+      )}
+      <p className="min-w-0 flex-1 truncate text-sm font-medium">{hydratedItemName(item)}</p>
+    </div>
   );
 }
 
@@ -954,46 +1101,74 @@ function IssuesDialog({
   validation: MealBuilderValidation | null;
   onClose: () => void;
 }) {
-  const issues = validation ? [...validation.errors, ...validation.warnings] : [];
+  const errors = validation?.errors ?? [];
+  const warnings = validation?.warnings ?? [];
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="grid max-h-[88dvh] w-[calc(100vw-1rem)] max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0" dir="rtl">
-        <DialogHeader className="border-b px-4 py-4 text-right sm:px-6">
-          <DialogTitle>مراجعة المسودة</DialogTitle>
-          <DialogDescription>
-            هذه النتائج قادمة من فحص الـBackend وهي المصدر النهائي لقرار الجاهزية.
+      <DialogContent
+        className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl"
+        dir="rtl"
+      >
+        <DialogHeader className="text-right">
+          <DialogTitle>نتيجة مراجعة المسودة</DialogTitle>
+          <DialogDescription className="text-right leading-6">
+            هذه النتائج صادرة من الخادم. يجب معالجة الأخطاء قبل النشر، أما التنبيهات فلا تمنع النشر عادةً.
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 space-y-3 overflow-y-auto p-4 sm:p-6">
-          {issues.length ? (
-            issues.map((issue, index) => <IssueRow key={`${issue.code || "issue"}-${index}`} issue={issue} />)
-          ) : (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-              لا توجد مشاكل مسجلة. اضغط «مراجعة ونشر» لإجراء فحص جديد.
+
+        <div className="space-y-5 py-2">
+          <IssueGroup title="أخطاء تمنع النشر" issues={errors} destructive />
+          <IssueGroup title="تنبيهات" issues={warnings} />
+          {!errors.length && !warnings.length ? (
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-100">
+              <CheckCircle2 className="size-5 shrink-0" />
+              <p className="text-sm">لم يُرجع الخادم أخطاء أو تنبيهات لهذه المسودة.</p>
             </div>
-          )}
+          ) : null}
         </div>
-        <DialogFooter className="border-t px-4 py-3 sm:justify-start sm:px-6">
-          <Button type="button" variant="outline" onClick={onClose}>إغلاق</Button>
+
+        <DialogFooter className="sm:justify-start">
+          <Button type="button" variant="outline" onClick={onClose}>
+            إغلاق
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function IssueRow({ issue }: { issue: MealBuilderCheck }) {
-  const error = issue.level === "error";
+function IssueGroup({
+  title,
+  issues,
+  destructive = false,
+}: {
+  title: string;
+  issues: MealBuilderCheck[];
+  destructive?: boolean;
+}) {
+  if (!issues.length) return null;
   return (
-    <div className={`flex items-start gap-3 rounded-2xl border p-4 ${error ? "border-destructive/30 bg-destructive/5" : "border-amber-200 bg-amber-50 dark:bg-amber-950/20"}`}>
-      {error ? <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" /> : <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-700" />}
-      <div className="min-w-0">
-        <p className="font-medium">{error ? "خطأ يمنع النشر" : "تنبيه"}</p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">{issue.message || issue.code || "مشكلة تحتاج مراجعة"}</p>
-        {typeof issue.sectionIndex === "number" ? (
-          <p className="mt-2 text-xs text-muted-foreground">البطاقة رقم {issue.sectionIndex + 1}</p>
-        ) : null}
+    <section className="space-y-2">
+      <div className="flex items-center gap-2">
+        {destructive ? (
+          <AlertCircle className="size-4 text-destructive" />
+        ) : (
+          <TriangleAlert className="size-4 text-amber-600" />
+        )}
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <Badge variant={destructive ? "destructive" : "outline"}>{issues.length}</Badge>
       </div>
-    </div>
+      <div className="grid gap-2">
+        {issues.map((issue, index) => (
+          <div key={`${issue.code || "issue"}-${index}`} className="rounded-xl border p-3">
+            <p className="text-sm leading-6">{mealBuilderIssueText(issue)}</p>
+            {issue.code ? (
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground">{issue.code}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1013,27 +1188,38 @@ function PublishDialog({
   onConfirm: () => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && !pending && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
-        <DialogHeader className="text-right">
-          <DialogTitle>نشر المسودة؟</DialogTitle>
-          <DialogDescription>
-            المسودة اجتازت الفحص. بعد النشر ستصبح هذه البطاقات هي النسخة الظاهرة في تطبيق العميل والجوال.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <label htmlFor="meal-builder-publish-note" className="text-sm font-medium">ملاحظة النشر (اختيارية)</label>
-          <Textarea id="meal-builder-publish-note" value={note} onChange={(event) => onNoteChange(event.target.value)} disabled={pending} rows={4} />
+    <AlertDialog open={open} onOpenChange={(nextOpen) => !nextOpen && !pending && onClose()}>
+      <AlertDialogContent dir="rtl">
+        <AlertDialogHeader className="text-right">
+          <AlertDialogTitle>نشر المسودة للعملاء؟</AlertDialogTitle>
+          <AlertDialogDescription className="text-right leading-6">
+            بعد التأكيد ستصبح هذه المسودة هي النسخة الفعالة في التطبيق. تأكد أنك راجعت البطاقات والتنبيهات.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="space-y-2 py-2">
+          <label htmlFor="meal-builder-publish-note" className="text-sm font-medium">
+            ملاحظة النشر <span className="text-muted-foreground">(اختيارية)</span>
+          </label>
+          <Textarea
+            id="meal-builder-publish-note"
+            value={note}
+            disabled={pending}
+            onChange={(event) => onNoteChange(event.target.value)}
+            placeholder="مثال: تحديث بطاقات الوجبات لهذا الأسبوع"
+            className="min-h-24"
+          />
         </div>
-        <DialogFooter className="gap-2 sm:justify-start">
-          <Button type="button" disabled={pending} onClick={onConfirm} className="w-full sm:w-auto">
+        <AlertDialogFooter className="gap-2 sm:justify-start">
+          <AlertDialogCancel disabled={pending} onClick={onClose}>
+            إلغاء
+          </AlertDialogCancel>
+          <AlertDialogAction disabled={pending} onClick={onConfirm}>
             {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            نشر الآن
-          </Button>
-          <Button type="button" variant="outline" disabled={pending} onClick={onClose} className="w-full sm:w-auto">إلغاء</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            تأكيد النشر
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -1053,19 +1239,29 @@ function NotesDialog({
   onSave: () => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && !pending && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-xl" dir="rtl">
         <DialogHeader className="text-right">
           <DialogTitle>ملاحظات المسودة</DialogTitle>
-          <DialogDescription>ملاحظات داخلية تساعد فريق الإدارة ولا تظهر للعميل.</DialogDescription>
+          <DialogDescription className="text-right leading-6">
+            أضف ملاحظة داخلية تساعد الفريق على فهم سبب التعديل. لا تظهر هذه الملاحظة للعميل.
+          </DialogDescription>
         </DialogHeader>
-        <Textarea value={value} onChange={(event) => onChange(event.target.value)} disabled={pending} rows={7} placeholder="اكتب ملاحظة عن التغييرات الحالية..." />
+        <Textarea
+          value={value}
+          disabled={pending}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-h-40"
+          placeholder="اكتب ملاحظات التعديل هنا..."
+        />
         <DialogFooter className="gap-2 sm:justify-start">
-          <Button type="button" disabled={pending} onClick={onSave} className="w-full sm:w-auto">
+          <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
+            إغلاق
+          </Button>
+          <Button type="button" disabled={pending} onClick={onSave}>
             {pending ? <Loader2 className="size-4 animate-spin" /> : <StickyNote className="size-4" />}
             حفظ الملاحظات
           </Button>
-          <Button type="button" variant="outline" disabled={pending} onClick={onClose} className="w-full sm:w-auto">إلغاء</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1122,11 +1318,13 @@ function ResetDialog({
         <AlertDialogHeader className="text-right">
           <AlertDialogTitle>إعادة المسودة للنسخة المنشورة؟</AlertDialogTitle>
           <AlertDialogDescription className="text-right leading-6">
-            سيتم تجاهل جميع تغييرات المسودة الحالية وإعادتها لتطابق آخر نسخة منشورة. لا يمكن التراجع عن هذا الإجراء.
+            سيتم حذف جميع تعديلات المسودة الحالية واستبدالها بآخر نسخة منشورة. لا يمكن التراجع عن هذا الإجراء.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:justify-start">
-          <AlertDialogCancel disabled={pending}>إلغاء</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending} onClick={onClose}>
+            إلغاء
+          </AlertDialogCancel>
           <AlertDialogAction variant="destructive" disabled={pending} onClick={onConfirm}>
             {pending ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
             إعادة المسودة
@@ -1152,40 +1350,57 @@ function DiscardToPublishedDialog({
         <AlertDialogHeader className="text-right">
           <AlertDialogTitle>عرض النسخة المنشورة؟</AlertDialogTitle>
           <AlertDialogDescription className="text-right leading-6">
-            توجد نافذة تعديل أو اختيارات غير محفوظة. أغلقها أو احفظها أولا حتى لا تفقد عملك.
+            توجد نافذة تعديل مفتوحة أو تغييرات مؤقتة. سيتم تجاهلها عند الانتقال إلى العرض المنشور.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:justify-start">
-          <AlertDialogCancel>العودة للتعديل</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>تجاهل الاختيارات المؤقتة</AlertDialogAction>
+          <AlertDialogCancel onClick={onClose}>متابعة التعديل</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+            تجاهل وعرض المنشور
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
 
-function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+function EmptyPublished({
+  onStart,
+  pending,
+}: {
+  onStart: () => void;
+  pending: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-destructive/30 bg-card p-6 text-center" dir="rtl">
-      <AlertCircle className="mx-auto size-8 text-destructive" />
-      <h2 className="mt-3 font-semibold">تعذر تحميل منشئ الوجبات</h2>
-      <p className="mt-2 text-sm text-muted-foreground">{message}</p>
-      <Button type="button" variant="outline" onClick={onRetry} className="mt-4">
-        <RefreshCw className="size-4" /> إعادة المحاولة
-      </Button>
+    <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed bg-card p-6 text-center">
+      <div className="max-w-md space-y-4">
+        <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-muted">
+          <Package className="size-6" />
+        </span>
+        <div>
+          <h2 className="text-lg font-semibold">لا توجد نسخة منشورة بعد</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            ابدأ مسودة، أضف البطاقات المطلوبة، ثم راجعها وانشرها عندما تصبح جاهزة.
+          </p>
+        </div>
+        <Button type="button" disabled={pending} onClick={onStart}>
+          <FileEdit className="size-4" />
+          ابدأ التعديل
+        </Button>
+      </div>
     </div>
   );
 }
 
 function MealBuilderLoading({ message = "جاري تحميل منشئ الوجبات..." }: { message?: string }) {
   return (
-    <div className="space-y-4" dir="rtl" aria-label={message}>
-      <div className="rounded-2xl border bg-card p-5">
-        <div className="flex items-center gap-3">
+    <div className="space-y-5" dir="rtl" aria-busy="true">
+      <div className="rounded-2xl border bg-card p-5 sm:p-6">
+        <div className="flex items-center gap-4">
           <Skeleton className="size-12 rounded-2xl" />
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-48" />
-            <Skeleton className="h-4 w-72 max-w-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-6 w-56 max-w-full" />
+            <Skeleton className="h-4 w-96 max-w-full" />
           </div>
         </div>
       </div>
@@ -1194,35 +1409,43 @@ function MealBuilderLoading({ message = "جاري تحميل منشئ الوجب
           <Skeleton key={index} className="h-64 rounded-2xl" />
         ))}
       </div>
+      <p className="text-center text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }
 
-function EmptyPublished({ onStart, pending }: { onStart: () => void; pending: boolean }) {
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-2xl border border-dashed bg-card p-8 text-center">
-      <CircleDashed className="mx-auto size-10 text-muted-foreground" />
-      <h2 className="mt-4 text-lg font-semibold">لا توجد نسخة منشورة بعد</h2>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
-        ابدأ مسودة جديدة، جهز البطاقات، ثم راجعها وانشرها لتظهر في التطبيق.
-      </p>
-      <Button type="button" onClick={onStart} disabled={pending} className="mt-5">
-        <FileEdit className="size-4" /> ابدأ التعديل
-      </Button>
+    <div className="grid min-h-80 place-items-center rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-950 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-100" dir="rtl">
+      <div className="max-w-md space-y-4">
+        <AlertCircle className="mx-auto size-10" />
+        <div>
+          <h2 className="text-lg font-semibold">تعذر تحميل منشئ الوجبات</h2>
+          <p className="mt-2 text-sm leading-6 opacity-85">{message}</p>
+        </div>
+        <Button type="button" variant="outline" onClick={onRetry}>
+          <RefreshCw className="size-4" />
+          إعادة المحاولة
+        </Button>
+      </div>
     </div>
   );
 }
 
-function firstCardMessage(card: MealBuilderVisualCard) {
-  const backend = card.backendIssues[0];
-  return backend?.message || backend?.code || card.errors[0] || card.warnings[0] || "توجد ملاحظة تحتاج مراجعة.";
+function hydratedItemName(item: MealBuilderHydratedItem) {
+  const localized = item.name;
+  return localized?.ar || localized?.en || item.label || item.key || "عنصر";
+}
+
+function isErrorIssue(issue: MealBuilderCheck) {
+  return issue.level === "error";
 }
 
 function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
   return new Intl.DateTimeFormat("ar-EG", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(date);
+  }).format(parsed);
 }
