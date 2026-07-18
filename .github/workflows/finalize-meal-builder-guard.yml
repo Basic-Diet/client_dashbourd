@@ -1,11 +1,13 @@
 name: Finalize Meal Builder Guard
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/meal-builder-simplified-workspace-ux
+      - main
+    types: [reopened]
     paths:
       - .github/workflows/finalize-meal-builder-guard.yml
+      - tests/mealBuilderDirectCardsUi.test.tsx
   workflow_dispatch:
 
 permissions:
