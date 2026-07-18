@@ -361,7 +361,7 @@ export interface MenuProductMutationResponse {
 }
 
 export interface UpdateWeightPricingPayload {
-  priceHalala: number;
+  priceHalala?: number;
   baseUnitGrams: number;
   defaultWeightGrams: number;
   minWeightGrams: number;

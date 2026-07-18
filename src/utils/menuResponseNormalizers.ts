@@ -182,6 +182,110 @@ function normalizeWeightPricingDescriptor(raw: any): WeightPricingDescriptor | n
   };
 }
 
+function assertNonEmptyString(value: any, field: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw createMalformedMenuResponseError(
+      `Weight pricing response was missing ${field}`
+    );
+  }
+  return value.trim();
+}
+
+function assertBoolean(value: any, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw createMalformedMenuResponseError(
+      `Weight pricing response had invalid ${field}`
+    );
+  }
+  return value;
+}
+
+function assertNonNegativeInteger(value: any, field: string): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw createMalformedMenuResponseError(
+      `Weight pricing response had invalid ${field}`
+    );
+  }
+  return value;
+}
+
+function assertPositiveInteger(value: any, field: string): number {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw createMalformedMenuResponseError(
+      `Weight pricing response had invalid ${field}`
+    );
+  }
+  return value;
+}
+
+function normalizeStrictWeightPricingDescriptor(raw: any): WeightPricingDescriptor {
+  if (!raw || typeof raw !== "object") {
+    throw createMalformedMenuResponseError(
+      "Weight pricing response was missing the backend preview"
+    );
+  }
+  if (!Array.isArray(raw.choices)) {
+    throw createMalformedMenuResponseError(
+      "Weight pricing response choices must be an array"
+    );
+  }
+  if (raw.choices.length === 0) {
+    throw createMalformedMenuResponseError(
+      "Weight pricing response choices must not be empty"
+    );
+  }
+
+  return {
+    contractVersion: assertNonEmptyString(
+      raw.contractVersion ?? raw.contract_version,
+      "weightPricing.contractVersion"
+    ),
+    strategy: assertNonEmptyString(raw.strategy, "weightPricing.strategy"),
+    requiresWeightSelection: assertBoolean(
+      raw.requiresWeightSelection ?? raw.requires_weight_selection,
+      "weightPricing.requiresWeightSelection"
+    ),
+    basePriceHalala: assertNonNegativeInteger(
+      raw.basePriceHalala ?? raw.base_price_halala,
+      "weightPricing.basePriceHalala"
+    ),
+    baseWeightGrams: assertPositiveInteger(
+      raw.baseWeightGrams ?? raw.base_weight_grams,
+      "weightPricing.baseWeightGrams"
+    ),
+    defaultWeightGrams: assertPositiveInteger(
+      raw.defaultWeightGrams ?? raw.default_weight_grams,
+      "weightPricing.defaultWeightGrams"
+    ),
+    minWeightGrams: assertPositiveInteger(
+      raw.minWeightGrams ?? raw.min_weight_grams,
+      "weightPricing.minWeightGrams"
+    ),
+    maxWeightGrams: assertPositiveInteger(
+      raw.maxWeightGrams ?? raw.max_weight_grams,
+      "weightPricing.maxWeightGrams"
+    ),
+    stepGrams: assertPositiveInteger(
+      raw.stepGrams ?? raw.step_grams,
+      "weightPricing.stepGrams"
+    ),
+    stepPriceHalala: assertNonNegativeInteger(
+      raw.stepPriceHalala ?? raw.step_price_halala,
+      "weightPricing.stepPriceHalala"
+    ),
+    choices: raw.choices.map((choice: any, index: number) => ({
+      weightGrams: assertPositiveInteger(
+        choice?.weightGrams ?? choice?.weight_grams,
+        `weightPricing.choices[${index}].weightGrams`
+      ),
+      priceHalala: assertNonNegativeInteger(
+        choice?.priceHalala ?? choice?.price_halala,
+        `weightPricing.choices[${index}].priceHalala`
+      ),
+    })),
+  };
+}
+
 // ── Category Normalizer ──
 
 function normalizeCategory(raw: any): MenuCategory {
@@ -460,30 +564,32 @@ export function normalizeMenuProductMutationResponse(
 export function normalizeDashboardWeightPricingResponse(
   raw: any
 ): DashboardWeightPricingResponse {
+  if (raw?.status === false) {
+    throw createMalformedMenuResponseError(
+      "Weight pricing response reported failure"
+    );
+  }
   const data = raw?.data;
   if (!data || typeof data !== "object") {
     throw createMalformedMenuResponseError(
       "Weight pricing response was missing data"
     );
   }
+  const contractVersion = assertNonEmptyString(
+    data.contractVersion,
+    "contractVersion"
+  );
 
   const product = assertProductId(
     normalizeProduct(data.product ?? {}),
     "weight pricing mutation"
   );
-  const weightPricing = normalizeWeightPricingDescriptor(data.weightPricing);
-
-  if (!weightPricing) {
-    throw createMalformedMenuResponseError(
-      "Weight pricing response was missing the backend preview"
-    );
-  }
+  const weightPricing = normalizeStrictWeightPricingDescriptor(data.weightPricing);
 
   return {
     status: true,
     data: {
-      contractVersion:
-        data.contractVersion ?? "dashboard_weight_pricing.v1",
+      contractVersion,
       product: {
         ...product,
         weightPricing,

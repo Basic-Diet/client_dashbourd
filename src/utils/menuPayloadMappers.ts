@@ -153,47 +153,62 @@ export const toCreateMenuProductPayload = (
   data: MenuProductSchemaType
 ): CreateMenuProductPayload =>
   withOptionalKey(
-    {
-      categoryId: data.categoryId,
-      itemType: data.itemType,
-      name: data.name,
-      description: data.description,
-      imageUrl: data.imageUrl,
-      pricingModel: data.pricingModel,
-      priceHalala: riyalToHalala(data.priceSar),
-      baseUnitGrams: data.baseUnitGrams,
-      defaultWeightGrams: data.defaultWeightGrams,
-      minWeightGrams: data.minWeightGrams,
-      maxWeightGrams: data.maxWeightGrams,
-      weightStepGrams: data.weightStepGrams,
-      isActive: data.isActive,
-      isAvailable: data.isAvailable,
-      isVisible: data.isVisible,
-      isCustomizable: data.isCustomizable,
-      availableFor: mapAvailableFor(data.availableFor),
-      ui: {
-        cardSize: data.ui.cardSize,
-      },
-      sortOrder: data.sortOrder,
-    },
+    toOrdinaryProductPayload(data, { includePricing: true }) as CreateMenuProductPayload,
     data.key
   );
 
 export const toUpdateMenuProductPayload = (
   data: MenuProductSchemaType
+): UpdateMenuProductPayload =>
+  toOrdinaryProductPayload(data, { includePricing: true });
+
+export const toCreateModernWeightProductPayload = (
+  data: MenuProductSchemaType
+): CreateMenuProductPayload =>
+  withOptionalKey(
+    toOrdinaryProductPayload(data, { includePricing: false }) as CreateMenuProductPayload,
+    data.key
+  );
+
+export const toCreateSafeModernWeightProductPayload = (
+  data: MenuProductSchemaType
+): CreateMenuProductPayload => ({
+  ...toCreateModernWeightProductPayload(data),
+  isActive: data.isActive,
+  isVisible: false,
+  isAvailable: false,
+});
+
+export const toUpdateModernWeightProductPayload = (
+  data: MenuProductSchemaType
+): UpdateMenuProductPayload =>
+  toOrdinaryProductPayload(data, { includePricing: false });
+
+export const toUpdateSafeModernWeightProductPayload = (
+  data: MenuProductSchemaType
 ): UpdateMenuProductPayload => ({
+  ...toUpdateModernWeightProductPayload(data),
+  isActive: data.isActive,
+  isVisible: false,
+  isAvailable: false,
+});
+
+export const toLegacyWeightProductPayload = (
+  data: MenuProductSchemaType
+): UpdateMenuProductPayload =>
+  toOrdinaryProductPayload(data, { includePricing: true });
+
+function toOrdinaryProductPayload(
+  data: MenuProductSchemaType,
+  { includePricing }: { includePricing: boolean }
+): UpdateMenuProductPayload {
+  const payload: UpdateMenuProductPayload = {
   categoryId: data.categoryId,
   itemType: data.itemType,
   name: data.name,
   description: data.description,
   imageUrl: data.imageUrl,
   pricingModel: data.pricingModel,
-  priceHalala: riyalToHalala(data.priceSar),
-  baseUnitGrams: data.baseUnitGrams,
-  defaultWeightGrams: data.defaultWeightGrams,
-  minWeightGrams: data.minWeightGrams,
-  maxWeightGrams: data.maxWeightGrams,
-  weightStepGrams: data.weightStepGrams,
   isActive: data.isActive,
   isAvailable: data.isAvailable,
   isVisible: data.isVisible,
@@ -203,7 +218,20 @@ export const toUpdateMenuProductPayload = (
     cardSize: data.ui.cardSize,
   },
   sortOrder: data.sortOrder,
-});
+  };
+
+  if (!includePricing) return payload;
+
+  return {
+    ...payload,
+    priceHalala: riyalToHalala(data.priceSar),
+    baseUnitGrams: data.baseUnitGrams,
+    defaultWeightGrams: data.defaultWeightGrams,
+    minWeightGrams: data.minWeightGrams,
+    maxWeightGrams: data.maxWeightGrams,
+    weightStepGrams: data.weightStepGrams,
+  };
+}
 
 export const toWeightPricingPayload = (
   data: MenuProductSchemaType

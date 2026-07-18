@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Loader2, Package, Save } from "lucide-react";
@@ -97,6 +97,8 @@ function UpdateMenuProductForm({
   const [submitError, setSubmitError] = useState("");
   const [weightPreview, setWeightPreview] =
     useState<WeightPricingDescriptor | null>(product.weightPricing ?? null);
+  const [modernSuccess, setModernSuccess] = useState(false);
+  const savingRef = useRef(false);
 
   const form = useForm<MenuProductSchemaInput, unknown, MenuProductSchemaType>({
     resolver: zodResolver(menuProductSchema),
@@ -107,11 +109,13 @@ function UpdateMenuProductForm({
 
   const onSubmit = useCallback(
     async (data: MenuProductSchemaType) => {
-      if (isSaving) return;
+      if (savingRef.current) return;
 
+      savingRef.current = true;
       setIsSaving(true);
       setSubmitError("");
       setPartialWarning("");
+      setModernSuccess(false);
 
       try {
         let imageUrl =
@@ -136,6 +140,7 @@ function UpdateMenuProductForm({
           values: data,
           imageUrl,
           productId,
+          initialProduct: product,
         });
 
         invalidateProductCaches(queryClient);
@@ -143,6 +148,7 @@ function UpdateMenuProductForm({
         if (result.status === "partial_weight_pricing_failed") {
           const warning = errorSummary(result.error);
           setPartialWarning(warning);
+          setWeightPreview(result.weightPricing ?? product.weightPricing ?? null);
           form.reset(getMenuProductFormValues(result.product), {
             keepDirtyValues: true,
           });
@@ -154,9 +160,9 @@ function UpdateMenuProductForm({
         if (data.pricingModel === "per_100g") {
           setWeightPreview(result.weightPricing ?? null);
           form.reset(getMenuProductFormValues(result.product));
+          setModernSuccess(true);
           ToastMessage("تم تحديث المنتج وتسعير الوزن بنجاح", "success");
           invalidateProductCaches(queryClient);
-          router.navigate({ to: "/menu", search: { tab: "catalog" } });
           return;
         }
 
@@ -169,10 +175,11 @@ function UpdateMenuProductForm({
         setSubmitError(message);
         ToastMessage(message, "error");
       } finally {
+        savingRef.current = false;
         setIsSaving(false);
       }
     },
-    [form, isSaving, productId, queryClient, router]
+    [form, product, productId, queryClient, router]
   );
 
   const showValidationSummary =
@@ -205,6 +212,25 @@ function UpdateMenuProductForm({
 
         {pricingModel === "per_100g" ? (
           <ProductWeightPricingPreview weightPricing={weightPreview} />
+        ) : null}
+
+        {modernSuccess ? (
+          <Alert className="text-right">
+            <AlertCircle className="size-4" />
+            <AlertTitle>تم حفظ تسعير الوزن بنجاح</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>راجع اختيارات الوزن التي رجعت من الخادم قبل الرجوع للكتالوج.</p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  router.navigate({ to: "/menu", search: { tab: "catalog" } })
+                }
+              >
+                الرجوع للكتالوج
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         <ProductCustomizationPanel

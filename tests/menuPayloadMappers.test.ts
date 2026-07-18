@@ -5,9 +5,12 @@ import {
   toCreateMenuOptionGroupPayload,
   toCreateMenuOptionPayload,
   toCreateMenuProductPayload,
+  toCreateSafeModernWeightProductPayload,
+  toUpdateModernWeightProductPayload,
   toUpdateMenuOptionPayload,
   toUpdateSelectionRulesPayload,
   toUpdateMenuProductPayload,
+  toUpdateSafeModernWeightProductPayload,
   toWeightPricingPayload,
 } from "../src/utils/menuPayloadMappers";
 import menuProductSchema from "../src/lib/validations/menuProductSchema";
@@ -108,6 +111,7 @@ test("menuPayloadMappers.test", () => {
     maxWeightGrams: 300,
     weightStepGrams: 50,
     weightStepPriceSar: 5,
+    useWeightStepPricing: true,
     isActive: true,
     isAvailable: true,
     isVisible: true,
@@ -142,6 +146,34 @@ test("menuPayloadMappers.test", () => {
   assert.equal("weightStepPriceHalala" in weightedCreatePayload, false);
   assert.equal("weightStepPriceHalala" in weightedUpdatePayload, false);
   assert.deepEqual(weightedUpdatePayload.ui, { cardSize: "small" });
+
+  const modernMetadataPayload = toUpdateModernWeightProductPayload(weightedValues);
+  const safeModernCreatePayload =
+    toCreateSafeModernWeightProductPayload(weightedValues);
+  const safeModernUpdatePayload =
+    toUpdateSafeModernWeightProductPayload(weightedValues);
+  for (const payload of [
+    modernMetadataPayload,
+    safeModernCreatePayload,
+    safeModernUpdatePayload,
+  ]) {
+    for (const key of [
+      "priceHalala",
+      "baseUnitGrams",
+      "defaultWeightGrams",
+      "minWeightGrams",
+      "maxWeightGrams",
+      "weightStepGrams",
+      "weightStepPriceHalala",
+    ]) {
+      assert.equal(key in payload, false);
+    }
+  }
+  assert.equal(safeModernCreatePayload.isVisible, false);
+  assert.equal(safeModernCreatePayload.isAvailable, false);
+  assert.equal(safeModernCreatePayload.isActive, true);
+  assert.equal(safeModernUpdatePayload.isVisible, false);
+  assert.equal(safeModernUpdatePayload.isAvailable, false);
 
   assert.equal(
     menuProductSchema.safeParse({
@@ -181,6 +213,7 @@ test("menuPayloadMappers.test", () => {
       maxWeightGrams: undefined,
       weightStepGrams: undefined,
       weightStepPriceSar: undefined,
+      useWeightStepPricing: false,
       isCustomizable: false,
     }).success,
     true

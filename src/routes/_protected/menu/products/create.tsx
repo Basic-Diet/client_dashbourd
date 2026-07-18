@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import menuProductSchema, {
@@ -19,7 +19,10 @@ import {
 } from "@/utils/fetchUploadImage";
 import { saveMenuProductWithWeightPricing } from "@/utils/menuProductMutationFlow";
 import { ToastMessage } from "@/components/global/ToastMessage";
-import { getMenuProductCreateDefaults } from "@/utils/menuFormValues";
+import {
+  getMenuProductCreateDefaults,
+  getMenuProductFormValues,
+} from "@/utils/menuFormValues";
 import { parseApiError } from "@/lib/apiErrors";
 import type { WeightPricingDescriptor } from "@/types/menuTypes";
 import { MENU_PRODUCT_INVALIDATION_KEYS } from "@/hooks/menu/menuProductInvalidation";
@@ -61,6 +64,8 @@ function CreateMenuProductPage() {
   const [weightPreview, setWeightPreview] =
     useState<WeightPricingDescriptor | null>(null);
   const [submitError, setSubmitError] = useState("");
+  const [modernSuccess, setModernSuccess] = useState(false);
+  const savingRef = useRef(false);
 
   const form = useForm<MenuProductSchemaInput, unknown, MenuProductSchemaType>({
     resolver: zodResolver(menuProductSchema),
@@ -68,10 +73,12 @@ function CreateMenuProductPage() {
   });
 
   const onSubmit = async (data: MenuProductSchemaType) => {
-    if (isSaving) return;
+    if (savingRef.current) return;
 
+    savingRef.current = true;
     setIsSaving(true);
     setSubmitError("");
+    setModernSuccess(false);
 
     try {
       let imageUrl =
@@ -116,10 +123,10 @@ function CreateMenuProductPage() {
       if (data.pricingModel === "per_100g") {
         setWeightPreview(result.weightPricing ?? null);
         setPartialCreate(null);
-        form.reset(getMenuProductCreateDefaults());
+        form.reset(getMenuProductFormValues(result.product));
+        setModernSuccess(true);
         ToastMessage("تم إنشاء المنتج وتسعير الوزن بنجاح", "success");
         invalidateProductCaches(queryClient);
-        router.navigate({ to: "/menu", search: { tab: "catalog" } });
         return;
       }
 
@@ -132,6 +139,7 @@ function CreateMenuProductPage() {
       setSubmitError(message);
       ToastMessage(message, "error");
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -168,6 +176,25 @@ function CreateMenuProductPage() {
 
         {showPreview ? (
           <ProductWeightPricingPreview weightPricing={weightPreview} />
+        ) : null}
+
+        {modernSuccess ? (
+          <Alert className="text-right">
+            <AlertCircle className="size-4" />
+            <AlertTitle>تم حفظ تسعير الوزن بنجاح</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>راجع اختيارات الوزن التي رجعت من الخادم قبل الرجوع للكتالوج.</p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  router.navigate({ to: "/menu", search: { tab: "catalog" } })
+                }
+              >
+                الرجوع للكتالوج
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         {partialCreate ? (

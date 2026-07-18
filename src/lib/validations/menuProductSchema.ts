@@ -64,6 +64,7 @@ const menuProductSchema = z
     maxWeightGrams: z.coerce.number().optional(),
     weightStepGrams: z.coerce.number().optional(),
     weightStepPriceSar: z.coerce.number().optional(),
+    useWeightStepPricing: z.boolean().default(false),
     isActive: z.boolean().default(true),
     isAvailable: z.boolean().default(true),
     isVisible: z.boolean().default(true),
@@ -88,7 +89,7 @@ const menuProductSchema = z
       addIssue(ctx, "priceSar", "السعر يجب أن يكون قيمة صحيحة بالريال");
     }
 
-    if (data.pricingModel !== "per_100g") return;
+    if (data.pricingModel !== "per_100g" || !data.useWeightStepPricing) return;
 
     const positiveIntegerFields = [
       ["baseUnitGrams", data.baseUnitGrams, "وزن السعر الأساسي مطلوب"],

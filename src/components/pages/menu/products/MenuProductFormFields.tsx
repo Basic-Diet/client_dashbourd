@@ -55,7 +55,6 @@ function resolveExistingImageUrl(value: unknown): string {
   const root = asRecord(value);
   const nestedImage = asRecord(root?.image);
   const data = asRecord(root?.data);
-
   const candidates = [
     root?.imageUrl,
     root?.image_url,
@@ -92,10 +91,13 @@ function isImageFile(value: unknown): value is File {
 
 export function MenuProductFormFields({ form, isEdit }: Props) {
   const pricingModel = form.watch("pricingModel");
+  const useWeightStepPricing = form.watch("useWeightStepPricing") ?? false;
   const selectedCategoryId = form.watch("categoryId") ?? "";
   const isActive = form.watch("isActive") ?? true;
   const isAvailable = form.watch("isAvailable") ?? true;
   const isVisible = form.watch("isVisible") ?? true;
+  const previousPricingModel = useRef(pricingModel);
+
   const numberInput = (
     name: FieldPath<MenuProductSchemaInput>
   ): UseFormRegisterReturn =>
@@ -105,12 +107,25 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
 
   const { data: catsData } = useMenuCategoriesQuery({ limit: 100 });
   const { data: selectedCatData } = useMenuCategoryDetailQuery(selectedCategoryId);
-
   const categories = mergeCategoriesWithSelected(
     catsData?.data?.items || [],
     selectedCatData?.data,
     selectedCategoryId
   );
+
+  useEffect(() => {
+    if (
+      pricingModel === "per_100g" &&
+      previousPricingModel.current !== "per_100g" &&
+      !useWeightStepPricing
+    ) {
+      form.setValue("useWeightStepPricing", true, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    previousPricingModel.current = pricingModel;
+  }, [form, pricingModel, useWeightStepPricing]);
 
   return (
     <div className="space-y-6">
@@ -127,15 +142,15 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
         <CardContent className="space-y-6">
           {isEdit ? (
             <div className="space-y-2">
-              <Label>المفتاح</Label>
-              <Input dir="ltr" {...form.register("key")} disabled />
+              <Label htmlFor="key">المفتاح</Label>
+              <Input id="key" dir="ltr" {...form.register("key")} disabled />
               <p className="text-xs text-muted-foreground">
                 يتم توليد المفتاح من الخادم ولا يمكن تعديله.
               </p>
             </div>
           ) : (
             <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-              سيتم توليد المفتاح تلقائياً من الخادم بعد إنشاء المنتج.
+              سيتم توليد المفتاح تلقائيا من الخادم بعد إنشاء المنتج.
             </div>
           )}
 
@@ -266,52 +281,90 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
 
           {pricingModel === "per_100g" ? (
             <>
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">إعداد تسعير الوزن</p>
-              <p>لوحة التحكم تحفظ الإعداد فقط. الخادم ينشئ الأسعار النهائية المعروضة للعميل.</p>
-              <p>المعاينة تظهر بعد تأكيد الخادم ولا يتم حسابها داخل المتصفح.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
-              <Field
-                label="وحدة الوزن (جم)"
-                type="number"
-                min="1"
-                inputProps={numberInput("baseUnitGrams")}
-              />
-              <Field
-                label="الوزن الافتراضي"
-                type="number"
-                min="0"
-                inputProps={numberInput("defaultWeightGrams")}
-              />
-              <Field
-                label="الحد الأدنى"
-                type="number"
-                min="0"
-                inputProps={numberInput("minWeightGrams")}
-              />
-              <Field
-                label="الحد الأقصى"
-                type="number"
-                min="0"
-                inputProps={numberInput("maxWeightGrams")}
-              />
-              <Field
-                label="خطوة الوزن"
-                type="number"
-                min="1"
-                inputProps={numberInput("weightStepGrams")}
-              />
-              <Field
-                label="سعر كل خطوة (ر.س)"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="5.00"
-                error={form.formState.errors.weightStepPriceSar?.message}
-                inputProps={form.register("weightStepPriceSar")}
-              />
-            </div>
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {useWeightStepPricing
+                        ? "إعداد تسعير الوزن"
+                        : "منتج وزني قديم"}
+                    </p>
+                    <p>
+                      {useWeightStepPricing
+                        ? "لوحة التحكم تحفظ الإعداد فقط. الخادم ينشئ الأسعار النهائية المعروضة للعميل."
+                        : "هذا المنتج يستخدم تسعير الوزن القديم. يمكن حفظ تعديلات البيانات دون ترحيل التسعير."}
+                    </p>
+                    {useWeightStepPricing ? (
+                      <p>
+                        المعاينة تظهر بعد تأكيد الخادم ولا يتم حسابها داخل المتصفح.
+                      </p>
+                    ) : null}
+                  </div>
+                  <Controller
+                    control={form.control}
+                    name="useWeightStepPricing"
+                    render={({ field }) => (
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          type="button"
+                          checked={Boolean(field.value)}
+                          onCheckedChange={field.onChange}
+                        />
+                        <Label>ترحيل للتسعير الحديث</Label>
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {useWeightStepPricing ? (
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
+                  <Field
+                    label="وحدة الوزن (جم)"
+                    type="number"
+                    min="1"
+                    error={form.formState.errors.baseUnitGrams?.message}
+                    inputProps={numberInput("baseUnitGrams")}
+                  />
+                  <Field
+                    label="الوزن الافتراضي"
+                    type="number"
+                    min="0"
+                    error={form.formState.errors.defaultWeightGrams?.message}
+                    inputProps={numberInput("defaultWeightGrams")}
+                  />
+                  <Field
+                    label="الحد الأدنى"
+                    type="number"
+                    min="0"
+                    error={form.formState.errors.minWeightGrams?.message}
+                    inputProps={numberInput("minWeightGrams")}
+                  />
+                  <Field
+                    label="الحد الأقصى"
+                    type="number"
+                    min="0"
+                    error={form.formState.errors.maxWeightGrams?.message}
+                    inputProps={numberInput("maxWeightGrams")}
+                  />
+                  <Field
+                    label="خطوة الوزن"
+                    type="number"
+                    min="1"
+                    error={form.formState.errors.weightStepGrams?.message}
+                    inputProps={numberInput("weightStepGrams")}
+                  />
+                  <Field
+                    label="سعر كل خطوة (ر.س)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="5.00"
+                    error={form.formState.errors.weightStepPriceSar?.message}
+                    inputProps={numberInput("weightStepPriceSar")}
+                  />
+                </div>
+              ) : null}
             </>
           ) : null}
         </CardContent>
@@ -344,7 +397,7 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
             />
             <ToggleCard
               label="متوفر"
-              note={isAvailable ? "متاح للطلب" : "غير متوفر حالياً"}
+              note={isAvailable ? "متاح للطلب" : "غير متوفر حاليا"}
               name="isAvailable"
               form={form}
               className="data-[state=checked]:bg-emerald-500"
@@ -451,7 +504,7 @@ function MenuProductImageField({
               if (!file.type.startsWith("image/")) {
                 form.setError("imageFile", {
                   type: "validate",
-                  message: "اختر ملف صورة صالحاً",
+                  message: "اختر ملف صورة صالحا",
                 });
                 event.currentTarget.value = "";
                 return;
@@ -534,11 +587,23 @@ function Field({
   error?: string;
   inputProps: UseFormRegisterReturn;
 }) {
+  const errorId = `${inputProps.name}-error`;
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input dir={dir} {...props} {...inputProps} />
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      <Label htmlFor={inputProps.name}>{label}</Label>
+      <Input
+        id={inputProps.name}
+        dir={dir}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        {...props}
+        {...inputProps}
+      />
+      {error ? (
+        <p id={errorId} className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -554,8 +619,14 @@ function TextAreaField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Textarea dir={dir} className="resize-none" {...props} {...inputProps} />
+      <Label htmlFor={inputProps.name}>{label}</Label>
+      <Textarea
+        id={inputProps.name}
+        dir={dir}
+        className="resize-none"
+        {...props}
+        {...inputProps}
+      />
     </div>
   );
 }

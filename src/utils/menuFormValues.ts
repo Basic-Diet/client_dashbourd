@@ -5,6 +5,7 @@ import type { MenuOptionGroupSchemaInput } from "@/lib/validations/menuOptionGro
 import type { MenuOptionSchemaInput } from "@/lib/validations/menuOptionSchema";
 import type { MenuProductSchemaInput } from "@/lib/validations/menuProductSchema";
 import { halalaToRiyal } from "@/utils/price";
+import { hasModernWeightPricing } from "@/utils/menuWeightPricingMode";
 
 const emptyLocalizedText = { ar: "", en: "" };
 
@@ -122,6 +123,7 @@ export const getMenuProductFormValues = (
     product.weightStepPriceHalala !== null
       ? halalaToRiyal(product.weightStepPriceHalala)
       : undefined,
+  useWeightStepPricing: hasModernWeightPricing(product),
   isActive: product?.isActive ?? true,
   isAvailable: product?.isAvailable ?? true,
   isVisible: product?.isVisible ?? true,
@@ -171,6 +173,7 @@ export const getMenuProductCreateDefaults = (): MenuProductSchemaInput => ({
   imageUrl: "",
   priceSar: 0,
   weightStepPriceSar: undefined,
+  useWeightStepPricing: false,
   isActive: true,
   isAvailable: true,
   isVisible: true,

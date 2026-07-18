@@ -50,6 +50,7 @@ function values(overrides: Partial<MenuProductSchemaType> = {}) {
     maxWeightGrams: 300,
     weightStepGrams: 50,
     weightStepPriceSar: 5,
+    useWeightStepPricing: true,
     isActive: true,
     isAvailable: true,
     isVisible: true,
@@ -123,7 +124,7 @@ function dependencies() {
 }
 
 describe("saveMenuProductWithWeightPricing", () => {
-  it("creates a weight product with ordinary POST then dedicated PATCH", async () => {
+  it("creates a modern weight product with safe POST, dedicated PATCH, then final metadata PATCH", async () => {
     const { calls, deps } = dependencies();
 
     const result = await saveMenuProductWithWeightPricing({
@@ -133,8 +134,19 @@ describe("saveMenuProductWithWeightPricing", () => {
       dependencies: deps,
     });
 
-    assert.deepEqual(calls, ["create", "weight:created-product"]);
+    assert.deepEqual(calls, [
+      "create",
+      "weight:created-product",
+      "update:created-product",
+    ]);
     assert.equal(result.status, "complete");
+    assert.equal(deps.createProduct.mock.calls[0][0].isVisible, false);
+    assert.equal(deps.createProduct.mock.calls[0][0].isAvailable, false);
+    assert.equal(deps.createProduct.mock.calls[0][0].isActive, true);
+    assert.equal("priceHalala" in deps.createProduct.mock.calls[0][0], false);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, true);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, true);
+    assert.equal("priceHalala" in deps.updateProduct.mock.calls[0][1], false);
     assert.deepEqual(deps.updateWeightPricing.mock.calls[0][1], {
       priceHalala: 1900,
       baseUnitGrams: 100,
@@ -150,7 +162,11 @@ describe("saveMenuProductWithWeightPricing", () => {
     const createDeps = dependencies();
     await saveMenuProductWithWeightPricing({
       mode: "create",
-      values: values({ pricingModel: "fixed", isCustomizable: false }),
+      values: values({
+        pricingModel: "fixed",
+        isCustomizable: false,
+        useWeightStepPricing: false,
+      }),
       imageUrl: "",
       dependencies: createDeps.deps,
     });
@@ -159,7 +175,11 @@ describe("saveMenuProductWithWeightPricing", () => {
     await saveMenuProductWithWeightPricing({
       mode: "edit",
       productId: "product-1",
-      values: values({ pricingModel: "fixed", isCustomizable: false }),
+      values: values({
+        pricingModel: "fixed",
+        isCustomizable: false,
+        useWeightStepPricing: false,
+      }),
       imageUrl: "",
       dependencies: editDeps.deps,
     });
@@ -176,11 +196,37 @@ describe("saveMenuProductWithWeightPricing", () => {
       productId: "product-1",
       values: values(),
       imageUrl: "https://cdn.example.com/product.jpg",
+      initialProduct: product({
+        weightStepPriceHalala: 500,
+        weightPricing: {
+          contractVersion: "weight_pricing.v1",
+          strategy: "base_plus_steps",
+          requiresWeightSelection: true,
+          basePriceHalala: 1900,
+          baseWeightGrams: 100,
+          defaultWeightGrams: 100,
+          minWeightGrams: 100,
+          maxWeightGrams: 300,
+          stepGrams: 50,
+          stepPriceHalala: 500,
+          choices: [{ weightGrams: 100, priceHalala: 1900 }],
+        },
+      }),
       dependencies: deps,
     });
 
     assert.deepEqual(calls, ["update:product-1", "weight:product-1"]);
-    assert.equal("weightStepPriceHalala" in deps.updateProduct.mock.calls[0][1], false);
+    for (const key of [
+      "priceHalala",
+      "baseUnitGrams",
+      "defaultWeightGrams",
+      "minWeightGrams",
+      "maxWeightGrams",
+      "weightStepGrams",
+      "weightStepPriceHalala",
+    ]) {
+      assert.equal(key in deps.updateProduct.mock.calls[0][1], false);
+    }
   });
 
   it("returns partial status when weight PATCH fails after product create", async () => {
@@ -208,6 +254,7 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.equal(result.status, "partial_weight_pricing_failed");
     assert.equal(deps.createProduct.mock.calls.length, 1);
     assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+    assert.equal(deps.updateProduct.mock.calls.length, 0);
   });
 
   it("returns partial status when weight PATCH fails after ordinary edit", async () => {
@@ -230,6 +277,22 @@ describe("saveMenuProductWithWeightPricing", () => {
       productId: "product-1",
       values: values(),
       imageUrl: "",
+      initialProduct: product({
+        weightStepPriceHalala: 500,
+        weightPricing: {
+          contractVersion: "weight_pricing.v1",
+          strategy: "base_plus_steps",
+          requiresWeightSelection: true,
+          basePriceHalala: 1900,
+          baseWeightGrams: 100,
+          defaultWeightGrams: 100,
+          minWeightGrams: 100,
+          maxWeightGrams: 300,
+          stepGrams: 50,
+          stepPriceHalala: 500,
+          choices: [{ weightGrams: 100, priceHalala: 1900 }],
+        },
+      }),
       dependencies: deps,
     });
 
@@ -245,10 +308,11 @@ describe("saveMenuProductWithWeightPricing", () => {
     await assert.rejects(() =>
       saveMenuProductWithWeightPricing({
         mode: "edit",
-        productId: "product-1",
-        values: values(),
-        imageUrl: "",
-        dependencies: deps,
+      productId: "product-1",
+      values: values(),
+      imageUrl: "",
+      initialProduct: product({ weightStepPriceHalala: 500 }),
+      dependencies: deps,
       })
     );
 
@@ -283,7 +347,81 @@ describe("saveMenuProductWithWeightPricing", () => {
       dependencies: deps,
     });
 
-    assert.deepEqual(calls, ["update:created-product", "weight:created-product"]);
+    assert.deepEqual(calls, [
+      "update:created-product",
+      "weight:created-product",
+      "update:created-product",
+    ]);
     assert.equal(deps.createProduct.mock.calls.length, 0);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, false);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
+    assert.equal(deps.updateProduct.mock.calls[1][1].isVisible, true);
+    assert.equal(deps.updateProduct.mock.calls[1][1].isAvailable, true);
+  });
+
+  it("edits a legacy weight product without migration through ordinary PATCH only", async () => {
+    const { calls, deps } = dependencies();
+
+    await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "legacy-product",
+      values: values({
+        name: { ar: "Legacy", en: "Legacy" },
+        imageUrl: "https://cdn.example.com/new.jpg",
+        categoryId: "category-2",
+        isVisible: false,
+        isAvailable: false,
+        ui: { cardSize: "large" },
+        sortOrder: 44,
+        weightStepPriceSar: undefined,
+        useWeightStepPricing: false,
+      }),
+      imageUrl: "https://cdn.example.com/new.jpg",
+      initialProduct: product({
+        id: "legacy-product",
+        pricingModel: "per_100g",
+        weightStepPriceHalala: null,
+        weightPricing: null,
+      }),
+      dependencies: deps,
+    });
+
+    assert.deepEqual(calls, ["update:legacy-product"]);
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 0);
+    assert.equal(deps.updateProduct.mock.calls[0][1].name.en, "Legacy");
+    assert.equal(deps.updateProduct.mock.calls[0][1].imageUrl, "https://cdn.example.com/new.jpg");
+    assert.equal(deps.updateProduct.mock.calls[0][1].categoryId, "category-2");
+    assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, false);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
+    assert.deepEqual(deps.updateProduct.mock.calls[0][1].ui, { cardSize: "large" });
+    assert.equal(deps.updateProduct.mock.calls[0][1].sortOrder, 44);
+  });
+
+  it("stages fixed-to-modern weight transition hidden until pricing succeeds", async () => {
+    const { calls, deps } = dependencies();
+
+    await saveMenuProductWithWeightPricing({
+      mode: "edit",
+      productId: "fixed-product",
+      values: values({ pricingModel: "per_100g", useWeightStepPricing: true }),
+      imageUrl: "",
+      initialProduct: product({
+        id: "fixed-product",
+        pricingModel: "fixed",
+        weightStepPriceHalala: null,
+        weightPricing: null,
+      }),
+      dependencies: deps,
+    });
+
+    assert.deepEqual(calls, [
+      "update:fixed-product",
+      "weight:fixed-product",
+      "update:fixed-product",
+    ]);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, false);
+    assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
+    assert.equal(deps.updateProduct.mock.calls[1][1].isVisible, true);
+    assert.equal(deps.updateProduct.mock.calls[1][1].isAvailable, true);
   });
 });
