@@ -1,0 +1,107 @@
+                عرض النسخة المنشورة
+              </Button>
+            </>
+          ) : (
+            <Button type="button" disabled={pending} onClick={onOpenDraft} className="w-full sm:w-auto">
+              {pending ? <Loader2 className="size-4 animate-spin" /> : <FileEdit className="size-4" />}
+              {hasDraft ? "العودة إلى المسودة" : "ابدأ التعديل"}
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="icon" variant="outline" disabled={pending} aria-label="المزيد من إجراءات منشئ الوجبات">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52" dir="rtl">
+              {mode === "draft" ? (
+                <DropdownMenuItem onClick={onOpenNotes}>
+                  <StickyNote className="size-4" />
+                  ملاحظات المسودة
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem onClick={onRefresh}>
+                <RefreshCw className="size-4" />
+                تحديث البيانات
+              </DropdownMenuItem>
+              {mode === "draft" ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onReset}>
+                    <RotateCcw className="size-4" />
+                    إعادة المسودة للنسخة المنشورة
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="grid border-t bg-muted/20 sm:grid-cols-3">
+        <Step number="1" title="عدّل البطاقات" description="الإجراءات موجودة داخل كل بطاقة" />
+        <Step number="2" title="راجع المشاكل" description="الـBackend يحدد الجاهزية" />
+        <Step number="3" title="انشر" description="التطبيق يتغير بعد النشر فقط" />
+      </div>
+    </header>
+  );
+}
+
+function Step({ number, title, description }: { number: string; title: string; description: string }) {
+  return (
+    <div className="flex items-center gap-3 border-b p-3 last:border-b-0 sm:border-b-0 sm:border-l sm:last:border-l-0 sm:p-4">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-background text-sm font-semibold ring-1 ring-border">
+        {number}
+      </span>
+      <div>
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function DraftNotice() {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/25 dark:text-blue-100">
+      <FileEdit className="mt-0.5 size-5 shrink-0" />
+      <div>
+        <p className="font-medium">أنت تعدّل مسودة</p>
+        <p className="mt-1 text-sm leading-6 opacity-85">
+          احفظ تعديلاتك داخل البطاقات، ثم استخدم «مراجعة ونشر». تطبيق العميل والجوال لن يتغيرا قبل النشر.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PublishedNotice({ publishedAt }: { publishedAt: string | null }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-100">
+      <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
+      <div>
+        <p className="font-medium">هذه النسخة الظاهرة حاليا للعميل</p>
+        <p className="mt-1 text-sm opacity-85">
+          {publishedAt ? `آخر نشر: ${formatDate(publishedAt)}` : "لم يتم تسجيل وقت النشر."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceStatus({
+  validation,
+  pending,
+  dirty,
+  onReview,
+}: {
+  validation: MealBuilderValidation | null;
+  pending: boolean;
+  dirty: boolean;
+  onReview: () => void;
+}) {
+  const errors = validation?.errors.length ?? 0;
+  const warnings = validation?.warnings.length ?? 0;
+  const ready = Boolean(validation?.ready && errors === 0);
+  const state = pending
