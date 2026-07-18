@@ -289,22 +289,6 @@ export function MealBuilderSimplifiedPage({
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty, pending]);
 
-  function updateWorkspaceSections(nextSections: MealBuilderSection[]) {
-    setWorkspace((current) => ({
-      sections: nextSections,
-      notes: current?.notes ?? serverNotes,
-      validation: current?.validation ?? authoritativeValidation,
-    }));
-  }
-
-  function updateWorkspaceNotes(nextNotes: string) {
-    setWorkspace((current) => ({
-      sections: current?.sections ?? serverSections,
-      notes: nextNotes,
-      validation: current?.validation ?? authoritativeValidation,
-    }));
-  }
-
   function updateWorkspaceValidation(nextValidation: MealBuilderValidation | null) {
     setWorkspace((current) => ({
       sections: current?.sections ?? serverSections,
