@@ -58,11 +58,23 @@ jobs:
         run: npm run typecheck
 
       - name: Focused lint
-        run: >-
-          npx eslint
-          src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx
-          src/components/pages/menu/meal-builder/MealBuilderSimplifiedPage.tsx
-          src/components/pages/menu/meal-builder/MealBuilderSimplePage.tsx
+        id: focused_lint
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npx eslint \
+            src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx \
+            src/components/pages/menu/meal-builder/MealBuilderSimplifiedPage.tsx \
+            src/components/pages/menu/meal-builder/MealBuilderSimplePage.tsx \
+            2>&1 | tee meal-builder-focused-lint.log
+
+      - name: Upload focused lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meal-builder-focused-lint
+          path: meal-builder-focused-lint.log
 
       - name: Full tests
         run: npm run test
@@ -77,8 +89,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -f meal-builder-focused-lint.log
           git config user.name "Basic Diet Automation"
           git config user.email "actions@users.noreply.github.com"
           git add -A
           git commit -m "refactor(meal-builder): simplify card management workspace"
           git push origin HEAD:feat/meal-builder-simplified-workspace-ux
+
+      - name: Enforce focused lint result
+        if: steps.focused_lint.outcome == 'failure'
+        run: exit 1
