@@ -26,10 +26,16 @@ import {
 } from "@/utils/menuWeightPricingMode";
 
 export type MenuProductMutationMode = "create" | "edit";
+export type MenuProductSavePricingOutcome =
+  | "fixed"
+  | "legacy_weight"
+  | "modern_weight";
+export type MenuProductRetryStage = "full" | "final_metadata_restore";
 
 export type MenuProductSaveResult =
   | {
       status: "complete";
+      pricingOutcome: MenuProductSavePricingOutcome;
       product: MenuProduct;
       weightPricing?: WeightPricingDescriptor | null;
     }
@@ -39,6 +45,13 @@ export type MenuProductSaveResult =
       productId: string;
       error: unknown;
       weightPricing?: WeightPricingDescriptor | null;
+    }
+  | {
+      status: "partial_final_metadata_restore_failed";
+      product: MenuProduct;
+      productId: string;
+      error: unknown;
+      weightPricing: WeightPricingDescriptor;
     };
 
 export interface MenuProductSaveDependencies {
@@ -62,6 +75,8 @@ export interface SaveMenuProductInput {
   productId?: string;
   partialProductId?: string | null;
   initialProduct?: MenuProduct | null;
+  retryStage?: MenuProductRetryStage;
+  restoredWeightPricing?: WeightPricingDescriptor | null;
   dependencies?: MenuProductSaveDependencies;
 }
 
@@ -72,6 +87,8 @@ export async function saveMenuProductWithWeightPricing({
   productId,
   partialProductId,
   initialProduct,
+  retryStage = "full",
+  restoredWeightPricing,
   dependencies = {},
 }: SaveMenuProductInput): Promise<MenuProductSaveResult> {
   const createProduct = dependencies.createProduct ?? fetchCreateMenuProduct;
@@ -104,8 +121,31 @@ export async function saveMenuProductWithWeightPricing({
 
     return {
       status: "complete",
+      pricingOutcome:
+        nextValues.pricingModel === "per_100g" ? "legacy_weight" : "fixed",
       product: assertSavedProduct(ordinaryResponse.data),
       weightPricing: null,
+    };
+  }
+
+  if (retryStage === "final_metadata_restore") {
+    const finalResponse = await updateProduct(
+      existingProductId,
+      mode === "create"
+        ? toCreateModernWeightProductPayload(nextValues)
+        : toUpdateModernWeightProductPayload(nextValues)
+    );
+    return {
+      status: "complete",
+      pricingOutcome: "modern_weight",
+      product: {
+        ...assertSavedProduct(finalResponse.data),
+        weightPricing: restoredWeightPricing ?? null,
+        weightStepPriceHalala:
+          restoredWeightPricing?.stepPriceHalala ??
+          finalResponse.data.weightStepPriceHalala,
+      },
+      weightPricing: restoredWeightPricing ?? null,
     };
   }
 
@@ -125,23 +165,39 @@ export async function saveMenuProductWithWeightPricing({
       stagedProduct.id,
       toWeightPricingPayload(nextValues)
     );
-    const finalResponse =
-      mode === "create" || useSafeTransition
-        ? await updateProduct(
-            stagedProduct.id,
-            mode === "create"
-              ? toCreateModernWeightProductPayload(nextValues)
-              : toUpdateModernWeightProductPayload(nextValues)
-          )
-        : null;
+    let finalResponse: MenuProductMutationResponse | null = null;
+    try {
+      finalResponse =
+        mode === "create" || useSafeTransition
+          ? await updateProduct(
+              stagedProduct.id,
+              mode === "create"
+                ? toCreateModernWeightProductPayload(nextValues)
+                : toUpdateModernWeightProductPayload(nextValues)
+            )
+          : null;
+    } catch (error) {
+      return {
+        status: "partial_final_metadata_restore_failed",
+        product: weightResponse.data.product,
+        productId: stagedProduct.id,
+        error,
+        weightPricing: weightResponse.data.weightPricing,
+      };
+    }
+
     const finalProduct = finalResponse
       ? assertSavedProduct(finalResponse.data)
       : weightResponse.data.product;
 
     return {
       status: "complete",
+      pricingOutcome: "modern_weight",
       product: {
         ...finalProduct,
+        isCustomizable:
+          weightResponse.data.product.isCustomizable ??
+          finalProduct.isCustomizable,
         weightPricing: weightResponse.data.weightPricing,
         weightStepPriceHalala:
           weightResponse.data.product.weightStepPriceHalala ??

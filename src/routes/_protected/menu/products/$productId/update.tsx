@@ -20,6 +20,7 @@ import { ProductWeightPricingPreview } from "@/components/pages/menu/products/Pr
 import {
   saveMenuProductWithWeightPricing,
 } from "@/utils/menuProductMutationFlow";
+import type { MenuProductRetryStage } from "@/utils/menuProductMutationFlow";
 import {
   fetchUploadImage,
   resolveUploadedImageUrl,
@@ -48,6 +49,12 @@ const errorSummary = (error: unknown) => {
         ? parsed.details
         : JSON.stringify(parsed.details);
   return [parsed.message, parsed.code, details].filter(Boolean).join(" - ");
+};
+
+type PartialEditState = {
+  warning: string;
+  retryStage: MenuProductRetryStage;
+  weightPricing?: WeightPricingDescriptor | null;
 };
 
 function invalidateProductCaches(queryClient: ReturnType<typeof useQueryClient>) {
@@ -83,17 +90,19 @@ function UpdateMenuProductPage() {
   );
 }
 
-function UpdateMenuProductForm({
+export function UpdateMenuProductForm({
   product,
   productId,
+  initialValues,
 }: {
   product: MenuProduct;
   productId: string;
+  initialValues?: MenuProductSchemaInput;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
-  const [partialWarning, setPartialWarning] = useState("");
+  const [partialEdit, setPartialEdit] = useState<PartialEditState | null>(null);
   const [submitError, setSubmitError] = useState("");
   const [weightPreview, setWeightPreview] =
     useState<WeightPricingDescriptor | null>(product.weightPricing ?? null);
@@ -102,7 +111,7 @@ function UpdateMenuProductForm({
 
   const form = useForm<MenuProductSchemaInput, unknown, MenuProductSchemaType>({
     resolver: zodResolver(menuProductSchema),
-    defaultValues: getMenuProductFormValues(product),
+    defaultValues: initialValues ?? getMenuProductFormValues(product),
     mode: "onSubmit",
     reValidateMode: "onChange",
   });
@@ -114,7 +123,7 @@ function UpdateMenuProductForm({
       savingRef.current = true;
       setIsSaving(true);
       setSubmitError("");
-      setPartialWarning("");
+      setPartialEdit(null);
       setModernSuccess(false);
 
       try {
@@ -141,13 +150,19 @@ function UpdateMenuProductForm({
           imageUrl,
           productId,
           initialProduct: product,
+          retryStage: partialEdit?.retryStage ?? "full",
+          restoredWeightPricing: partialEdit?.weightPricing ?? null,
         });
 
         invalidateProductCaches(queryClient);
 
         if (result.status === "partial_weight_pricing_failed") {
           const warning = errorSummary(result.error);
-          setPartialWarning(warning);
+          setPartialEdit({
+            warning,
+            retryStage: "full",
+            weightPricing: result.weightPricing ?? product.weightPricing ?? null,
+          });
           setWeightPreview(result.weightPricing ?? product.weightPricing ?? null);
           form.reset(getMenuProductFormValues(result.product), {
             keepDirtyValues: true,
@@ -157,7 +172,23 @@ function UpdateMenuProductForm({
           return;
         }
 
-        if (data.pricingModel === "per_100g") {
+        if (result.status === "partial_final_metadata_restore_failed") {
+          const warning = errorSummary(result.error);
+          setPartialEdit({
+            warning,
+            retryStage: "final_metadata_restore",
+            weightPricing: result.weightPricing,
+          });
+          setWeightPreview(result.weightPricing);
+          form.reset(getMenuProductFormValues(result.product), {
+            keepDirtyValues: true,
+          });
+          ToastMessage("تم حفظ تسعير الوزن لكن فشل إظهار المنتج أو استعادة حالته", "error");
+          invalidateProductCaches(queryClient);
+          return;
+        }
+
+        if (result.pricingOutcome === "modern_weight") {
           setWeightPreview(result.weightPricing ?? null);
           form.reset(getMenuProductFormValues(result.product));
           setModernSuccess(true);
@@ -179,13 +210,18 @@ function UpdateMenuProductForm({
         setIsSaving(false);
       }
     },
-    [form, product, productId, queryClient, router]
+    [form, partialEdit, product, productId, queryClient, router]
   );
 
   const showValidationSummary =
     form.formState.isSubmitted && Object.keys(form.formState.errors).length > 0;
   const isCustomizable = form.watch("isCustomizable") ?? false;
   const pricingModel = form.watch("pricingModel");
+  const submitLabel = partialEdit
+    ? partialEdit.retryStage === "final_metadata_restore"
+      ? "إكمال إظهار المنتج"
+      : "إكمال تسعير الوزن"
+    : "حفظ التعديلات";
 
   return (
     <div className="w-full px-4 py-8 lg:px-8" dir="rtl">
@@ -208,7 +244,7 @@ function UpdateMenuProductForm({
         className="space-y-6"
         noValidate
       >
-        <MenuProductFormFields form={form} isEdit />
+        <MenuProductFormFields form={form} isEdit initialProduct={product} />
 
         {pricingModel === "per_100g" ? (
           <ProductWeightPricingPreview weightPricing={weightPreview} />
@@ -244,17 +280,26 @@ function UpdateMenuProductForm({
           }
         />
 
-        {partialWarning ? (
+        {partialEdit ? (
           <Alert className="text-right">
             <AlertCircle className="size-4" />
-            <AlertTitle>تم حفظ بيانات المنتج، لكن فشل تسعير الوزن</AlertTitle>
+            <AlertTitle>
+              {partialEdit.retryStage === "final_metadata_restore"
+                ? "تم حفظ تسعير الوزن، لكن فشل إظهار المنتج"
+                : "تم حفظ بيانات المنتج، لكن فشل تسعير الوزن"}
+            </AlertTitle>
             <AlertDescription className="space-y-2">
+              {partialEdit.retryStage === "final_metadata_restore" ? (
+                <p>
+                  تم حفظ تسعير الوزن واختياراته من الخادم، لكن فشل إظهار المنتج أو استعادة حالته. أعد المحاولة لإكمال هذه الخطوة فقط.
+                </p>
+              ) : null}
               <p>
                 لن يتم مغادرة الصفحة. راجع الإعدادات ثم أعد المحاولة لإكمال
                 تسعير الوزن.
               </p>
               <p dir="ltr" className="break-words text-xs">
-                {partialWarning}
+                {partialEdit.warning}
               </p>
             </AlertDescription>
           </Alert>
@@ -300,7 +345,7 @@ function UpdateMenuProductForm({
                   ) : (
                     <>
                       <Save className="size-4" />
-                      حفظ التعديلات
+                      {submitLabel}
                     </>
                   )}
                 </Button>

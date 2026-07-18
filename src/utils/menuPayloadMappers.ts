@@ -166,7 +166,10 @@ export const toCreateModernWeightProductPayload = (
   data: MenuProductSchemaType
 ): CreateMenuProductPayload =>
   withOptionalKey(
-    toOrdinaryProductPayload(data, { includePricing: false }) as CreateMenuProductPayload,
+    toOrdinaryProductPayload(data, {
+      includePricing: false,
+      includeCustomizable: false,
+    }) as CreateMenuProductPayload,
     data.key
   );
 
@@ -182,7 +185,10 @@ export const toCreateSafeModernWeightProductPayload = (
 export const toUpdateModernWeightProductPayload = (
   data: MenuProductSchemaType
 ): UpdateMenuProductPayload =>
-  toOrdinaryProductPayload(data, { includePricing: false });
+  toOrdinaryProductPayload(data, {
+    includePricing: false,
+    includeCustomizable: false,
+  });
 
 export const toUpdateSafeModernWeightProductPayload = (
   data: MenuProductSchemaType
@@ -200,25 +206,31 @@ export const toLegacyWeightProductPayload = (
 
 function toOrdinaryProductPayload(
   data: MenuProductSchemaType,
-  { includePricing }: { includePricing: boolean }
+  {
+    includePricing,
+    includeCustomizable = true,
+  }: { includePricing: boolean; includeCustomizable?: boolean }
 ): UpdateMenuProductPayload {
   const payload: UpdateMenuProductPayload = {
-  categoryId: data.categoryId,
-  itemType: data.itemType,
-  name: data.name,
-  description: data.description,
-  imageUrl: data.imageUrl,
-  pricingModel: data.pricingModel,
-  isActive: data.isActive,
-  isAvailable: data.isAvailable,
-  isVisible: data.isVisible,
-  isCustomizable: data.isCustomizable,
-  availableFor: mapAvailableFor(data.availableFor),
-  ui: {
-    cardSize: data.ui.cardSize,
-  },
-  sortOrder: data.sortOrder,
+    categoryId: data.categoryId,
+    itemType: data.itemType,
+    name: data.name,
+    description: data.description,
+    imageUrl: data.imageUrl,
+    pricingModel: data.pricingModel,
+    isActive: data.isActive,
+    isAvailable: data.isAvailable,
+    isVisible: data.isVisible,
+    availableFor: mapAvailableFor(data.availableFor),
+    ui: {
+      cardSize: data.ui.cardSize,
+    },
+    sortOrder: data.sortOrder,
   };
+
+  if (includeCustomizable) {
+    payload.isCustomizable = data.isCustomizable;
+  }
 
   if (!includePricing) return payload;
 

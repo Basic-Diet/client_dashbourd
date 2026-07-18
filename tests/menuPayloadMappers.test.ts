@@ -165,6 +165,7 @@ test("menuPayloadMappers.test", () => {
       "maxWeightGrams",
       "weightStepGrams",
       "weightStepPriceHalala",
+      "isCustomizable",
     ]) {
       assert.equal(key in payload, false);
     }

@@ -18,6 +18,7 @@ import {
   resolveUploadedImageUrl,
 } from "@/utils/fetchUploadImage";
 import { saveMenuProductWithWeightPricing } from "@/utils/menuProductMutationFlow";
+import type { MenuProductRetryStage } from "@/utils/menuProductMutationFlow";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import {
   getMenuProductCreateDefaults,
@@ -35,6 +36,8 @@ type PartialCreateState = {
   productId: string;
   imageUrl: string;
   warning: string;
+  retryStage: MenuProductRetryStage;
+  weightPricing?: WeightPricingDescriptor | null;
 };
 
 const errorSummary = (error: unknown) => {
@@ -54,7 +57,11 @@ function invalidateProductCaches(queryClient: ReturnType<typeof useQueryClient>)
   });
 }
 
-function CreateMenuProductPage() {
+export function CreateMenuProductPage({
+  initialValues,
+}: {
+  initialValues?: MenuProductSchemaInput;
+} = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
@@ -65,15 +72,16 @@ function CreateMenuProductPage() {
     useState<WeightPricingDescriptor | null>(null);
   const [submitError, setSubmitError] = useState("");
   const [modernSuccess, setModernSuccess] = useState(false);
+  const [completedProductId, setCompletedProductId] = useState("");
   const savingRef = useRef(false);
 
   const form = useForm<MenuProductSchemaInput, unknown, MenuProductSchemaType>({
     resolver: zodResolver(menuProductSchema),
-    defaultValues: getMenuProductCreateDefaults(),
+    defaultValues: initialValues ?? getMenuProductCreateDefaults(),
   });
 
   const onSubmit = async (data: MenuProductSchemaType) => {
-    if (savingRef.current) return;
+    if (savingRef.current || modernSuccess) return;
 
     savingRef.current = true;
     setIsSaving(true);
@@ -104,6 +112,8 @@ function CreateMenuProductPage() {
         values: data,
         imageUrl,
         partialProductId: partialCreate?.productId ?? null,
+        retryStage: partialCreate?.retryStage ?? "full",
+        restoredWeightPricing: partialCreate?.weightPricing ?? null,
       });
 
       invalidateProductCaches(queryClient);
@@ -114,17 +124,35 @@ function CreateMenuProductPage() {
           productId: result.productId,
           imageUrl,
           warning,
+          retryStage: "full",
+          weightPricing: result.weightPricing ?? null,
         });
         setSubmitError("");
         ToastMessage("تم إنشاء المنتج لكن فشل إعداد تسعير الوزن", "error");
         return;
       }
 
-      if (data.pricingModel === "per_100g") {
+      if (result.status === "partial_final_metadata_restore_failed") {
+        const warning = errorSummary(result.error);
+        setPartialCreate({
+          productId: result.productId,
+          imageUrl,
+          warning,
+          retryStage: "final_metadata_restore",
+          weightPricing: result.weightPricing,
+        });
+        setWeightPreview(result.weightPricing);
+        setSubmitError("");
+        ToastMessage("تم حفظ تسعير الوزن لكن فشل إظهار المنتج أو استعادة حالته", "error");
+        return;
+      }
+
+      if (result.pricingOutcome === "modern_weight") {
         setWeightPreview(result.weightPricing ?? null);
         setPartialCreate(null);
         form.reset(getMenuProductFormValues(result.product));
         setModernSuccess(true);
+        setCompletedProductId(result.product.id);
         ToastMessage("تم إنشاء المنتج وتسعير الوزن بنجاح", "success");
         invalidateProductCaches(queryClient);
         return;
@@ -132,6 +160,7 @@ function CreateMenuProductPage() {
 
       setPartialCreate(null);
       setWeightPreview(null);
+      setCompletedProductId("");
       ToastMessage("تم إنشاء المنتج بنجاح", "success");
       router.navigate({ to: "/menu", search: { tab: "catalog" } });
     } catch (error) {
@@ -149,6 +178,11 @@ function CreateMenuProductPage() {
 
   const pricingModel = form.watch("pricingModel");
   const showPreview = pricingModel === "per_100g";
+  const submitLabel = partialCreate
+    ? partialCreate.retryStage === "final_metadata_restore"
+      ? "إكمال إظهار المنتج"
+      : "إكمال تسعير الوزن"
+    : "إضافة المنتج";
 
   return (
     <div className="w-full px-4 py-8 lg:px-8" dir="rtl">
@@ -193,6 +227,20 @@ function CreateMenuProductPage() {
               >
                 الرجوع للكتالوج
               </Button>
+              {completedProductId ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() =>
+                    router.navigate({
+                      to: "/menu/products/$productId/update",
+                      params: { productId: completedProductId },
+                    })
+                  }
+                >
+                  تعديل المنتج
+                </Button>
+              ) : null}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -200,12 +248,23 @@ function CreateMenuProductPage() {
         {partialCreate ? (
           <Alert className="text-right">
             <AlertCircle className="size-4" />
-            <AlertTitle>تم إنشاء المنتج، لكن تسعير الوزن لم يكتمل</AlertTitle>
+            <AlertTitle>
+              {partialCreate.retryStage === "final_metadata_restore"
+                ? "تم حفظ تسعير الوزن، لكن فشل إظهار المنتج"
+                : "تم إنشاء المنتج، لكن تسعير الوزن لم يكتمل"}
+            </AlertTitle>
             <AlertDescription className="space-y-2">
-              <p>
-                لن يتم إنشاء نسخة أخرى عند إعادة المحاولة. سيتم تحديث المنتج
-                الحالي ثم إعادة إرسال إعداد تسعير الوزن.
-              </p>
+              {partialCreate.retryStage === "final_metadata_restore" ? (
+                <p>
+                  لن يتم إنشاء نسخة أخرى أو إعادة إرسال تسعير الوزن. سيتم فقط
+                  إكمال إظهار المنتج واستعادة حالته النهائية.
+                </p>
+              ) : (
+                <p>
+                  لن يتم إنشاء نسخة أخرى عند إعادة المحاولة. سيتم تحديث المنتج
+                  الحالي ثم إعادة إرسال إعداد تسعير الوزن.
+                </p>
+              )}
               <p dir="ltr" className="break-words text-xs">
                 {partialCreate.warning}
               </p>
@@ -242,7 +301,7 @@ function CreateMenuProductPage() {
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={isSaving}
+                  disabled={isSaving || modernSuccess}
                   className="w-full gap-2 px-10 text-base font-semibold shadow-md sm:w-auto"
                 >
                   {isSaving ? (
@@ -253,7 +312,7 @@ function CreateMenuProductPage() {
                   ) : (
                     <>
                       <Save className="size-4" />
-                      {partialCreate ? "إكمال تسعير الوزن" : "إضافة المنتج"}
+                      {submitLabel}
                     </>
                   )}
                 </Button>

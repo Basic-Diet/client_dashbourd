@@ -34,11 +34,17 @@ import {
   useMenuCategoryDetailQuery,
 } from "@/hooks/useMenuQuery";
 import { MENU_PRODUCT_CARD_SIZE_OPTIONS } from "@/constants/menuCatalog";
-import type { MenuCategory } from "@/types/menuTypes";
+import type { MenuCategory, MenuProduct } from "@/types/menuTypes";
+import {
+  deriveWeightPricingFormMode,
+  isModernWeightPricingFormMode,
+  isWeightPricingModeLocked,
+} from "@/utils/menuWeightPricingMode";
 
 interface Props {
   form: UseFormReturn<MenuProductSchemaInput, unknown, MenuProductSchemaType>;
   isEdit?: boolean;
+  initialProduct?: MenuProduct | null;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -89,14 +95,29 @@ function isImageFile(value: unknown): value is File {
   );
 }
 
-export function MenuProductFormFields({ form, isEdit }: Props) {
+export function MenuProductFormFields({ form, isEdit, initialProduct }: Props) {
   const pricingModel = form.watch("pricingModel");
   const useWeightStepPricing = form.watch("useWeightStepPricing") ?? false;
+  const weightPricingFormMode = form.watch("weightPricingFormMode") ?? "fixed";
+  const effectiveWeightPricingMode = deriveWeightPricingFormMode({
+    pageMode: isEdit ? "edit" : "create",
+    pricingModel: pricingModel ?? "fixed",
+    initialProduct,
+    useWeightStepPricing,
+  });
+  const modernWeightPricingRequired = isModernWeightPricingFormMode(
+    effectiveWeightPricingMode
+  );
+  const weightPricingLocked = isWeightPricingModeLocked(
+    effectiveWeightPricingMode
+  );
+  const showLegacyMigrationSwitch =
+    effectiveWeightPricingMode === "legacy" ||
+    effectiveWeightPricingMode === "legacy_migration";
   const selectedCategoryId = form.watch("categoryId") ?? "";
   const isActive = form.watch("isActive") ?? true;
   const isAvailable = form.watch("isAvailable") ?? true;
   const isVisible = form.watch("isVisible") ?? true;
-  const previousPricingModel = useRef(pricingModel);
 
   const numberInput = (
     name: FieldPath<MenuProductSchemaInput>
@@ -114,18 +135,27 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
   );
 
   useEffect(() => {
-    if (
-      pricingModel === "per_100g" &&
-      previousPricingModel.current !== "per_100g" &&
-      !useWeightStepPricing
-    ) {
-      form.setValue("useWeightStepPricing", true, {
-        shouldDirty: true,
+    if (weightPricingFormMode !== effectiveWeightPricingMode) {
+      form.setValue("weightPricingFormMode", effectiveWeightPricingMode, {
+        shouldDirty: false,
         shouldValidate: true,
       });
     }
-    previousPricingModel.current = pricingModel;
-  }, [form, pricingModel, useWeightStepPricing]);
+
+    if (weightPricingLocked && !useWeightStepPricing) {
+      form.setValue("useWeightStepPricing", true, {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
+    }
+
+  }, [
+    effectiveWeightPricingMode,
+    form,
+    useWeightStepPricing,
+    weightPricingFormMode,
+    weightPricingLocked,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -285,39 +315,41 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-medium text-foreground">
-                      {useWeightStepPricing
+                      {modernWeightPricingRequired
                         ? "إعداد تسعير الوزن"
                         : "منتج وزني قديم"}
                     </p>
                     <p>
-                      {useWeightStepPricing
+                      {modernWeightPricingRequired
                         ? "لوحة التحكم تحفظ الإعداد فقط. الخادم ينشئ الأسعار النهائية المعروضة للعميل."
                         : "هذا المنتج يستخدم تسعير الوزن القديم. يمكن حفظ تعديلات البيانات دون ترحيل التسعير."}
                     </p>
-                    {useWeightStepPricing ? (
+                    {modernWeightPricingRequired ? (
                       <p>
                         المعاينة تظهر بعد تأكيد الخادم ولا يتم حسابها داخل المتصفح.
                       </p>
                     ) : null}
                   </div>
-                  <Controller
-                    control={form.control}
-                    name="useWeightStepPricing"
-                    render={({ field }) => (
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          type="button"
-                          checked={Boolean(field.value)}
-                          onCheckedChange={field.onChange}
-                        />
-                        <Label>ترحيل للتسعير الحديث</Label>
-                      </div>
-                    )}
-                  />
+                  {showLegacyMigrationSwitch ? (
+                    <Controller
+                      control={form.control}
+                      name="useWeightStepPricing"
+                      render={({ field }) => (
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            type="button"
+                            checked={Boolean(field.value)}
+                            onCheckedChange={field.onChange}
+                          />
+                          <Label>ترحيل للتسعير الحديث</Label>
+                        </div>
+                      )}
+                    />
+                  ) : null}
                 </div>
               </div>
 
-              {useWeightStepPricing ? (
+              {modernWeightPricingRequired ? (
                 <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
                   <Field
                     label="وحدة الوزن (جم)"

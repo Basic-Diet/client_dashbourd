@@ -5,6 +5,7 @@ import {
   MENU_PRODUCT_CARD_SIZES,
 } from "@/constants/menuCatalog";
 import { riyalToHalala } from "@/utils/price";
+import { isModernWeightPricingFormMode } from "@/utils/menuWeightPricingMode";
 
 const optionalGeneratedKey = z
   .string()
@@ -65,6 +66,16 @@ const menuProductSchema = z
     weightStepGrams: z.coerce.number().optional(),
     weightStepPriceSar: z.coerce.number().optional(),
     useWeightStepPricing: z.boolean().default(false),
+    weightPricingFormMode: z
+      .enum([
+        "fixed",
+        "new_modern",
+        "legacy",
+        "legacy_migration",
+        "existing_modern",
+        "fixed_to_modern",
+      ])
+      .default("fixed"),
     isActive: z.boolean().default(true),
     isAvailable: z.boolean().default(true),
     isVisible: z.boolean().default(true),
@@ -89,7 +100,12 @@ const menuProductSchema = z
       addIssue(ctx, "priceSar", "السعر يجب أن يكون قيمة صحيحة بالريال");
     }
 
-    if (data.pricingModel !== "per_100g" || !data.useWeightStepPricing) return;
+    const requiresModernWeightPricing =
+      data.pricingModel === "per_100g" &&
+      (data.useWeightStepPricing ||
+        isModernWeightPricingFormMode(data.weightPricingFormMode));
+
+    if (!requiresModernWeightPricing) return;
 
     const positiveIntegerFields = [
       ["baseUnitGrams", data.baseUnitGrams, "وزن السعر الأساسي مطلوب"],

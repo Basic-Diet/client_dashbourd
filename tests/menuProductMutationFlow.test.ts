@@ -144,9 +144,11 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.equal(deps.createProduct.mock.calls[0][0].isAvailable, false);
     assert.equal(deps.createProduct.mock.calls[0][0].isActive, true);
     assert.equal("priceHalala" in deps.createProduct.mock.calls[0][0], false);
+    assert.equal("isCustomizable" in deps.createProduct.mock.calls[0][0], false);
     assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, true);
     assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, true);
     assert.equal("priceHalala" in deps.updateProduct.mock.calls[0][1], false);
+    assert.equal("isCustomizable" in deps.updateProduct.mock.calls[0][1], false);
     assert.deepEqual(deps.updateWeightPricing.mock.calls[0][1], {
       priceHalala: 1900,
       baseUnitGrams: 100,
@@ -191,7 +193,7 @@ describe("saveMenuProductWithWeightPricing", () => {
   it("edits a weight product with ordinary PATCH then dedicated PATCH", async () => {
     const { calls, deps } = dependencies();
 
-    await saveMenuProductWithWeightPricing({
+    const result = await saveMenuProductWithWeightPricing({
       mode: "edit",
       productId: "product-1",
       values: values(),
@@ -224,9 +226,12 @@ describe("saveMenuProductWithWeightPricing", () => {
       "maxWeightGrams",
       "weightStepGrams",
       "weightStepPriceHalala",
+      "isCustomizable",
     ]) {
       assert.equal(key in deps.updateProduct.mock.calls[0][1], false);
     }
+    assert.equal(result.status, "complete");
+    assert.equal(result.product.isCustomizable, true);
   });
 
   it("returns partial status when weight PATCH fails after product create", async () => {
@@ -355,8 +360,46 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.equal(deps.createProduct.mock.calls.length, 0);
     assert.equal(deps.updateProduct.mock.calls[0][1].isVisible, false);
     assert.equal(deps.updateProduct.mock.calls[0][1].isAvailable, false);
+    assert.equal("isCustomizable" in deps.updateProduct.mock.calls[0][1], false);
     assert.equal(deps.updateProduct.mock.calls[1][1].isVisible, true);
     assert.equal(deps.updateProduct.mock.calls[1][1].isAvailable, true);
+    assert.equal("isCustomizable" in deps.updateProduct.mock.calls[1][1], false);
+  });
+
+  it("returns a final restore partial without repeating pricing on retry", async () => {
+    const { calls, deps } = dependencies();
+    deps.updateProduct.mockRejectedValueOnce(new Error("restore failed"));
+
+    const first = await saveMenuProductWithWeightPricing({
+      mode: "create",
+      values: values(),
+      imageUrl: "",
+      dependencies: deps,
+    });
+
+    assert.equal(first.status, "partial_final_metadata_restore_failed");
+    assert.deepEqual(calls, ["create", "weight:created-product"]);
+    assert.equal(deps.updateProduct.mock.calls.length, 1);
+    assert.equal(first.status === "partial_final_metadata_restore_failed" ? first.weightPricing.choices.length : 0, 1);
+
+    calls.length = 0;
+    const retry = await saveMenuProductWithWeightPricing({
+      mode: "create",
+      partialProductId: "created-product",
+      values: values(),
+      imageUrl: "",
+      retryStage: "final_metadata_restore",
+      restoredWeightPricing:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.weightPricing
+          : null,
+      dependencies: deps,
+    });
+
+    assert.equal(retry.status, "complete");
+    assert.deepEqual(calls, ["update:created-product"]);
+    assert.equal(deps.createProduct.mock.calls.length, 1);
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
   });
 
   it("edits a legacy weight product without migration through ordinary PATCH only", async () => {
