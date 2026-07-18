@@ -1,25 +1,20 @@
-name: Refine Meal Builder State
+name: Verify Meal Builder PR
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - .github/workflows/fix-meal-builder-preview.yml
-      - .meal-builder-trigger/**
   push:
     branches:
       - feat/meal-builder-simplified-workspace-ux
     paths:
       - .github/workflows/fix-meal-builder-preview.yml
       - .meal-builder-trigger/**
+      - src/components/pages/menu/meal-builder/**
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  refine-and-verify:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -29,150 +24,11 @@ jobs:
           ref: feat/meal-builder-simplified-workspace-ux
           fetch-depth: 0
 
-      - name: Refine derived state architecture
-        shell: python
-        run: |
-          from pathlib import Path
-
-          path = Path("src/components/pages/menu/meal-builder/MealBuilderSimplifiedPage.tsx")
-          content = path.read_text(encoding="utf-8")
-
-          def replace_once(old: str, new: str) -> None:
-              global content
-              count = content.count(old)
-              if count != 1:
-                  raise RuntimeError(f"Expected exactly one match, found {count}: {old[:80]!r}")
-              content = content.replace(old, new, 1)
-
-          replace_once(
-              'import { useEffect, useMemo, useRef, useState } from "react";',
-              'import { useEffect, useMemo, useState } from "react";',
-          )
-
-          replace_once(
-              '''  const [mode, setMode] = useState<PageMode>("loading");
-          const [sections, setSections] = useState<MealBuilderSection[]>([]);
-          const [notes, setNotes] = useState("");
-          const [validation, setValidation] = useState<MealBuilderValidation | null>(null);''',
-              '''  const [modeOverride, setMode] = useState<Exclude<PageMode, "loading"> | null>(null);
-          const [workspaceState, setWorkspaceState] = useState<{
-            sections: MealBuilderSection[];
-            notes: string;
-            validation: MealBuilderValidation | null;
-          } | null>(null);''',
-          )
-
-          replace_once('  const initializedRef = useRef(false);\n', '')
-
-          replace_once(
-              '''  const state = builderQuery.data?.data ?? null;
-          const hasDraft = Boolean(state?.metadata?.hasDraft || state?.draft);
-          const draftQuery = useMealBuilderDraftQuery(mode === "draft" || hasDraft);''',
-              '''  const state = builderQuery.data?.data ?? null;
-          const hasDraft = Boolean(state?.metadata?.hasDraft || state?.draft);
-          const mode: PageMode =
-            modeOverride ??
-            (builderQuery.isSuccess ? (hasDraft ? "draft" : "published") : "loading");
-          const draftQuery = useMealBuilderDraftQuery(mode === "draft" || hasDraft);''',
-          )
-
-          replace_once(
-              '''  const catalog: Catalog = {
-            products: productsQuery.data?.data.items ?? [],
-            categories: categoriesQuery.data?.data.items ?? [],
-            groups: groupsQuery.data?.data.items ?? [],
-            options: optionsQuery.data?.data.items ?? [],
-          };''',
-              '''  const catalogProducts = productsQuery.data?.data.items;
-          const catalogCategories = categoriesQuery.data?.data.items;
-          const catalogGroups = groupsQuery.data?.data.items;
-          const catalogOptions = optionsQuery.data?.data.items;
-          const catalog = useMemo<Catalog>(
-            () => ({
-              products: catalogProducts ?? [],
-              categories: catalogCategories ?? [],
-              groups: catalogGroups ?? [],
-              options: catalogOptions ?? [],
-            }),
-            [catalogCategories, catalogGroups, catalogOptions, catalogProducts]
-          );''',
-          )
-
-          replace_once(
-              '''  const authoritativeValidation =
-            hydratedQuery.data?.data.validation ??
-            state?.validation?.draft ??
-            null;
-
-          const ownPending =''',
-              '''  const authoritativeValidation =
-            hydratedQuery.data?.data.validation ??
-            state?.validation?.draft ??
-            null;
-          const serverSections = useMemo(
-            () =>
-              authoritativeDraft
-                ? toEditableMealBuilderSections(orderSections(authoritativeDraft.sections))
-                : [],
-            [authoritativeDraft]
-          );
-          const serverNotes = authoritativeDraft?.notes ?? "";
-          const sections = workspaceState?.sections ?? serverSections;
-          const notes = workspaceState?.notes ?? serverNotes;
-          const validation = workspaceState?.validation ?? authoritativeValidation;
-
-          function setSections(value: MealBuilderSection[]) {
-            setWorkspaceState((current) => ({
-              sections: value,
-              notes: current ? current.notes : serverNotes,
-              validation: current ? current.validation : authoritativeValidation,
-            }));
-          }
-
-          function setNotes(value: string) {
-            setWorkspaceState((current) => ({
-              sections: current ? current.sections : serverSections,
-              notes: value,
-              validation: current ? current.validation : authoritativeValidation,
-            }));
-          }
-
-          function setValidation(value: MealBuilderValidation | null) {
-            setWorkspaceState((current) => ({
-              sections: current ? current.sections : serverSections,
-              notes: current ? current.notes : serverNotes,
-              validation: value,
-            }));
-          }
-
-          const ownPending =''',
-          )
-
-          replace_once(
-              '''  useEffect(() => {
-            if (initializedRef.current || !builderQuery.isSuccess) return;
-            initializedRef.current = true;
-            setMode(hasDraft ? "draft" : "published");
-          }, [builderQuery.isSuccess, hasDraft]);
-
-          useEffect(() => {
-            if (!authoritativeDraft || pending || directBusy.dirty || legacyEditorKey) return;
-            setSections(toEditableMealBuilderSections(orderSections(authoritativeDraft.sections)));
-            setNotes(authoritativeDraft.notes ?? "");
-            setValidation(authoritativeValidation);
-          }, [
-            authoritativeDraft,
-            authoritativeValidation,
-            directBusy.dirty,
-            legacyEditorKey,
-            pending,
-          ]);
-
-''',
-              '',
-          )
-
-          path.write_text(content, encoding="utf-8")
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -195,13 +51,3 @@ jobs:
 
       - name: Diff check
         run: git diff --check
-
-      - name: Commit verified state refactor
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "Basic Diet Automation"
-          git config user.email "actions@users.noreply.github.com"
-          git add src/components/pages/menu/meal-builder/MealBuilderSimplifiedPage.tsx
-          git commit -m "refactor(meal-builder): derive server workspace state"
-          git push origin HEAD:feat/meal-builder-simplified-workspace-ux
