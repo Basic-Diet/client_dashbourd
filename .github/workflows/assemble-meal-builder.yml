@@ -80,7 +80,19 @@ jobs:
         run: npm run test
 
       - name: Production build
-        run: npm run build
+        id: production_build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee meal-builder-build.log
+
+      - name: Upload build report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meal-builder-build
+          path: meal-builder-build.log
 
       - name: Diff check
         run: git diff --check
@@ -89,13 +101,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f meal-builder-focused-lint.log
+          rm -f meal-builder-focused-lint.log meal-builder-build.log
           git config user.name "Basic Diet Automation"
           git config user.email "actions@users.noreply.github.com"
           git add -A
           git commit -m "refactor(meal-builder): simplify card management workspace"
           git push origin HEAD:feat/meal-builder-simplified-workspace-ux
 
-      - name: Enforce focused lint result
-        if: steps.focused_lint.outcome == 'failure'
+      - name: Enforce verification results
+        if: steps.focused_lint.outcome == 'failure' || steps.production_build.outcome == 'failure'
         run: exit 1
