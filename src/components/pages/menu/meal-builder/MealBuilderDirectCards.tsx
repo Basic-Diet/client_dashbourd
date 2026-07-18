@@ -50,6 +50,7 @@ import {
 import { parseApiError } from "@/lib/apiErrors";
 import type {
   MealBuilderCardActionResponse,
+  MealBuilderCheck,
   MealBuilderDirectCardPatchPayload,
   MealBuilderPickerCandidate,
   MealBuilderSection,
