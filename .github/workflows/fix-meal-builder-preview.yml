@@ -1,6 +1,14 @@
 name: Verify Meal Builder PR
 
 on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/fix-meal-builder-preview.yml
+      - .meal-builder-trigger/**
+      - src/components/pages/menu/meal-builder/**
   push:
     branches:
       - feat/meal-builder-simplified-workspace-ux
