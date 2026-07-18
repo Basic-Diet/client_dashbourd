@@ -377,7 +377,7 @@ export function MealBuilderSimplifiedPage({
     if (pending || directBusy.dirty || legacyEditorKey) return;
     try {
       if (notesDirty) await saveFullDraft(sections, notesDraft);
-      const response = await validateDraft.mutateAsync();
+      const response = await validateDraft.mutateAsync(undefined);
       setValidation(response.data);
       if (response.data.ready && response.data.errors.length === 0) {
         setPublishOpen(true);
@@ -689,7 +689,7 @@ function WorkspaceHero({
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-52" dir="rtl">
+            <DropdownMenuContent align="end" className="min-w-52 text-right">
               {mode === "draft" ? (
                 <DropdownMenuItem onClick={onOpenNotes}>
                   <StickyNote className="size-4" />
