@@ -1,0 +1,127 @@
+  const publishedQuery = useMealBuilderPublishedQuery();
+  const state = builderQuery.data?.data ?? null;
+  const hasDraft = Boolean(state?.metadata?.hasDraft || state?.draft);
+  const draftQuery = useMealBuilderDraftQuery(mode === "draft" || hasDraft);
+  const hydratedQuery = useMealBuilderHydratedQuery(
+    (mode === "draft" || hasDraft) && draftQuery.isSuccess
+  );
+
+  const loadCatalog = mode !== "loading";
+  const productsQuery = useMenuProductsQuery(
+    { limit: 500, includeInactive: true },
+    loadCatalog
+  );
+  const categoriesQuery = useMenuCategoriesQuery(
+    { limit: 500, includeInactive: true },
+    loadCatalog
+  );
+  const groupsQuery = useMenuOptionGroupsQuery(
+    { limit: 500, includeInactive: true },
+    loadCatalog
+  );
+  const optionsQuery = useMenuOptionsQuery(
+    { limit: 1000, includeInactive: true },
+    loadCatalog
+  );
+
+  const createDraft = useCreateMealBuilderDraftMutation();
+  const saveDraft = useSaveMealBuilderDraftMutation();
+  const validateDraft = useValidateMealBuilderDraftMutation();
+  const publishDraft = usePublishMealBuilderDraftMutation();
+  const resetDraft = useResetMealBuilderDraftMutation();
+
+  const catalog: Catalog = {
+    products: productsQuery.data?.data.items ?? [],
+    categories: categoriesQuery.data?.data.items ?? [],
+    groups: groupsQuery.data?.data.items ?? [],
+    options: optionsQuery.data?.data.items ?? [],
+  };
+  const catalogReady =
+    productsQuery.isSuccess &&
+    categoriesQuery.isSuccess &&
+    groupsQuery.isSuccess &&
+    optionsQuery.isSuccess;
+
+  const authoritativeDraft =
+    hydratedQuery.data?.data.draft ??
+    (draftQuery.data?.data.config as MealBuilderConfig | null | undefined) ??
+    state?.draft ??
+    null;
+  const publishedConfig =
+    (publishedQuery.data?.data.config as MealBuilderConfig | null | undefined) ??
+    state?.published ??
+    null;
+  const draftPremium =
+    hydratedQuery.data?.data.premiumSection ?? state?.premiumSection ?? null;
+  const publishedPremium =
+    publishedQuery.data?.data.premiumSection ?? state?.premiumSection ?? null;
+  const authoritativeValidation =
+    hydratedQuery.data?.data.validation ??
+    state?.validation?.draft ??
+    null;
+
+  const ownPending =
+    createDraft.isPending ||
+    saveDraft.isPending ||
+    validateDraft.isPending ||
+    publishDraft.isPending ||
+    resetDraft.isPending;
+  const notesDirty = notesOpen && notesDraft !== notes;
+  const dirty = directBusy.dirty || notesDirty || Boolean(legacyEditorKey);
+  const pending = ownPending || directBusy.pending;
+  const draftWorkspaceReady =
+    mode === "draft" && Boolean(authoritativeDraft) && hydratedQuery.isSuccess;
+
+  useEffect(() => {
+    if (initializedRef.current || !builderQuery.isSuccess) return;
+    initializedRef.current = true;
+    setMode(hasDraft ? "draft" : "published");
+  }, [builderQuery.isSuccess, hasDraft]);
+
+  useEffect(() => {
+    if (!authoritativeDraft || pending || directBusy.dirty || legacyEditorKey) return;
+    setSections(toEditableMealBuilderSections(orderSections(authoritativeDraft.sections)));
+    setNotes(authoritativeDraft.notes ?? "");
+    setValidation(authoritativeValidation);
+  }, [
+    authoritativeDraft,
+    authoritativeValidation,
+    directBusy.dirty,
+    legacyEditorKey,
+    pending,
+  ]);
+
+  useEffect(() => {
+    onNavigationStateChange?.({ dirty, pending, draftWorkspaceReady });
+  }, [dirty, draftWorkspaceReady, onNavigationStateChange, pending]);
+
+  useEffect(() => {
+    return () =>
+      onNavigationStateChange?.({
+        dirty: false,
+        pending: false,
+        draftWorkspaceReady: false,
+      });
+  }, [onNavigationStateChange]);
+
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirty && !pending) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [dirty, pending]);
+
+  const draftCards = useMemo(
+    () =>
+      buildCards(
+        sections,
+        catalog,
+        validation,
+        draftPremium
+      ),
+    [catalog, draftPremium, sections, validation]
+  );
+
