@@ -1,0 +1,144 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  CircleDashed,
+  ClipboardCheck,
+  Eye,
+  FileEdit,
+  Layers3,
+  Loader2,
+  MoreHorizontal,
+  Package,
+  Pencil,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  Settings2,
+  StickyNote,
+  TriangleAlert,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  invalidateMealBuilderQueries,
+  MEAL_BUILDER_PUBLISHED_KEY,
+  useCreateMealBuilderDraftMutation,
+  useMealBuilderDraftQuery,
+  useMealBuilderHydratedQuery,
+  useMealBuilderPublishedQuery,
+  useMealBuilderQuery,
+  useMenuCategoriesQuery,
+  useMenuOptionGroupsQuery,
+  useMenuOptionsQuery,
+  useMenuProductsQuery,
+  usePublishMealBuilderDraftMutation,
+  useResetMealBuilderDraftMutation,
+  useSaveMealBuilderDraftMutation,
+  useValidateMealBuilderDraftMutation,
+} from "@/hooks/menu";
+import type {
+  MenuCategory,
+  MenuOption,
+  MenuOptionGroup,
+  MenuProduct,
+} from "@/types/menuTypes";
+import type {
+  MealBuilderCardActionResponse,
+  MealBuilderCheck,
+  MealBuilderConfig,
+  MealBuilderPremiumSection,
+  MealBuilderSection,
+  MealBuilderValidation,
+} from "@/types/mealBuilderTypes";
+import { MealBuilderDirectCards } from "./MealBuilderDirectCards";
+import { MealBuilderSimpleCardEditor } from "./MealBuilderSimpleCardEditor";
+import {
+  isDirectProductCard,
+  selectedProductsForDirectCard,
+} from "./mealBuilderDirectCardUtils";
+import {
+  mealBuilderErrorMessage,
+  toEditableMealBuilderSections,
+} from "./mealBuilderFrontendUtils";
+import { orderSections, toBackendSections } from "./mealBuilderUtils";
+import {
+  buildMealBuilderVisualCards,
+  type MealBuilderVisualCard,
+  type MealBuilderVisualItem,
+} from "./mealBuilderVisualModel";
+
+export type MealBuilderNavigationState = {
+  dirty: boolean;
+  pending: boolean;
+  draftWorkspaceReady: boolean;
+};
+
+type PageMode = "loading" | "draft" | "published";
+
+type Catalog = {
+  products: MenuProduct[];
+  categories: MenuCategory[];
+  groups: MenuOptionGroup[];
+  options: MenuOption[];
+};
+
+type DirectBusyState = { dirty: boolean; pending: boolean };
+
+export function MealBuilderSimplifiedPage({
+  externalNavigationBlocked = false,
+  onNavigationStateChange,
+}: {
+  externalNavigationBlocked?: boolean;
+  onNavigationStateChange?: (state: MealBuilderNavigationState) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [mode, setMode] = useState<PageMode>("loading");
+  const [sections, setSections] = useState<MealBuilderSection[]>([]);
+  const [notes, setNotes] = useState("");
+  const [validation, setValidation] = useState<MealBuilderValidation | null>(null);
+  const [directBusy, setDirectBusy] = useState<DirectBusyState>({ dirty: false, pending: false });
+  const [legacyEditorKey, setLegacyEditorKey] = useState<string | null>(null);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishNote, setPublishNote] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [notesDiscardOpen, setNotesDiscardOpen] = useState(false);
+  const [legacyDiscardOpen, setLegacyDiscardOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [showPublishedConfirm, setShowPublishedConfirm] = useState(false);
+  const initializedRef = useRef(false);
+
+  const builderQuery = useMealBuilderQuery();
