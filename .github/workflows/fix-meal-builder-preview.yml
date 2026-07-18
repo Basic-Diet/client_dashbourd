@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - .github/workflows/fix-meal-builder-preview.yml
+      - .meal-builder-trigger/**
   push:
     branches:
       - feat/meal-builder-simplified-workspace-ux
     paths:
       - .github/workflows/fix-meal-builder-preview.yml
+      - .meal-builder-trigger/**
   workflow_dispatch:
 
 permissions:
