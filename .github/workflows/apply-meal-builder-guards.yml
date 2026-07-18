@@ -1,0 +1,106 @@
+name: Apply Meal Builder Guards
+
+on:
+  push:
+    branches:
+      - feat/meal-builder-simplified-workspace-ux
+    paths:
+      - .github/workflows/apply-meal-builder-guards.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-simplified-workspace-ux
+          fetch-depth: 0
+
+      - name: Patch lifecycle guards
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx")
+          content = path.read_text(encoding="utf-8")
+
+          content = content.replace(
+              'import { useDeferredValue, useEffect, useMemo, useState } from "react";',
+              'import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";',
+              1,
+          )
+
+          picker_import = 'import { isDirectMealBuilderCandidateSelectable } from "./mealBuilderFrontendUtils";\n'
+          issue_import = 'import { mealBuilderIssueText } from "./mealBuilderIssueText";\n'
+          if issue_import not in content:
+              content = content.replace(picker_import, picker_import + issue_import, 1)
+
+          query_client = '  const queryClient = useQueryClient();\n'
+          lock_line = '  const actionLockRef = useRef(false);\n'
+          if lock_line not in content:
+              index = content.index(query_client) + len(query_client)
+              content = content[:index] + lock_line + content[index:]
+
+          run_start = content.index('  async function runAction(')
+          run_end = content.index('  async function updateVisibility(', run_start)
+          run_block = content[run_start:run_end]
+          if 'actionLockRef.current = true;' not in run_block:
+              run_block = run_block.replace(
+                  '    if (pending) return;',
+                  '    if (pending || actionLockRef.current) return;\n    actionLockRef.current = true;',
+                  1,
+              )
+          if 'actionLockRef.current = false;' not in run_block:
+              marker = '      toast.error(cardActionErrorMessage(error));\n      throw error;\n    }\n  }\n\n'
+              replacement = '      toast.error(cardActionErrorMessage(error));\n      throw error;\n    } finally {\n      actionLockRef.current = false;\n    }\n  }\n\n'
+              if marker not in run_block:
+                  raise RuntimeError("runAction ending was not recognized")
+              run_block = run_block.replace(marker, replacement, 1)
+          content = content[:run_start] + run_block + content[run_end:]
+
+          content = content.replace('{issueMessage(issues[0])}', '{localizedIssueMessage(issues[0])}', 1)
+          helper_start = content.find('function issueMessage(')
+          if helper_start >= 0:
+              helper_end = content.index('function candidateName(', helper_start)
+              helper = '''function localizedIssueMessage(issue: MealBuilderCheck) {
+            const localized = mealBuilderIssueText({
+              ...issue,
+              message: undefined,
+              title: undefined,
+            });
+            return /[\\u0600-\\u06FF]/.test(localized)
+              ? localized
+              : "توجد مشكلة تحتاج مراجعة في هذه البطاقة.";
+          }
+
+          '''
+              content = content[:helper_start] + helper + content[helper_end:]
+
+          path.write_text(content, encoding="utf-8")
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Basic Diet Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx
+          git commit -m "fix(meal-builder): guard lifecycle actions and localize issues"
+          git push origin HEAD:feat/meal-builder-simplified-workspace-ux
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx eslint src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx tests/mealBuilderDirectCardsUi.test.tsx
+      - run: npx vitest run tests/mealBuilderDirectCardsUi.test.tsx
+      - run: npm run test
+      - run: npm run build
+      - run: git diff --check
