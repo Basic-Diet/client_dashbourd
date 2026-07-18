@@ -1,0 +1,78 @@
+name: Assemble Meal Builder UX
+
+on:
+  push:
+    branches:
+      - feat/meal-builder-simplified-workspace-ux
+    paths:
+      - .github/workflows/assemble-meal-builder.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assemble-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-simplified-workspace-ux
+          fetch-depth: 0
+
+      - name: Assemble source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p src/components/pages/menu/meal-builder
+
+          (
+            cat .meal-builder-payload/direct.*.b64
+            printf '%s' 'QVJEX1RZUEVfVU5TVVBQT1JURUQiOgogICAgICByZXR1cm4gItmH2LDZhyDYp9mE2KjYt9in2YLYqSDYqtiv2KfYsSDZhdmGINmF2K3YsdixINin2YTZhdmD2YjZhtin2Kog2YjZhNmK2LPYqiDYqNi32KfZgtipINmF2YbYqtis2KfYqiDZhdio2KfYtNix2KkuIjsKICAgIGRlZmF1bHQ6CiAgICAgIHJldHVybiBwYXJzZWQubWVzc2FnZSB8fCAi2KrYudiw2LEg2KrZhtmB2YrYsCDYp9mE2LnZhdmE2YrYqS4g2K3Yp9mI2YQg2YXYsdipINij2K7YsdmJLiI7CiAgfQp9Cg=='
+          ) | base64 --decode > src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx
+
+          cat .meal-builder-payload/page.*.part > src/components/pages/menu/meal-builder/MealBuilderSimplifiedPage.tsx
+
+          cat > src/components/pages/menu/meal-builder/MealBuilderSimplePage.tsx <<'EOF'
+          export {
+            MealBuilderSimplifiedPage as MealBuilderSimplePage,
+            type MealBuilderNavigationState,
+          } from "./MealBuilderSimplifiedPage";
+          EOF
+
+          rm -rf .meal-builder-payload
+          git rm .github/workflows/assemble-meal-builder.yml
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Focused lint
+        run: >-
+          npx eslint
+          src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx
+          src/components/pages/menu/meal-builder/MealBuilderSimplifiedPage.tsx
+          src/components/pages/menu/meal-builder/MealBuilderSimplePage.tsx
+
+      - name: Full tests
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Commit verified UX implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Basic Diet Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor(meal-builder): simplify card management workspace"
+          git push origin HEAD:feat/meal-builder-simplified-workspace-ux
