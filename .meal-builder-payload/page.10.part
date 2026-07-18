@@ -1,0 +1,28 @@
+function EmptyPublished({ onStart, pending }: { onStart: () => void; pending: boolean }) {
+  return (
+    <div className="rounded-2xl border border-dashed bg-card p-8 text-center">
+      <CircleDashed className="mx-auto size-10 text-muted-foreground" />
+      <h2 className="mt-4 text-lg font-semibold">لا توجد نسخة منشورة بعد</h2>
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+        ابدأ مسودة جديدة، جهز البطاقات، ثم راجعها وانشرها لتظهر في التطبيق.
+      </p>
+      <Button type="button" onClick={onStart} disabled={pending} className="mt-5">
+        <FileEdit className="size-4" /> ابدأ التعديل
+      </Button>
+    </div>
+  );
+}
+
+function firstCardMessage(card: MealBuilderVisualCard) {
+  const backend = card.backendIssues[0];
+  return backend?.message || backend?.code || card.errors[0] || card.warnings[0] || "توجد ملاحظة تحتاج مراجعة.";
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ar-EG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
