@@ -34,6 +34,10 @@ import type {
   MenuOptionGroupDetailResponse,
   MenuOptionDetailResponse,
   MenuProductComposerResponse,
+  MenuProductMutationResponse,
+  DashboardWeightPricingResponse,
+  WeightPricingDescriptor,
+  WeightPricingChoice,
   CategoryProductAssignmentResponse,
   BulkUpdateProductsResponse,
   PaginationMeta,
@@ -123,6 +127,59 @@ function productPriceHalala(raw: any): number {
   if (typeof sar === "number" && Number.isFinite(sar)) return Math.round(sar * 100);
 
   return 0;
+}
+
+function createMalformedMenuResponseError(message: string): Error & {
+  normalizedMessage: string;
+  code: string;
+} {
+  const error = new Error(message) as Error & {
+    normalizedMessage: string;
+    code: string;
+  };
+  error.normalizedMessage = message;
+  error.code = "MALFORMED_MENU_RESPONSE";
+  return error;
+}
+
+function assertProductId(product: MenuProduct, context: string): MenuProduct {
+  if (!product.id) {
+    throw createMalformedMenuResponseError(
+      `${context}: backend response did not include a product id`
+    );
+  }
+  return product;
+}
+
+function normalizeWeightPricingChoice(raw: any): WeightPricingChoice {
+  return {
+    weightGrams: Number(raw?.weightGrams ?? raw?.weight_grams ?? 0),
+    priceHalala: Number(raw?.priceHalala ?? raw?.price_halala ?? 0),
+  };
+}
+
+function normalizeWeightPricingDescriptor(raw: any): WeightPricingDescriptor | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const choices = Array.isArray(raw.choices)
+    ? raw.choices.map(normalizeWeightPricingChoice)
+    : Array.isArray(raw.weightChoices)
+      ? raw.weightChoices.map(normalizeWeightPricingChoice)
+      : [];
+
+  return {
+    contractVersion: raw.contractVersion ?? raw.contract_version ?? "weight_pricing.v1",
+    strategy: raw.strategy ?? "base_plus_steps",
+    requiresWeightSelection: Boolean(raw.requiresWeightSelection ?? raw.requires_weight_selection),
+    basePriceHalala: Number(raw.basePriceHalala ?? raw.base_price_halala ?? 0),
+    baseWeightGrams: Number(raw.baseWeightGrams ?? raw.base_weight_grams ?? 0),
+    defaultWeightGrams: Number(raw.defaultWeightGrams ?? raw.default_weight_grams ?? 0),
+    minWeightGrams: Number(raw.minWeightGrams ?? raw.min_weight_grams ?? 0),
+    maxWeightGrams: Number(raw.maxWeightGrams ?? raw.max_weight_grams ?? 0),
+    stepGrams: Number(raw.stepGrams ?? raw.step_grams ?? 0),
+    stepPriceHalala: Number(raw.stepPriceHalala ?? raw.step_price_halala ?? 0),
+    choices,
+  };
 }
 
 // ── Category Normalizer ──
@@ -311,6 +368,9 @@ export function normalizePremiumProteinDetailResponse(
 // ── Product Normalizer ──
 
 function normalizeProduct(raw: any): MenuProduct {
+  const weightPricing =
+    normalizeWeightPricingDescriptor(raw.weightPricing ?? raw.weight_pricing);
+
   return {
     id: raw.id ?? raw._id ?? "",
     categoryId:
@@ -335,6 +395,9 @@ function normalizeProduct(raw: any): MenuProduct {
     minWeightGrams: raw.minWeightGrams ?? raw.min_weight_grams ?? undefined,
     maxWeightGrams: raw.maxWeightGrams ?? raw.max_weight_grams ?? undefined,
     weightStepGrams: raw.weightStepGrams ?? raw.weight_step_grams ?? undefined,
+    weightStepPriceHalala:
+      raw.weightStepPriceHalala ?? raw.weight_step_price_halala ?? null,
+    weightPricing,
     isActive: raw.isActive ?? raw.active ?? raw.is_active ?? true,
     isAvailable: raw.isAvailable ?? raw.available ?? raw.is_available ?? true,
     isVisible: raw.isVisible ?? raw.visible ?? raw.is_visible ?? true,
@@ -344,6 +407,7 @@ function normalizeProduct(raw: any): MenuProduct {
     catalogItemId: idFromRef(raw.catalogItemId ?? raw.catalog_item_id) || null,
     ui: {
       cardVariant: raw.ui?.cardVariant ?? raw.ui?.card_variant ?? raw.cardVariant ?? raw.card_variant ?? "standard",
+      cardSize: raw.ui?.cardSize ?? raw.ui?.card_size ?? raw.cardSize ?? raw.card_size ?? "medium",
       badge: raw.ui?.badge ?? raw.badge ?? "",
       ctaLabel: raw.ui?.ctaLabel ?? raw.ui?.cta_label ?? raw.ctaLabel ?? raw.cta_label ?? "",
       imageRatio: raw.ui?.imageRatio ?? raw.ui?.image_ratio ?? raw.imageRatio ?? raw.image_ratio ?? "square",
@@ -376,6 +440,57 @@ export function normalizeProductDetailResponse(raw: any): MenuProductDetailRespo
       product,
       category: data.category ? normalizeCategory(data.category) : null,
       groupSummary: data.groupSummary,
+    },
+  };
+}
+
+export function normalizeMenuProductMutationResponse(
+  raw: any,
+  context = "menu product mutation"
+): MenuProductMutationResponse {
+  const data = raw?.data ?? raw;
+  const product = assertProductId(normalizeProduct(data.product ?? data), context);
+
+  return {
+    status: raw?.status ?? true,
+    data: product,
+  };
+}
+
+export function normalizeDashboardWeightPricingResponse(
+  raw: any
+): DashboardWeightPricingResponse {
+  const data = raw?.data;
+  if (!data || typeof data !== "object") {
+    throw createMalformedMenuResponseError(
+      "Weight pricing response was missing data"
+    );
+  }
+
+  const product = assertProductId(
+    normalizeProduct(data.product ?? {}),
+    "weight pricing mutation"
+  );
+  const weightPricing = normalizeWeightPricingDescriptor(data.weightPricing);
+
+  if (!weightPricing) {
+    throw createMalformedMenuResponseError(
+      "Weight pricing response was missing the backend preview"
+    );
+  }
+
+  return {
+    status: true,
+    data: {
+      contractVersion:
+        data.contractVersion ?? "dashboard_weight_pricing.v1",
+      product: {
+        ...product,
+        weightPricing,
+        weightStepPriceHalala:
+          product.weightStepPriceHalala ?? weightPricing.stepPriceHalala,
+      },
+      weightPricing,
     },
   };
 }

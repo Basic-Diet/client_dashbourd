@@ -290,6 +290,31 @@ export type PricingModel = "fixed" | "per_100g";
 
 export type ItemType = string;
 
+export type WeightPricingStrategy =
+  | "base_plus_steps"
+  | "legacy_per_unit"
+  | "fixed"
+  | string;
+
+export interface WeightPricingChoice {
+  weightGrams: number;
+  priceHalala: number;
+}
+
+export interface WeightPricingDescriptor {
+  contractVersion: "weight_pricing.v1" | string;
+  strategy: WeightPricingStrategy;
+  requiresWeightSelection: boolean;
+  basePriceHalala: number;
+  baseWeightGrams: number;
+  defaultWeightGrams: number;
+  minWeightGrams: number;
+  maxWeightGrams: number;
+  stepGrams: number;
+  stepPriceHalala: number;
+  choices: WeightPricingChoice[];
+}
+
 export interface MenuProduct {
   id: string;
   categoryId?: string;
@@ -305,6 +330,8 @@ export interface MenuProduct {
   minWeightGrams?: number;
   maxWeightGrams?: number;
   weightStepGrams?: number;
+  weightStepPriceHalala?: number | null;
+  weightPricing?: WeightPricingDescriptor | null;
   isActive: boolean;
   isAvailable: boolean;
   isVisible?: boolean;
@@ -327,6 +354,30 @@ export interface MenuProduct {
 }
 
 export type MenuProductsResponse = PaginatedResponse<MenuProduct>;
+
+export interface MenuProductMutationResponse {
+  status: boolean;
+  data: MenuProduct;
+}
+
+export interface UpdateWeightPricingPayload {
+  priceHalala: number;
+  baseUnitGrams: number;
+  defaultWeightGrams: number;
+  minWeightGrams: number;
+  maxWeightGrams: number;
+  weightStepGrams: number;
+  weightStepPriceHalala: number;
+}
+
+export interface DashboardWeightPricingResponse {
+  status: true;
+  data: {
+    contractVersion: "dashboard_weight_pricing.v1" | string;
+    product: MenuProduct;
+    weightPricing: WeightPricingDescriptor;
+  };
+}
 
 export interface MenuProductDetailResponse {
   status: boolean;
@@ -377,6 +428,7 @@ export interface CreateMenuProductPayload {
   minWeightGrams?: number;
   maxWeightGrams?: number;
   weightStepGrams?: number;
+  weightStepPriceHalala?: never;
   isActive?: boolean;
   isAvailable?: boolean;
   isVisible?: boolean;
@@ -407,6 +459,7 @@ export interface UpdateMenuProductPayload {
   minWeightGrams?: number;
   maxWeightGrams?: number;
   weightStepGrams?: number;
+  weightStepPriceHalala?: never;
   isActive?: boolean;
   isAvailable?: boolean;
   isVisible?: boolean;
@@ -775,6 +828,7 @@ export interface MenuProductComposer {
     minWeightGrams: number;
     maxWeightGrams: number;
     weightStepGrams: number;
+    weightStepPriceHalala?: number | null;
     currency: string;
   };
   ui: NonNullable<MenuProduct["ui"]>;

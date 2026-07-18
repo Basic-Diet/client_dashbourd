@@ -3,9 +3,12 @@ import type {
   MenuProductsResponse,
   MenuProductDetailResponse,
   MenuProductComposerResponse,
+  MenuProductMutationResponse,
+  DashboardWeightPricingResponse,
   BulkUpdateProductsResponse,
   CreateMenuProductPayload,
   UpdateMenuProductPayload,
+  UpdateWeightPricingPayload,
   BulkUpdateProductsPayload,
   ReorderItem,
   MenuProductListParams,
@@ -15,6 +18,8 @@ import {
   normalizeProductDetailResponse,
   normalizeProductComposerResponse,
   normalizeBulkUpdateProductsResponse,
+  normalizeMenuProductMutationResponse,
+  normalizeDashboardWeightPricingResponse,
 } from "@/utils/menuResponseNormalizers";
 import { buildListQuery } from "@/utils/buildListQuery";
 import {
@@ -55,8 +60,9 @@ export const fetchMenuProductComposer = async (
 
 export const fetchCreateMenuProduct = async (
   data: CreateMenuProductPayload
-): Promise<void> => {
-  await api.post("/api/dashboard/menu/products", data);
+): Promise<MenuProductMutationResponse> => {
+  const response = await api.post("/api/dashboard/menu/products", data);
+  return normalizeMenuProductMutationResponse(response.data, "create product");
 };
 
 // ── Update Product ──
@@ -65,8 +71,20 @@ export const fetchCreateMenuProduct = async (
 export const fetchUpdateMenuProduct = async (
   id: string,
   data: UpdateMenuProductPayload
-): Promise<void> => {
-  await api.patch(`/api/dashboard/menu/products/${id}`, data);
+): Promise<MenuProductMutationResponse> => {
+  const response = await api.patch(`/api/dashboard/menu/products/${id}`, data);
+  return normalizeMenuProductMutationResponse(response.data, "update product");
+};
+
+export const fetchUpdateMenuProductWeightPricing = async (
+  id: string,
+  data: UpdateWeightPricingPayload
+): Promise<DashboardWeightPricingResponse> => {
+  const response = await api.patch(
+    `/api/dashboard/menu/products/${id}/weight-pricing`,
+    data
+  );
+  return normalizeDashboardWeightPricingResponse(response.data);
 };
 
 export const fetchBulkUpdateMenuProducts = async (

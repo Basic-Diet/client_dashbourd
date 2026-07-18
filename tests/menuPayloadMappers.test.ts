@@ -7,6 +7,8 @@ import {
   toCreateMenuProductPayload,
   toUpdateMenuOptionPayload,
   toUpdateSelectionRulesPayload,
+  toUpdateMenuProductPayload,
+  toWeightPricingPayload,
 } from "../src/utils/menuPayloadMappers";
 import menuProductSchema from "../src/lib/validations/menuProductSchema";
 import { test } from "vitest";
@@ -33,6 +35,7 @@ test("menuPayloadMappers.test", () => {
   });
 
   assert.equal(productPayload.key, undefined);
+  assert.equal("weightStepPriceHalala" in productPayload, false);
   assert.deepEqual(productPayload.availableFor, ["one_time", "subscription"]);
   assert.equal(productPayload.isCustomizable, false);
   assert.deepEqual(productPayload.ui, { cardSize: "medium" });
@@ -91,6 +94,97 @@ test("menuPayloadMappers.test", () => {
 
   assert.deepEqual(productDefaults.availableFor, ["one_time", "subscription"]);
   assert.equal(productDefaults.ui.cardSize, "medium");
+
+  const weightedValues = menuProductSchema.parse({
+    categoryId: "cat-1",
+    itemType: "product",
+    name: localized,
+    description: localized,
+    pricingModel: "per_100g",
+    priceSar: 19,
+    baseUnitGrams: 100,
+    defaultWeightGrams: 100,
+    minWeightGrams: 100,
+    maxWeightGrams: 300,
+    weightStepGrams: 50,
+    weightStepPriceSar: 5,
+    isActive: true,
+    isAvailable: true,
+    isVisible: true,
+    isCustomizable: true,
+    availableFor: ["one_time", "subscription"],
+    ui: { cardSize: "small" },
+    sortOrder: 10,
+  });
+
+  const weightPayload = toWeightPricingPayload(weightedValues);
+  assert.deepEqual(Object.keys(weightPayload).sort(), [
+    "baseUnitGrams",
+    "defaultWeightGrams",
+    "maxWeightGrams",
+    "minWeightGrams",
+    "priceHalala",
+    "weightStepGrams",
+    "weightStepPriceHalala",
+  ].sort());
+  assert.deepEqual(weightPayload, {
+    priceHalala: 1900,
+    baseUnitGrams: 100,
+    defaultWeightGrams: 100,
+    minWeightGrams: 100,
+    maxWeightGrams: 300,
+    weightStepGrams: 50,
+    weightStepPriceHalala: 500,
+  });
+
+  const weightedCreatePayload = toCreateMenuProductPayload(weightedValues);
+  const weightedUpdatePayload = toUpdateMenuProductPayload(weightedValues);
+  assert.equal("weightStepPriceHalala" in weightedCreatePayload, false);
+  assert.equal("weightStepPriceHalala" in weightedUpdatePayload, false);
+  assert.deepEqual(weightedUpdatePayload.ui, { cardSize: "small" });
+
+  assert.equal(
+    menuProductSchema.safeParse({
+      ...weightedValues,
+      minWeightGrams: 150,
+    }).success,
+    false
+  );
+  assert.equal(
+    menuProductSchema.safeParse({
+      ...weightedValues,
+      defaultWeightGrams: 125,
+    }).success,
+    false
+  );
+  assert.equal(
+    menuProductSchema.safeParse({
+      ...weightedValues,
+      baseUnitGrams: 120,
+    }).success,
+    false
+  );
+  assert.equal(
+    menuProductSchema.safeParse({
+      ...weightedValues,
+      maxWeightGrams: 275,
+    }).success,
+    false
+  );
+  assert.equal(
+    menuProductSchema.safeParse({
+      ...weightedValues,
+      pricingModel: "fixed",
+      baseUnitGrams: undefined,
+      defaultWeightGrams: undefined,
+      minWeightGrams: undefined,
+      maxWeightGrams: undefined,
+      weightStepGrams: undefined,
+      weightStepPriceSar: undefined,
+      isCustomizable: false,
+    }).success,
+    true
+  );
 
   const categoryPayload = toCreateMenuCategoryPayload({
     key: "",

@@ -21,6 +21,7 @@ import type {
   UpdateMenuOptionPayload,
   UpdateMenuPremiumProteinPayload,
   UpdateMenuProductPayload,
+  UpdateWeightPricingPayload,
   UpdateMenuProteinPayload,
   UpdateSelectionRulesPayload,
 } from "@/types/menuTypes";
@@ -202,6 +203,18 @@ export const toUpdateMenuProductPayload = (
     cardSize: data.ui.cardSize,
   },
   sortOrder: data.sortOrder,
+});
+
+export const toWeightPricingPayload = (
+  data: MenuProductSchemaType
+): UpdateWeightPricingPayload => ({
+  priceHalala: riyalToHalala(data.priceSar),
+  baseUnitGrams: data.baseUnitGrams ?? 0,
+  defaultWeightGrams: data.defaultWeightGrams ?? 0,
+  minWeightGrams: data.minWeightGrams ?? 0,
+  maxWeightGrams: data.maxWeightGrams ?? 0,
+  weightStepGrams: data.weightStepGrams ?? 0,
+  weightStepPriceHalala: riyalToHalala(data.weightStepPriceSar ?? 0),
 });
 
 export const toCreateMenuOptionGroupPayload = (

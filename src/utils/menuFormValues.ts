@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { DEFAULT_MENU_AVAILABLE_FOR, normalizeAvailableForFromApi } from "@/constants/menuCatalog";
 import type { MenuCategory, MenuOption, MenuOptionGroup, MenuProduct } from "@/types/menuTypes";
 import type { MenuCategorySchemaInput } from "@/lib/validations/menuCategorySchema";
@@ -21,6 +20,14 @@ type ProductLikeRef = MenuProduct & {
   type?: string | null;
   price?: number | null;
   price_halala?: number | null;
+};
+
+type ProductUiLike = NonNullable<MenuProduct["ui"]> & {
+  card_size?: MenuProduct["ui"] extends infer T
+    ? T extends { cardSize?: infer S }
+      ? S
+      : never
+    : never;
 };
 
 const idFromRef = (value: IdRef) => {
@@ -110,6 +117,11 @@ export const getMenuProductFormValues = (
   minWeightGrams: product?.minWeightGrams != null ? product.minWeightGrams : undefined,
   maxWeightGrams: product?.maxWeightGrams != null ? product.maxWeightGrams : undefined,
   weightStepGrams: product?.weightStepGrams != null ? product.weightStepGrams : undefined,
+  weightStepPriceSar:
+    product?.weightStepPriceHalala !== undefined &&
+    product.weightStepPriceHalala !== null
+      ? halalaToRiyal(product.weightStepPriceHalala)
+      : undefined,
   isActive: product?.isActive ?? true,
   isAvailable: product?.isAvailable ?? true,
   isVisible: product?.isVisible ?? true,
@@ -117,7 +129,7 @@ export const getMenuProductFormValues = (
   availableFor: normalizeAvailableForFromApi(product?.availableFor),
   ui: {
     cardSize:
-      product?.ui?.cardSize ?? (product?.ui as any)?.card_size ?? "medium",
+      product?.ui?.cardSize ?? (product?.ui as ProductUiLike | undefined)?.card_size ?? "medium",
   },
   sortOrder: product?.sortOrder ?? 0,
 });
@@ -158,6 +170,7 @@ export const getMenuProductCreateDefaults = (): MenuProductSchemaInput => ({
   description: emptyLocalizedText,
   imageUrl: "",
   priceSar: 0,
+  weightStepPriceSar: undefined,
   isActive: true,
   isAvailable: true,
   isVisible: true,

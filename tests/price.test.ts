@@ -11,8 +11,12 @@ import { test } from "vitest";
 
 test("price.test", () => {
   assert.equal(riyalToHalala(15), 1500);
+  assert.equal(riyalToHalala(19), 1900);
+  assert.equal(riyalToHalala(5), 500);
   assert.equal(riyalToHalala("15.25"), 1525);
   assert.equal(riyalToHalala("1.005"), 101);
+  assert.equal(riyalToHalala("١٩"), 1900);
+  assert.equal(riyalToHalala("٥"), 500);
   assert.equal(riyalToHalala("١٢٫٥٠"), 1250);
   assert.equal(normalizeRiyalInput(" ١٢٫٥٠ "), "12.50");
   assert.equal(optionalRiyalToHalala(""), undefined);

@@ -265,6 +265,12 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
           </div>
 
           {pricingModel === "per_100g" ? (
+            <>
+            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">إعداد تسعير الوزن</p>
+              <p>لوحة التحكم تحفظ الإعداد فقط. الخادم ينشئ الأسعار النهائية المعروضة للعميل.</p>
+              <p>المعاينة تظهر بعد تأكيد الخادم ولا يتم حسابها داخل المتصفح.</p>
+            </div>
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
               <Field
                 label="وحدة الوزن (جم)"
@@ -296,7 +302,17 @@ export function MenuProductFormFields({ form, isEdit }: Props) {
                 min="1"
                 inputProps={numberInput("weightStepGrams")}
               />
+              <Field
+                label="سعر كل خطوة (ر.س)"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="5.00"
+                error={form.formState.errors.weightStepPriceSar?.message}
+                inputProps={form.register("weightStepPriceSar")}
+              />
             </div>
+            </>
           ) : null}
         </CardContent>
       </Card>

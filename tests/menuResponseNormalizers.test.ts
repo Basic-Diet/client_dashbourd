@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { normalizeProductDetailResponse } from "../src/utils/menuResponseNormalizers";
+import {
+  normalizeDashboardWeightPricingResponse,
+  normalizeMenuProductMutationResponse,
+  normalizeProductDetailResponse,
+} from "../src/utils/menuResponseNormalizers";
 import { test } from "vitest";
 
 test("menuResponseNormalizers.test", () => {
@@ -98,7 +102,80 @@ test("menuResponseNormalizers.test", () => {
   assert.equal(legacySarPriceProduct.data.minWeightGrams, 50);
   assert.equal(legacySarPriceProduct.data.maxWeightGrams, 300);
   assert.equal(legacySarPriceProduct.data.weightStepGrams, 25);
+  assert.equal(legacySarPriceProduct.data.ui?.cardSize, "medium");
   assert.equal(legacySarPriceProduct.data.ui?.cardVariant, "addon");
   assert.equal(legacySarPriceProduct.data.ui?.ctaLabel, "Add");
   assert.equal(legacySarPriceProduct.data.ui?.imageRatio, "4/3");
+
+  const createResponse = normalizeMenuProductMutationResponse({
+    status: true,
+    data: {
+      _id: "created-product",
+      categoryId: "category-1",
+      key: "created",
+      itemType: "product",
+      name: { ar: "جديد", en: "Created" },
+      pricingModel: "fixed",
+      priceHalala: 1900,
+      ui: { card_size: "large" },
+      isActive: true,
+      isAvailable: true,
+      sortOrder: 4,
+    },
+  });
+
+  assert.equal(createResponse.data.id, "created-product");
+  assert.equal(createResponse.data.ui?.cardSize, "large");
+
+  const weightResponse = normalizeDashboardWeightPricingResponse({
+    status: true,
+    data: {
+      contractVersion: "dashboard_weight_pricing.v1",
+      product: {
+        id: "weighted-product",
+        categoryId: "category-1",
+        key: "spicy_chicken_meal_100g",
+        itemType: "product",
+        name: { ar: "وجبة دجاج", en: "Spicy Chicken Meal" },
+        pricingModel: "per_100g",
+        priceHalala: 1900,
+        weightStepPriceHalala: 500,
+        ui: { cardSize: "small" },
+        isActive: true,
+        isAvailable: true,
+        sortOrder: 1,
+      },
+      weightPricing: {
+        contractVersion: "weight_pricing.v1",
+        strategy: "base_plus_steps",
+        requiresWeightSelection: true,
+        basePriceHalala: 1900,
+        baseWeightGrams: 100,
+        defaultWeightGrams: 100,
+        minWeightGrams: 100,
+        maxWeightGrams: 300,
+        stepGrams: 50,
+        stepPriceHalala: 500,
+        choices: [
+          { weightGrams: 100, priceHalala: 1900 },
+          { weightGrams: 175, priceHalala: 2775 },
+          { weightGrams: 300, priceHalala: 4100 },
+        ],
+      },
+    },
+  });
+
+  assert.equal(weightResponse.data.product.weightStepPriceHalala, 500);
+  assert.deepEqual(weightResponse.data.weightPricing.choices, [
+    { weightGrams: 100, priceHalala: 1900 },
+    { weightGrams: 175, priceHalala: 2775 },
+    { weightGrams: 300, priceHalala: 4100 },
+  ]);
+
+  assert.throws(() =>
+    normalizeMenuProductMutationResponse({
+      status: true,
+      data: { key: "missing-id", name: { ar: "x", en: "x" } },
+    })
+  );
 });
