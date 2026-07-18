@@ -1,0 +1,114 @@
+              لا توجد مشاكل مسجلة. اضغط «مراجعة ونشر» لإجراء فحص جديد.
+            </div>
+          )}
+        </div>
+        <DialogFooter className="border-t px-4 py-3 sm:justify-start sm:px-6">
+          <Button type="button" variant="outline" onClick={onClose}>إغلاق</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function IssueRow({ issue }: { issue: MealBuilderCheck }) {
+  const error = issue.level === "error";
+  return (
+    <div className={`flex items-start gap-3 rounded-2xl border p-4 ${error ? "border-destructive/30 bg-destructive/5" : "border-amber-200 bg-amber-50 dark:bg-amber-950/20"}`}>
+      {error ? <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" /> : <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-700" />}
+      <div className="min-w-0">
+        <p className="font-medium">{error ? "خطأ يمنع النشر" : "تنبيه"}</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{issue.message || issue.code || "مشكلة تحتاج مراجعة"}</p>
+        {typeof issue.sectionIndex === "number" ? (
+          <p className="mt-2 text-xs text-muted-foreground">البطاقة رقم {issue.sectionIndex + 1}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PublishDialog({
+  open,
+  note,
+  pending,
+  onNoteChange,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  note: string;
+  pending: boolean;
+  onNoteChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && !pending && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader className="text-right">
+          <DialogTitle>نشر المسودة؟</DialogTitle>
+          <DialogDescription>
+            المسودة اجتازت الفحص. بعد النشر ستصبح هذه البطاقات هي النسخة الظاهرة في تطبيق العميل والجوال.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label htmlFor="meal-builder-publish-note" className="text-sm font-medium">ملاحظة النشر (اختيارية)</label>
+          <Textarea id="meal-builder-publish-note" value={note} onChange={(event) => onNoteChange(event.target.value)} disabled={pending} rows={4} />
+        </div>
+        <DialogFooter className="gap-2 sm:justify-start">
+          <Button type="button" disabled={pending} onClick={onConfirm} className="w-full sm:w-auto">
+            {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            نشر الآن
+          </Button>
+          <Button type="button" variant="outline" disabled={pending} onClick={onClose} className="w-full sm:w-auto">إلغاء</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NotesDialog({
+  open,
+  value,
+  pending,
+  onChange,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  value: string;
+  pending: boolean;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && !pending && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader className="text-right">
+          <DialogTitle>ملاحظات المسودة</DialogTitle>
+          <DialogDescription>ملاحظات داخلية تساعد فريق الإدارة ولا تظهر للعميل.</DialogDescription>
+        </DialogHeader>
+        <Textarea value={value} onChange={(event) => onChange(event.target.value)} disabled={pending} rows={7} placeholder="اكتب ملاحظة عن التغييرات الحالية..." />
+        <DialogFooter className="gap-2 sm:justify-start">
+          <Button type="button" disabled={pending} onClick={onSave} className="w-full sm:w-auto">
+            {pending ? <Loader2 className="size-4 animate-spin" /> : <StickyNote className="size-4" />}
+            حفظ الملاحظات
+          </Button>
+          <Button type="button" variant="outline" disabled={pending} onClick={onClose} className="w-full sm:w-auto">إلغاء</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DiscardChangesDialog({
+  open,
+  title,
+  description,
+  onClose,
+  onDiscard,
+}: {
+  open: boolean;
+  title: string;
+  description: string;
+  onClose: () => void;
