@@ -1,1 +1,0 @@
-Temporary assembly payload for the Meal Builder UX branch. The verification workflow removes this directory after assembling and validating the final source files.
