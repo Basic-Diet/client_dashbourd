@@ -1,0 +1,30 @@
+name: Verify Meal Builder Direct Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [reopened]
+    paths:
+      - .github/workflows/verify-meal-builder-direct-tests.yml
+      - tests/mealBuilderDirectCardsUi.test.tsx
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-simplified-workspace-ux
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx eslint tests/mealBuilderDirectCardsUi.test.tsx
+      - run: npx vitest run tests/mealBuilderDirectCardsUi.test.tsx
