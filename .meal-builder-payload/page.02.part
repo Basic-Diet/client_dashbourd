@@ -1,0 +1,148 @@
+  const publishedCards = useMemo(
+    () =>
+      buildCards(
+        publishedConfig?.sections ?? [],
+        catalog,
+        state?.validation?.published ?? null,
+        publishedPremium
+      ),
+    [catalog, publishedConfig?.sections, publishedPremium, state?.validation?.published]
+  );
+  const selectedLegacyCard = legacyEditorKey
+    ? draftCards.visual.find((card) => card.key === legacyEditorKey) ?? null
+    : null;
+
+  async function refreshAll(showToast = true) {
+    await Promise.all([
+      invalidateMealBuilderQueries(queryClient),
+      queryClient.invalidateQueries({ queryKey: [MEAL_BUILDER_PUBLISHED_KEY] }),
+      productsQuery.refetch(),
+      categoriesQuery.refetch(),
+      groupsQuery.refetch(),
+      optionsQuery.refetch(),
+    ]);
+    if (showToast) toast.success("تم تحديث منشئ الوجبات");
+  }
+
+  async function openDraft() {
+    if (pending) return;
+    if (authoritativeDraft || hasDraft) {
+      setMode("draft");
+      return;
+    }
+    try {
+      const response = await createDraft.mutateAsync();
+      const created = response.data;
+      setSections(toEditableMealBuilderSections(orderSections(created.sections)));
+      setNotes(created.notes ?? "");
+      setValidation(null);
+      setMode("draft");
+      await refreshAll(false);
+    } catch {
+      // The mutation hook owns the Arabic error toast.
+    }
+  }
+
+  async function saveFullDraft(
+    nextSections: MealBuilderSection[] = sections,
+    nextNotes: string = notes
+  ) {
+    const response = await saveDraft.mutateAsync({
+      sections: toBackendSections(nextSections),
+      notes: nextNotes,
+    });
+    const saved = response.data;
+    setSections(toEditableMealBuilderSections(orderSections(saved.sections)));
+    setNotes(saved.notes ?? nextNotes);
+    setValidation(null);
+    return saved;
+  }
+
+  async function saveLegacyCard(nextSections: MealBuilderSection[]) {
+    try {
+      await saveFullDraft(nextSections, notes);
+      setLegacyEditorKey(null);
+    } catch {
+      // Keep the editor open; the mutation hook owns the error toast.
+    }
+  }
+
+  async function saveNotes() {
+    try {
+      await saveFullDraft(sections, notesDraft);
+      setNotesOpen(false);
+      setNotesDiscardOpen(false);
+    } catch {
+      // Keep entered notes and dialog open.
+    }
+  }
+
+  function requestNotesClose() {
+    if (saveDraft.isPending) return;
+    if (notesDraft !== notes) {
+      setNotesDiscardOpen(true);
+      return;
+    }
+    setNotesOpen(false);
+  }
+
+  function requestLegacyEditorClose() {
+    if (saveDraft.isPending) return;
+    setLegacyDiscardOpen(true);
+  }
+
+  async function beforeDirectAction() {
+    if (notesDirty) await saveFullDraft(sections, notesDraft);
+  }
+
+  function applyDirectAction(response: MealBuilderCardActionResponse) {
+    const nextDraft = response.data.draft;
+    setSections(toEditableMealBuilderSections(orderSections(nextDraft.sections)));
+    setNotes(nextDraft.notes ?? notes);
+    setValidation(response.data.validation);
+  }
+
+  async function reviewAndPublish() {
+    if (pending || directBusy.dirty || legacyEditorKey) return;
+    try {
+      if (notesDirty) await saveFullDraft(sections, notesDraft);
+      const response = await validateDraft.mutateAsync();
+      setValidation(response.data);
+      if (response.data.ready && response.data.errors.length === 0) {
+        setPublishOpen(true);
+      } else {
+        setIssuesOpen(true);
+      }
+    } catch {
+      // The mutation hook owns the error toast.
+    }
+  }
+
+  async function confirmPublish() {
+    try {
+      await publishDraft.mutateAsync(publishNote.trim() || undefined);
+      setPublishOpen(false);
+      setPublishNote("");
+      setMode("published");
+      await refreshAll(false);
+    } catch {
+      // Keep dialog open for retry.
+    }
+  }
+
+  async function confirmReset() {
+    try {
+      await resetDraft.mutateAsync();
+      setResetOpen(false);
+      setLegacyEditorKey(null);
+      setValidation(null);
+      setMode("draft");
+      await refreshAll(false);
+    } catch {
+      // The mutation hook owns the error toast.
+    }
+  }
+
+  function requestPublishedView() {
+    if (pending) return;
+    if (dirty) {
