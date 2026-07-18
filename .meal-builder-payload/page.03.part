@@ -1,0 +1,136 @@
+      if (!externalNavigationBlocked) setShowPublishedConfirm(true);
+      return;
+    }
+    setMode("published");
+  }
+
+  const firstLoadError =
+    builderQuery.error ||
+    publishedQuery.error ||
+    (mode === "draft" ? draftQuery.error || hydratedQuery.error : null);
+
+  if (mode === "loading" || builderQuery.isLoading) {
+    return <MealBuilderLoading />;
+  }
+
+  if (firstLoadError) {
+    return (
+      <LoadError
+        message={mealBuilderErrorMessage(
+          firstLoadError,
+          "تعذر تحميل منشئ الوجبات"
+        )}
+        onRetry={() => void refreshAll(false)}
+      />
+    );
+  }
+
+  if (mode === "published") {
+    return (
+      <div className="space-y-5" dir="rtl">
+        <WorkspaceHero
+          mode="published"
+          pending={pending}
+          onOpenDraft={() => void openDraft()}
+          onShowPublished={() => undefined}
+          onReview={() => undefined}
+          onOpenNotes={() => undefined}
+          onRefresh={() => void refreshAll()}
+          onReset={() => undefined}
+          hasDraft={Boolean(authoritativeDraft || hasDraft)}
+        />
+        <PublishedNotice publishedAt={publishedConfig?.publishedAt ?? null} />
+        {publishedConfig ? (
+          <UnifiedReadOnlyCards cards={publishedCards} />
+        ) : (
+          <EmptyPublished onStart={() => void openDraft()} pending={pending} />
+        )}
+      </div>
+    );
+  }
+
+  if (!authoritativeDraft || !draftWorkspaceReady) {
+    return <MealBuilderLoading message="جاري تجهيز مسودة التعديل..." />;
+  }
+
+  return (
+    <div className="space-y-5" dir="rtl">
+      <WorkspaceHero
+        mode="draft"
+        pending={pending}
+        onOpenDraft={() => undefined}
+        onShowPublished={requestPublishedView}
+        onReview={() => void reviewAndPublish()}
+        onOpenNotes={() => {
+          setNotesDraft(notes);
+          setNotesOpen(true);
+        }}
+        onRefresh={() => void refreshAll()}
+        onReset={() => setResetOpen(true)}
+        hasDraft
+      />
+
+      <DraftNotice />
+      <WorkspaceStatus validation={validation} pending={pending} dirty={dirty} onReview={() => setIssuesOpen(true)} />
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">بطاقات منشئ الوجبات</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              كل إجراء موجود داخل البطاقة التي يؤثر عليها. عدّل البطاقات ثم اضغط مراجعة ونشر.
+            </p>
+          </div>
+          <Badge variant="outline" className="w-fit">
+            {draftCards.totalCount} بطاقات
+          </Badge>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          <MealBuilderDirectCards
+            sections={sections}
+            validation={validation}
+            parentPending={ownPending}
+            onBeforeAction={beforeDirectAction}
+            onActionApplied={applyDirectAction}
+            onBusyChange={setDirectBusy}
+          />
+          {draftCards.visual.map((card) => (
+            <LegacyOrPremiumCard
+              key={card.key}
+              card={card}
+              pending={pending || !catalogReady}
+              onEdit={() => setLegacyEditorKey(card.key)}
+              readOnly={false}
+            />
+          ))}
+        </div>
+      </section>
+
+      {selectedLegacyCard ? (
+        <MealBuilderSimpleCardEditor
+          key={selectedLegacyCard.key}
+          open
+          card={selectedLegacyCard}
+          sections={sections}
+          catalog={catalog}
+          onClose={requestLegacyEditorClose}
+          onSave={(nextSections) => void saveLegacyCard(nextSections)}
+        />
+      ) : null}
+
+      <IssuesDialog
+        open={issuesOpen}
+        validation={validation}
+        onClose={() => setIssuesOpen(false)}
+      />
+      <PublishDialog
+        open={publishOpen}
+        note={publishNote}
+        pending={publishDraft.isPending}
+        onNoteChange={setPublishNote}
+        onClose={() => !publishDraft.isPending && setPublishOpen(false)}
+        onConfirm={() => void confirmPublish()}
+      />
+      <NotesDialog
+        open={notesOpen}
