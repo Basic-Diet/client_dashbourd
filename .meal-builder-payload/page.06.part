@@ -1,0 +1,88 @@
+    ? { title: "جاري تنفيذ العملية...", description: "انتظر حتى ينتهي الحفظ أو التحديث.", icon: Loader2, tone: "border-primary/30 bg-primary/5" }
+    : dirty
+      ? { title: "توجد تعديلات لم تُحفظ بعد", description: "أكمل التعديل أو احفظ قبل المراجعة والنشر.", icon: CircleDashed, tone: "border-amber-300 bg-amber-50 dark:bg-amber-950/20" }
+      : ready
+        ? { title: "المسودة جاهزة للنشر", description: warnings ? `توجد ${warnings} تنبيهات لا تمنع النشر.` : "لا توجد أخطاء تمنع النشر.", icon: CheckCircle2, tone: "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20" }
+        : errors
+          ? { title: `يوجد ${errors} أخطاء تمنع النشر`, description: "راجع المشاكل المرتبطة بالبطاقات ثم أعد الفحص.", icon: AlertCircle, tone: "border-destructive/35 bg-destructive/5" }
+          : { title: "المسودة تحتاج مراجعة", description: "اضغط «مراجعة ونشر» ليقوم الـBackend بفحص الجاهزية.", icon: ClipboardCheck, tone: "border-border bg-muted/20" };
+  const Icon = state.icon;
+
+  return (
+    <div className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${state.tone}`}>
+      <div className="flex items-start gap-3">
+        <Icon className={`mt-0.5 size-5 shrink-0 ${pending ? "animate-spin" : ""}`} />
+        <div>
+          <p className="font-medium">{state.title}</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{state.description}</p>
+        </div>
+      </div>
+      {(errors || warnings) && validation ? (
+        <Button type="button" variant="outline" size="sm" onClick={onReview} className="w-full sm:w-auto">
+          مراجعة المشاكل
+          <ChevronLeft className="size-4" />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function LegacyOrPremiumCard({
+  card,
+  pending,
+  onEdit,
+  readOnly,
+}: {
+  card: MealBuilderVisualCard;
+  pending: boolean;
+  onEdit: () => void;
+  readOnly: boolean;
+}) {
+  const premium = card.key === "premium";
+  const issueCount = card.errors.length + card.backendIssues.filter((issue) => issue.level === "error").length;
+  const previewItems = card.items.slice(0, 3);
+
+  return (
+    <article className="flex min-h-64 flex-col rounded-2xl border bg-card p-4 shadow-sm transition hover:shadow-md sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold">{card.labelAr}</h3>
+            <Badge variant={premium ? "secondary" : issueCount ? "destructive" : "outline"}>
+              {premium ? "تدار تلقائيا" : issueCount ? `${issueCount} مشاكل` : "جاهزة"}
+            </Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {card.items.length} {card.items.length === 1 ? "عنصر" : "عناصر"}
+          </p>
+        </div>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+          {premium ? <Settings2 className="size-4" /> : <Package className="size-4" />}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {previewItems.map((item) => (
+          <VisualItemPreview key={`${item.kind}:${item.id}`} item={item} />
+        ))}
+        {!previewItems.length ? (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            لا توجد عناصر ظاهرة حاليا في هذه البطاقة.
+          </p>
+        ) : null}
+        {card.items.length > 3 ? (
+          <p className="text-xs text-muted-foreground">+{card.items.length - 3} عناصر أخرى</p>
+        ) : null}
+      </div>
+
+      {card.backendIssues.length || card.errors.length || card.warnings.length ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100">
+          {firstCardMessage(card)}
+        </div>
+      ) : null}
+
+      <div className="mt-auto pt-4">
+        {premium ? (
+          <p className="rounded-xl bg-muted/50 p-3 text-sm leading-6 text-muted-foreground">
+            محتوى Premium يُدار تلقائيا من الـBackend ولا يحتاج إجراء يدوي هنا.
+          </p>
