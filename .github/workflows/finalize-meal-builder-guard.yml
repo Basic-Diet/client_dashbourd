@@ -1,0 +1,197 @@
+name: Finalize Meal Builder Guard
+
+on:
+  push:
+    branches:
+      - feat/meal-builder-simplified-workspace-ux
+    paths:
+      - .github/workflows/finalize-meal-builder-guard.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-simplified-workspace-ux
+          fetch-depth: 0
+
+      - name: Add synchronous action guard and localized inline issues
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx")
+          content = path.read_text(encoding="utf-8")
+
+          def replace_once(old: str, new: str) -> None:
+              global content
+              count = content.count(old)
+              if count != 1:
+                  raise RuntimeError(f"Expected exactly one match, found {count}: {old[:120]!r}")
+              content = content.replace(old, new, 1)
+
+          replace_once(
+              'import { useDeferredValue, useEffect, useMemo, useState } from "react";',
+              'import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";',
+          )
+          replace_once(
+              'import { isDirectMealBuilderCandidateSelectable } from "./mealBuilderFrontendUtils";\n',
+              'import { isDirectMealBuilderCandidateSelectable } from "./mealBuilderFrontendUtils";\nimport { mealBuilderIssueText } from "./mealBuilderIssueText";\n',
+          )
+          replace_once(
+              '''  const queryClient = useQueryClient();
+          const [dialogMode, setDialogMode] = useState<DialogMode>(null);''',
+              '''  const queryClient = useQueryClient();
+          const actionLockRef = useRef(false);
+          const [dialogMode, setDialogMode] = useState<DialogMode>(null);''',
+          )
+          replace_once(
+              '''  async function runAction(
+            action: () => Promise<MealBuilderCardActionResponse>,
+            successMessage: string,
+            options: { closeDialog?: boolean; closeDelete?: boolean } = {}
+          ) {
+            if (pending) return;
+            try {
+              await onBeforeAction();
+              const response = await action();
+              onActionApplied(response);
+              setDialogDirty(false);
+              if (options.closeDialog) setDialogMode(null);
+              if (options.closeDelete) setDeleteSection(null);
+              toast.success(successMessage);
+            } catch (error) {
+              const parsed = parseApiError(error);
+              if (
+                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
+                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_FOUND" ||
+                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_IN_CARD" ||
+                parsed.code === "MEAL_BUILDER_CONFLICT" ||
+                parsed.code === "MEAL_BUILDER_PRODUCT_ALREADY_ASSIGNED"
+              ) {
+                await invalidateMealBuilderQueries(queryClient);
+              }
+              if (
+                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
+                parsed.code === "MEAL_BUILDER_CARD_TYPE_UNSUPPORTED"
+              ) {
+                setDialogMode(null);
+                setDeleteSection(null);
+              }
+              toast.error(cardActionErrorMessage(error));
+              throw error;
+            }
+          }''',
+              '''  async function runAction(
+            action: () => Promise<MealBuilderCardActionResponse>,
+            successMessage: string,
+            options: { closeDialog?: boolean; closeDelete?: boolean } = {}
+          ) {
+            if (pending || actionLockRef.current) return;
+            actionLockRef.current = true;
+            try {
+              await onBeforeAction();
+              const response = await action();
+              onActionApplied(response);
+              setDialogDirty(false);
+              if (options.closeDialog) setDialogMode(null);
+              if (options.closeDelete) setDeleteSection(null);
+              toast.success(successMessage);
+            } catch (error) {
+              const parsed = parseApiError(error);
+              if (
+                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
+                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_FOUND" ||
+                parsed.code === "MEAL_BUILDER_PRODUCT_NOT_IN_CARD" ||
+                parsed.code === "MEAL_BUILDER_CONFLICT" ||
+                parsed.code === "MEAL_BUILDER_PRODUCT_ALREADY_ASSIGNED"
+              ) {
+                await invalidateMealBuilderQueries(queryClient);
+              }
+              if (
+                parsed.code === "MEAL_BUILDER_CARD_NOT_FOUND" ||
+                parsed.code === "MEAL_BUILDER_CARD_TYPE_UNSUPPORTED"
+              ) {
+                setDialogMode(null);
+                setDeleteSection(null);
+              }
+              toast.error(cardActionErrorMessage(error));
+              throw error;
+            } finally {
+              actionLockRef.current = false;
+            }
+          }''',
+          )
+          replace_once(
+              '{issueMessage(issues[0])}',
+              '{localizedIssueMessage(issues[0])}',
+          )
+          replace_once(
+              '''function issueMessage(issue: Record<string, unknown>) {
+            if (typeof issue.message === "string" && issue.message.trim()) return issue.message;
+            if (typeof issue.code === "string" && issue.code.trim()) return issue.code;
+            return "توجد مشكلة تحتاج مراجعة في هذه البطاقة.";
+          }
+          ''',
+              '''function localizedIssueMessage(issue: MealBuilderCheck) {
+            const localized = mealBuilderIssueText({
+              ...issue,
+              message: undefined,
+              title: undefined,
+            });
+            return /[\\u0600-\\u06FF]/.test(localized)
+              ? localized
+              : "توجد مشكلة تحتاج مراجعة في هذه البطاقة.";
+          }
+          ''',
+          )
+
+          path.write_text(content, encoding="utf-8")
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Focused lint
+        run: >-
+          npx eslint
+          src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx
+          src/components/pages/menu/meal-builder/MealBuilderSimplifiedPage.tsx
+          tests/mealBuilderDirectCardsUi.test.tsx
+
+      - name: Focused lifecycle tests
+        run: npx vitest run tests/mealBuilderDirectCardsUi.test.tsx
+
+      - name: Full tests
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Commit verified lifecycle guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Basic Diet Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/pages/menu/meal-builder/MealBuilderDirectCards.tsx
+          git commit -m "fix(meal-builder): guard lifecycle actions and localize issues"
+          git push origin HEAD:feat/meal-builder-simplified-workspace-ux
