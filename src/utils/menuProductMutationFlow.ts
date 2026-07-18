@@ -77,6 +77,7 @@ export interface SaveMenuProductInput {
   initialProduct?: MenuProduct | null;
   retryStage?: MenuProductRetryStage;
   restoredWeightPricing?: WeightPricingDescriptor | null;
+  restoredProduct?: MenuProduct | null;
   dependencies?: MenuProductSaveDependencies;
 }
 
@@ -89,6 +90,7 @@ export async function saveMenuProductWithWeightPricing({
   initialProduct,
   retryStage = "full",
   restoredWeightPricing,
+  restoredProduct,
   dependencies = {},
 }: SaveMenuProductInput): Promise<MenuProductSaveResult> {
   const createProduct = dependencies.createProduct ?? fetchCreateMenuProduct;
@@ -129,24 +131,47 @@ export async function saveMenuProductWithWeightPricing({
   }
 
   if (retryStage === "final_metadata_restore") {
-    const finalResponse = await updateProduct(
-      existingProductId,
-      mode === "create"
-        ? toCreateModernWeightProductPayload(nextValues)
-        : toUpdateModernWeightProductPayload(nextValues)
-    );
-    return {
-      status: "complete",
-      pricingOutcome: "modern_weight",
-      product: {
-        ...assertSavedProduct(finalResponse.data),
+    try {
+      const finalResponse = await updateProduct(
+        existingProductId,
+        mode === "create"
+          ? toCreateModernWeightProductPayload(nextValues)
+          : toUpdateModernWeightProductPayload(nextValues)
+      );
+      return {
+        status: "complete",
+        pricingOutcome: "modern_weight",
+        product: {
+          ...assertSavedProduct(finalResponse.data),
+          weightPricing: restoredWeightPricing ?? null,
+          weightStepPriceHalala:
+            restoredWeightPricing?.stepPriceHalala ??
+            finalResponse.data.weightStepPriceHalala,
+        },
         weightPricing: restoredWeightPricing ?? null,
-        weightStepPriceHalala:
-          restoredWeightPricing?.stepPriceHalala ??
-          finalResponse.data.weightStepPriceHalala,
-      },
-      weightPricing: restoredWeightPricing ?? null,
-    };
+      };
+    } catch (error) {
+      const retryProduct = assertSavedProduct(
+        restoredProduct ?? initialProduct ?? ({ id: existingProductId } as MenuProduct)
+      );
+      const retryWeightPricing =
+        restoredWeightPricing ?? retryProduct.weightPricing;
+      if (!retryWeightPricing) {
+        throw error;
+      }
+      return {
+        status: "partial_final_metadata_restore_failed",
+        product: {
+          ...retryProduct,
+          weightPricing: retryWeightPricing,
+          weightStepPriceHalala:
+            retryWeightPricing.stepPriceHalala ?? retryProduct.weightStepPriceHalala,
+        },
+        productId: existingProductId,
+        error,
+        weightPricing: retryWeightPricing,
+      };
+    }
   }
 
   const stagedResponse =

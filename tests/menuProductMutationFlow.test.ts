@@ -368,7 +368,9 @@ describe("saveMenuProductWithWeightPricing", () => {
 
   it("returns a final restore partial without repeating pricing on retry", async () => {
     const { calls, deps } = dependencies();
-    deps.updateProduct.mockRejectedValueOnce(new Error("restore failed"));
+    deps.updateProduct
+      .mockRejectedValueOnce(new Error("restore failed"))
+      .mockRejectedValueOnce(new Error("restore failed again"));
 
     const first = await saveMenuProductWithWeightPricing({
       mode: "create",
@@ -383,7 +385,7 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.equal(first.status === "partial_final_metadata_restore_failed" ? first.weightPricing.choices.length : 0, 1);
 
     calls.length = 0;
-    const retry = await saveMenuProductWithWeightPricing({
+    const retryFailure = await saveMenuProductWithWeightPricing({
       mode: "create",
       partialProductId: "created-product",
       values: values(),
@@ -393,6 +395,34 @@ describe("saveMenuProductWithWeightPricing", () => {
         first.status === "partial_final_metadata_restore_failed"
           ? first.weightPricing
           : null,
+      restoredProduct:
+        first.status === "partial_final_metadata_restore_failed"
+          ? first.product
+          : null,
+      dependencies: deps,
+    });
+
+    assert.equal(retryFailure.status, "partial_final_metadata_restore_failed");
+    assert.deepEqual(calls, []);
+    assert.equal(deps.updateProduct.mock.calls.length, 2);
+    assert.equal(deps.createProduct.mock.calls.length, 1);
+    assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+
+    calls.length = 0;
+    const retry = await saveMenuProductWithWeightPricing({
+      mode: "create",
+      partialProductId: "created-product",
+      values: values(),
+      imageUrl: "",
+      retryStage: "final_metadata_restore",
+      restoredWeightPricing:
+        retryFailure.status === "partial_final_metadata_restore_failed"
+          ? retryFailure.weightPricing
+          : null,
+      restoredProduct:
+        retryFailure.status === "partial_final_metadata_restore_failed"
+          ? retryFailure.product
+          : null,
       dependencies: deps,
     });
 
@@ -400,6 +430,7 @@ describe("saveMenuProductWithWeightPricing", () => {
     assert.deepEqual(calls, ["update:created-product"]);
     assert.equal(deps.createProduct.mock.calls.length, 1);
     assert.equal(deps.updateWeightPricing.mock.calls.length, 1);
+    assert.equal(deps.updateProduct.mock.calls.length, 3);
   });
 
   it("edits a legacy weight product without migration through ordinary PATCH only", async () => {

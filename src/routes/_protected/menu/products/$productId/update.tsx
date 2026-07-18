@@ -17,10 +17,12 @@ import { Loader } from "@/components/global/loader";
 import { MenuProductFormFields } from "@/components/pages/menu/products/MenuProductFormFields";
 import { ProductCustomizationPanel } from "@/components/pages/menu/products/ProductCustomizationPanel";
 import { ProductWeightPricingPreview } from "@/components/pages/menu/products/ProductWeightPricingPreview";
-import {
-  saveMenuProductWithWeightPricing,
-} from "@/utils/menuProductMutationFlow";
+import { saveMenuProductWithWeightPricing } from "@/utils/menuProductMutationFlow";
 import type { MenuProductRetryStage } from "@/utils/menuProductMutationFlow";
+import {
+  deriveWeightPricingFormMode,
+  isModernWeightPricingFormMode,
+} from "@/utils/menuWeightPricingMode";
 import {
   fetchUploadImage,
   resolveUploadedImageUrl,
@@ -54,6 +56,7 @@ const errorSummary = (error: unknown) => {
 type PartialEditState = {
   warning: string;
   retryStage: MenuProductRetryStage;
+  product: MenuProduct;
   weightPricing?: WeightPricingDescriptor | null;
 };
 
@@ -101,6 +104,7 @@ export function UpdateMenuProductForm({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [canonicalProduct, setCanonicalProduct] = useState(product);
   const [isSaving, setIsSaving] = useState(false);
   const [partialEdit, setPartialEdit] = useState<PartialEditState | null>(null);
   const [submitError, setSubmitError] = useState("");
@@ -118,12 +122,11 @@ export function UpdateMenuProductForm({
 
   const onSubmit = useCallback(
     async (data: MenuProductSchemaType) => {
-      if (savingRef.current) return;
+      if (savingRef.current || modernSuccess) return;
 
       savingRef.current = true;
       setIsSaving(true);
       setSubmitError("");
-      setPartialEdit(null);
       setModernSuccess(false);
 
       try {
@@ -149,21 +152,27 @@ export function UpdateMenuProductForm({
           values: data,
           imageUrl,
           productId,
-          initialProduct: product,
+          initialProduct: canonicalProduct,
           retryStage: partialEdit?.retryStage ?? "full",
           restoredWeightPricing: partialEdit?.weightPricing ?? null,
+          restoredProduct: partialEdit?.product ?? canonicalProduct,
         });
 
         invalidateProductCaches(queryClient);
 
         if (result.status === "partial_weight_pricing_failed") {
           const warning = errorSummary(result.error);
+          setCanonicalProduct(result.product);
           setPartialEdit({
             warning,
             retryStage: "full",
-            weightPricing: result.weightPricing ?? product.weightPricing ?? null,
+            product: result.product,
+            weightPricing:
+              result.weightPricing ?? canonicalProduct.weightPricing ?? null,
           });
-          setWeightPreview(result.weightPricing ?? product.weightPricing ?? null);
+          setWeightPreview(
+            result.weightPricing ?? canonicalProduct.weightPricing ?? null
+          );
           form.reset(getMenuProductFormValues(result.product), {
             keepDirtyValues: true,
           });
@@ -174,9 +183,11 @@ export function UpdateMenuProductForm({
 
         if (result.status === "partial_final_metadata_restore_failed") {
           const warning = errorSummary(result.error);
+          setCanonicalProduct(result.product);
           setPartialEdit({
             warning,
             retryStage: "final_metadata_restore",
+            product: result.product,
             weightPricing: result.weightPricing,
           });
           setWeightPreview(result.weightPricing);
@@ -189,7 +200,9 @@ export function UpdateMenuProductForm({
         }
 
         if (result.pricingOutcome === "modern_weight") {
+          setCanonicalProduct(result.product);
           setWeightPreview(result.weightPricing ?? null);
+          setPartialEdit(null);
           form.reset(getMenuProductFormValues(result.product));
           setModernSuccess(true);
           ToastMessage("تم تحديث المنتج وتسعير الوزن بنجاح", "success");
@@ -197,6 +210,8 @@ export function UpdateMenuProductForm({
           return;
         }
 
+        setCanonicalProduct(result.product);
+        setPartialEdit(null);
         setWeightPreview(null);
         form.reset(getMenuProductFormValues(result.product));
         ToastMessage("تم تحديث المنتج بنجاح", "success");
@@ -210,13 +225,33 @@ export function UpdateMenuProductForm({
         setIsSaving(false);
       }
     },
-    [form, partialEdit, product, productId, queryClient, router]
+    [
+      canonicalProduct,
+      form,
+      modernSuccess,
+      partialEdit,
+      productId,
+      queryClient,
+      router,
+    ]
   );
 
   const showValidationSummary =
     form.formState.isSubmitted && Object.keys(form.formState.errors).length > 0;
   const isCustomizable = form.watch("isCustomizable") ?? false;
   const pricingModel = form.watch("pricingModel");
+  const useWeightStepPricing = form.watch("useWeightStepPricing") ?? false;
+  const effectiveWeightPricingMode = deriveWeightPricingFormMode({
+    pageMode: "edit",
+    pricingModel: pricingModel ?? "fixed",
+    initialProduct: canonicalProduct,
+    useWeightStepPricing,
+  });
+  const showWeightPreview =
+    pricingModel === "per_100g" &&
+    isModernWeightPricingFormMode(effectiveWeightPricingMode);
+  const productDisplayName =
+    canonicalProduct.name.ar || canonicalProduct.name.en || canonicalProduct.key;
   const submitLabel = partialEdit
     ? partialEdit.retryStage === "final_metadata_restore"
       ? "إكمال إظهار المنتج"
@@ -233,7 +268,7 @@ export function UpdateMenuProductForm({
           <div>
             <h1 className="text-2xl font-bold tracking-tight">تعديل المنتج</h1>
             <p className="text-sm text-muted-foreground">
-              تعديل بيانات "{product.name.ar || product.name.en || product.key}"
+              تعديل بيانات "{productDisplayName}"
             </p>
           </div>
         </div>
@@ -244,9 +279,13 @@ export function UpdateMenuProductForm({
         className="space-y-6"
         noValidate
       >
-        <MenuProductFormFields form={form} isEdit initialProduct={product} />
+        <MenuProductFormFields
+          form={form}
+          isEdit
+          initialProduct={canonicalProduct}
+        />
 
-        {pricingModel === "per_100g" ? (
+        {showWeightPreview ? (
           <ProductWeightPricingPreview weightPricing={weightPreview} />
         ) : null}
 
@@ -294,10 +333,12 @@ export function UpdateMenuProductForm({
                   تم حفظ تسعير الوزن واختياراته من الخادم، لكن فشل إظهار المنتج أو استعادة حالته. أعد المحاولة لإكمال هذه الخطوة فقط.
                 </p>
               ) : null}
-              <p>
-                لن يتم مغادرة الصفحة. راجع الإعدادات ثم أعد المحاولة لإكمال
-                تسعير الوزن.
-              </p>
+              {partialEdit.retryStage === "final_metadata_restore" ? null : (
+                <p>
+                  لن يتم مغادرة الصفحة. راجع الإعدادات ثم أعد المحاولة لإكمال
+                  تسعير الوزن.
+                </p>
+              )}
               <p dir="ltr" className="break-words text-xs">
                 {partialEdit.warning}
               </p>
@@ -334,7 +375,7 @@ export function UpdateMenuProductForm({
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={isSaving}
+                  disabled={isSaving || modernSuccess}
                   className="w-full gap-2 px-10 text-base font-semibold shadow-md sm:w-auto"
                 >
                   {isSaving ? (

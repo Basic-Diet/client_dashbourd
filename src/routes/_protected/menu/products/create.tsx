@@ -25,7 +25,7 @@ import {
   getMenuProductFormValues,
 } from "@/utils/menuFormValues";
 import { parseApiError } from "@/lib/apiErrors";
-import type { WeightPricingDescriptor } from "@/types/menuTypes";
+import type { MenuProduct, WeightPricingDescriptor } from "@/types/menuTypes";
 import { MENU_PRODUCT_INVALIDATION_KEYS } from "@/hooks/menu/menuProductInvalidation";
 
 export const Route = createFileRoute("/_protected/menu/products/create")({
@@ -37,6 +37,7 @@ type PartialCreateState = {
   imageUrl: string;
   warning: string;
   retryStage: MenuProductRetryStage;
+  product: MenuProduct;
   weightPricing?: WeightPricingDescriptor | null;
 };
 
@@ -114,6 +115,7 @@ export function CreateMenuProductPage({
         partialProductId: partialCreate?.productId ?? null,
         retryStage: partialCreate?.retryStage ?? "full",
         restoredWeightPricing: partialCreate?.weightPricing ?? null,
+        restoredProduct: partialCreate?.product ?? null,
       });
 
       invalidateProductCaches(queryClient);
@@ -125,6 +127,7 @@ export function CreateMenuProductPage({
           imageUrl,
           warning,
           retryStage: "full",
+          product: result.product,
           weightPricing: result.weightPricing ?? null,
         });
         setSubmitError("");
@@ -139,6 +142,7 @@ export function CreateMenuProductPage({
           imageUrl,
           warning,
           retryStage: "final_metadata_restore",
+          product: result.product,
           weightPricing: result.weightPricing,
         });
         setWeightPreview(result.weightPricing);
