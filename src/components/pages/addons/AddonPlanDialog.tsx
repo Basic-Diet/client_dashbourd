@@ -3,7 +3,6 @@ import {
   useMemo,
   useReducer,
   useRef,
-  useState,
   type FormEvent,
 } from "react";
 import { CheckCircle2, Search } from "lucide-react";
@@ -64,6 +63,8 @@ type AddonPlanDialogProps = {
 type DialogFormState = {
   form: PlanFormState;
   error: string | null;
+  productSearch: string;
+  productCategoryFilter: string;
 };
 
 type TextFieldName = "nameAr" | "nameEn" | "category" | "maxPerDay";
@@ -73,6 +74,9 @@ type DialogFormAction =
   | { type: "SET_FIELD"; field: TextFieldName; value: string }
   | { type: "SET_FIELD"; field: "isActive"; value: boolean }
   | { type: "SET_PRODUCT_IDS"; productIds: string[] }
+  | { type: "SET_PRODUCT_SEARCH"; value: string }
+  | { type: "SET_PRODUCT_CATEGORY_FILTER"; value: string }
+  | { type: "RESET_PRODUCT_FILTERS" }
   | {
       type: "UPDATE_PRICE";
       basePlanId: string;
@@ -86,7 +90,12 @@ function dialogFormReducer(
 ): DialogFormState {
   switch (action.type) {
     case "RESET_FROM_PLAN":
-      return { form: action.form, error: null };
+      return {
+        form: action.form,
+        error: null,
+        productSearch: "",
+        productCategoryFilter: "all",
+      };
     case "SET_FIELD":
       return {
         form: { ...state.form, [action.field]: action.value },
@@ -99,6 +108,16 @@ function dialogFormReducer(
           menuProductIds: uniqueIds(action.productIds),
         },
         error: null,
+      };
+    case "SET_PRODUCT_SEARCH":
+      return { ...state, productSearch: action.value };
+    case "SET_PRODUCT_CATEGORY_FILTER":
+      return { ...state, productCategoryFilter: action.value };
+    case "RESET_PRODUCT_FILTERS":
+      return {
+        ...state,
+        productSearch: "",
+        productCategoryFilter: "all",
       };
     case "UPDATE_PRICE":
       return {
@@ -132,10 +151,10 @@ export function AddonPlanDialog({
   const [state, dispatch] = useReducer(dialogFormReducer, null, () => ({
     form: planToForm(plan, basePlans),
     error: null,
+    productSearch: "",
+    productCategoryFilter: "all",
   }));
-  const { form } = state;
-  const [productSearch, setProductSearch] = useState("");
-  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
+  const { form, productSearch, productCategoryFilter } = state;
   const planKey = plan ? addonId(plan) : "create";
   const basePlanIdsKey = useMemo(
     () => basePlans.map((basePlan) => basePlan.id).join("|"),
@@ -151,8 +170,6 @@ export function AddonPlanDialog({
       type: "RESET_FROM_PLAN",
       form: planToForm(plan, basePlans),
     });
-    setProductSearch("");
-    setProductCategoryFilter("all");
     lastResetKeyRef.current = resetKey;
   }, [basePlans, open, plan, resetKey]);
 
@@ -411,14 +428,24 @@ export function AddonPlanDialog({
                       <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         value={productSearch}
-                        onChange={(event) => setProductSearch(event.target.value)}
+                        onChange={(event) =>
+                          dispatch({
+                            type: "SET_PRODUCT_SEARCH",
+                            value: event.target.value,
+                          })
+                        }
                         className="pr-9"
                         placeholder="ابحث باسم المنتج أو الكود"
                       />
                     </div>
                     <Select
                       value={productCategoryFilter}
-                      onValueChange={setProductCategoryFilter}
+                      onValueChange={(value) =>
+                        dispatch({
+                          type: "SET_PRODUCT_CATEGORY_FILTER",
+                          value,
+                        })
+                      }
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="كل التصنيفات" />
@@ -447,10 +474,9 @@ export function AddonPlanDialog({
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          setProductSearch("");
-                          setProductCategoryFilter("all");
-                        }}
+                        onClick={() =>
+                          dispatch({ type: "RESET_PRODUCT_FILTERS" })
+                        }
                       >
                         مسح الفلتر
                       </Button>
