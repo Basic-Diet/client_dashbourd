@@ -114,10 +114,9 @@ export async function validateMealPlannerDraft() {
 }
 
 export async function publishMealPlannerDraft(notes?: string) {
-  const response = await api.post(
-    `${MEAL_PLANNER_DASHBOARD_ROUTE}/publish`,
-    { notes: notes?.trim() || undefined }
-  );
+  const response = await api.post(`${MEAL_PLANNER_DASHBOARD_ROUTE}/publish`, {
+    notes: notes?.trim() || undefined,
+  });
   return response.data as MealPlannerLifecycleResponseV2;
 }
 
@@ -131,7 +130,9 @@ export async function resetMealPlannerDraft() {
 
 function cleanParams(params: Record<string, unknown>) {
   return Object.fromEntries(
-    Object.entries(params).filter(([, value]) => value !== undefined && value !== "")
+    Object.entries(params).filter(
+      ([, value]) => value !== undefined && value !== ""
+    )
   );
 }
 
@@ -146,12 +147,14 @@ export function assertPickerResponse(
   value: unknown,
   candidateType: "product" | "option"
 ): MealPlannerPickerResponseV2 {
+  if (!isRecord(value) || value.status !== true || !isRecord(value.data)) {
+    throw new Error("Meal Planner picker contract mismatch");
+  }
+  const data = value.data;
   if (
-    !isRecord(value) ||
-    value.status !== true ||
-    !isRecord(value.data) ||
-    !Array.isArray(value.data.candidates) ||
-    (value.data.candidateType && value.data.candidateType !== candidateType)
+    !Array.isArray(data.candidates) ||
+    (typeof data.candidateType === "string" &&
+      data.candidateType !== candidateType)
   ) {
     throw new Error("Meal Planner picker contract mismatch");
   }
@@ -164,18 +167,19 @@ export function assertCardActionResponse(
   if (!isRecord(value) || value.status !== true || !isRecord(value.data)) {
     throw new Error("Meal Planner card action response is invalid");
   }
-  const contractVersion = String(value.data.contractVersion || "");
+  const data = value.data;
+  const contractVersion = String(data.contractVersion || "");
   if (
     contractVersion !== "dashboard_meal_builder_card_action.v2" ||
-    !isRecord(value.data.draft) ||
-    !Array.isArray(value.data.draft.sections) ||
-    !isRecord(value.data.validation)
+    !isRecord(data.draft) ||
+    !Array.isArray(data.draft.sections) ||
+    !isRecord(data.validation)
   ) {
     throw new Error("Meal Planner card action v2 contract mismatch");
   }
   return value as unknown as MealPlannerCardActionResponseV2;
 }
 
-function isRecord(value: unknown): value is Record<string, any> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
