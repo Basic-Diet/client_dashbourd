@@ -80,6 +80,20 @@ export function MealPlannerCardDialogV2({
     groupMatchesRole(group, value.optionRole)
   );
   const families = catalog.searchFacets?.proteinFamilies || [];
+  const baseFieldsReady = Boolean(
+    value.key.trim() &&
+      value.titleAr.trim() &&
+      value.titleEn.trim() &&
+      value.selectedIds.length > 0
+  );
+  const optionContextReady =
+    value.cardType === "direct_product" ||
+    Boolean(
+      (value.optionRole === "protein" || value.optionRole === "carbs") &&
+        value.productContextId?.trim() &&
+        value.sourceGroupId?.trim()
+    );
+  const canSubmit = baseFieldsReady && optionContextReady;
 
   function requestClose() {
     if (pending) return;
@@ -91,7 +105,7 @@ export function MealPlannerCardDialogV2({
   }
 
   async function submit() {
-    if (pending) return;
+    if (pending || !canSubmit) return;
     setFormError("");
     try {
       await onSubmit(buildMealPlannerCreatePayload(value), section?.key);
@@ -348,7 +362,11 @@ export function MealPlannerCardDialogV2({
             <Button type="button" variant="outline" disabled={pending} onClick={requestClose}>
               إلغاء
             </Button>
-            <Button type="button" disabled={pending} onClick={() => void submit()}>
+            <Button
+              type="button"
+              disabled={pending || !canSubmit}
+              onClick={() => void submit()}
+            >
               <Check className="size-4" />
               {editing ? "حفظ التعديلات" : "إنشاء الكارت"}
             </Button>

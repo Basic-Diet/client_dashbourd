@@ -2,6 +2,7 @@ import api from "@/lib/apis";
 import type {
   MealPlannerCardActionResponseV2,
   MealPlannerCreatePayloadV2,
+  MealPlannerCatalogV2,
   MealPlannerLifecycleResponseV2,
   MealPlannerPatchPayloadV2,
   MealPlannerPickerParamsV2,
@@ -19,11 +20,14 @@ export async function getMealPlannerDashboardState() {
   return assertStateResponse(response.data);
 }
 
-export async function getMealPlannerCatalog() {
+export async function getMealPlannerCatalog(): Promise<{
+  status: true;
+  data: MealPlannerCatalogV2;
+}> {
   const response = await api.get(`${MEAL_PLANNER_DASHBOARD_ROUTE}/catalog`, {
     params: { lang: "ar" },
   });
-  return response.data as MealPlannerStateResponseV2;
+  return response.data;
 }
 
 export async function getMealPlannerPublished(): Promise<MealPlannerLifecycleResponseV2> {
