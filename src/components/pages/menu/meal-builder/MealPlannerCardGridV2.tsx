@@ -19,7 +19,6 @@ import type {
 } from "@/types/mealPlannerDashboardTypes";
 import {
   candidateName,
-  canonicalSelectionType,
   issueText,
   normalizeCardType,
   sectionItems,
@@ -186,8 +185,10 @@ function DynamicCard({
             </Badge>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            {items.length} {cardType === "direct_product" ? "منتجات" : "خيارات"} •{" "}
-            {canonicalSelectionType(section)}
+            عدد العناصر: {items.length} •{" "}
+            {cardType === "direct_product"
+              ? "يُحتسب كوجبة كاملة"
+              : "يُستخدم ضمن وجبة مركبة"}
           </p>
         </div>
         <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted">

@@ -247,6 +247,18 @@ try {
     action: createPayload?.data?.action || null,
     responseHasDraft: Boolean(createPayload?.data?.draft),
     responseHasValidation: Boolean(createPayload?.data?.validation),
+    section: createPayload?.data?.section
+      ? {
+          key: createPayload.data.section.key || null,
+          cardType: createPayload.data.section.cardType || null,
+          sectionType: createPayload.data.section.sectionType || null,
+          selectionType: createPayload.data.section.selectionType || null,
+          selectedProductCount:
+            createPayload.data.section.selectedProductIds?.length || 0,
+          selectedOptionCount:
+            createPayload.data.section.selectedOptionIds?.length || 0,
+        }
+      : null,
     errorCode: createPayload?.error?.code || null,
   });
 
@@ -254,7 +266,7 @@ try {
     timeout: 45_000,
   });
   let card = dynamicCard(page, originalTitle);
-  await card.getByText("full_meal_product", { exact: true }).waitFor();
+  await card.getByText("وجبة كاملة", { exact: true }).waitFor();
   check("Created and read a direct-product card through the UI", {
     key: originalKey,
     selectedProductText,
@@ -274,7 +286,7 @@ try {
     timeout: 45_000,
   });
   card = dynamicCard(page, updatedTitle);
-  await card.getByText("full_meal_product", { exact: true }).waitFor();
+  await card.getByText("وجبة كاملة", { exact: true }).waitFor();
   check("Updated card title and key through the UI", { renamedKey });
 
   await card.getByRole("button", { name: "إدارة العناصر" }).click();

@@ -161,6 +161,8 @@ describe("Meal Planner V2 components", () => {
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(screen.getByText("يُدار من النظام")).toBeInTheDocument();
+    expect(screen.getByText(/يُحتسب كوجبة كاملة/)).toBeInTheDocument();
+    expect(screen.queryByText(/full_meal_product/)).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "إدارة العناصر" })
     ).toBeInTheDocument();
