@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://basic-dite-dashbourd.vercel.app";
+const FRONTEND_ACCESS_URL = process.env.FRONTEND_ACCESS_URL || FRONTEND_URL;
 const BACKEND_URL = process.env.BACKEND_URL || "https://basicdiet145.onrender.com";
 const QA_EMAIL = process.env.QA_EMAIL;
 const QA_PASSWORD = process.env.QA_PASSWORD;
@@ -23,6 +24,7 @@ const updatedTitle = `اختبار واجهة محدث ${runId}`;
 const report = {
   runId,
   frontendUrl: FRONTEND_URL,
+  protectedPreviewAccessUsed: FRONTEND_ACCESS_URL !== FRONTEND_URL,
   backendUrl: BACKEND_URL,
   startedAt: new Date().toISOString(),
   checks: [],
@@ -57,7 +59,8 @@ async function saveReport() {
 }
 
 async function loginThroughUi(page) {
-  await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(FRONTEND_ACCESS_URL, { waitUntil: "domcontentloaded" });
+  await page.locator("#email").waitFor({ timeout: 45_000 });
   await page.locator("#email").fill(QA_EMAIL);
   await page.locator("#password").fill(QA_PASSWORD);
   await page.getByRole("button", { name: "تسجيل الدخول" }).click();
