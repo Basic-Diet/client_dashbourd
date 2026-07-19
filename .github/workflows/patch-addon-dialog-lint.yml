@@ -6,7 +6,7 @@ on:
       - main
     types: [opened, reopened, synchronize]
     paths:
-      - .qa/patch_browser_harness.py
+      - .qa/patch_preview_access.py
       - .github/workflows/patch-addon-dialog-lint.yml
   workflow_dispatch:
 
@@ -22,8 +22,8 @@ jobs:
         with:
           ref: test/meal-builder-authenticated-crud-qa
           fetch-depth: 0
-      - run: python .qa/patch_browser_harness.py
-      - name: Commit browser harness hardening
+      - run: python .qa/patch_preview_access.py
+      - name: Commit preview access support
         run: |
           if git diff --quiet; then
             echo 'No patch needed.'
@@ -32,5 +32,5 @@ jobs:
           git config user.name 'Basic Diet QA'
           git config user.email 'actions@users.noreply.github.com'
           git add .qa/meal-builder-authenticated-qa.mjs
-          git commit -m 'test(meal-builder): harden preview CRUD evidence and cleanup'
+          git commit -m 'test(meal-builder): authenticate protected Vercel preview'
           git push origin HEAD:test/meal-builder-authenticated-crud-qa
