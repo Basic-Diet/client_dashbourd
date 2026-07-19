@@ -7,6 +7,13 @@ on:
     paths:
       - .qa/meal-builder-api-probe.mjs
       - .github/workflows/meal-builder-api-probe.yml
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+    paths:
+      - .qa/meal-builder-api-probe.mjs
+      - .github/workflows/meal-builder-api-probe.yml
   workflow_dispatch:
 
 permissions:
