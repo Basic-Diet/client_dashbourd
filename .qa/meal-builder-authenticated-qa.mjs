@@ -29,6 +29,7 @@ const report = {
   consoleErrors: [],
   pageErrors: [],
   failedApiResponses: [],
+  apiResponses: [],
   cleanup: [],
 };
 
@@ -90,6 +91,21 @@ async function apiRequest(token, method, endpoint, body) {
     payload = text;
   }
   return { response, payload };
+}
+
+async function loginForApiCleanup() {
+  const { response, payload } = await apiRequest(
+    "",
+    "POST",
+    "/api/dashboard/auth/login",
+    { email: QA_EMAIL, password: QA_PASSWORD }
+  );
+  if (!response.ok) {
+    throw new Error(`Cleanup login failed with ${response.status}`);
+  }
+  const cleanupToken = payload?.token || payload?.data?.token || "";
+  if (!cleanupToken) throw new Error("Cleanup login did not return a token");
+  return cleanupToken;
 }
 
 async function cleanupByApi(token) {
@@ -210,7 +226,26 @@ try {
   if (await createButton.isDisabled()) {
     throw new Error("Create button stayed disabled after completing all required fields");
   }
+  const createResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname.endsWith(
+        "/api/dashboard/meal-builder/sections"
+      ),
+    { timeout: 45_000 }
+  );
   await createButton.click();
+  const createResponse = await createResponsePromise;
+  const createPayload = await createResponse.json().catch(() => null);
+  report.apiResponses.push({
+    operation: "create",
+    status: createResponse.status(),
+    contractVersion: createPayload?.data?.contractVersion || null,
+    action: createPayload?.data?.action || null,
+    responseHasDraft: Boolean(createPayload?.data?.draft),
+    responseHasValidation: Boolean(createPayload?.data?.validation),
+    errorCode: createPayload?.error?.code || null,
+  });
 
   await page.getByRole("heading", { name: originalTitle, exact: true }).waitFor({
     timeout: 45_000,
@@ -367,8 +402,14 @@ try {
     })
     .catch(() => {});
 } finally {
-  if (!token) token = await getDashboardToken(context).catch(() => "");
-  if (token) await cleanupByApi(token);
+  const cleanupToken = await loginForApiCleanup().catch((error) => {
+    report.cleanup.push({
+      operation: "login",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return "";
+  });
+  if (cleanupToken) await cleanupByApi(cleanupToken);
   await context.tracing.stop({
     path: path.join(ARTIFACT_DIR, "meal-builder-trace.zip"),
   });
