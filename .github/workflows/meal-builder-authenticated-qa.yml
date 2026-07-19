@@ -14,9 +14,25 @@ permissions:
   contents: read
 
 jobs:
-  qa:
+  static:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --silent
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  browser:
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       FRONTEND_URL: https://basic-dite-dashbourd.vercel.app
       BACKEND_URL: https://basicdiet145.onrender.com
@@ -24,43 +40,23 @@ jobs:
       QA_PASSWORD: Admin@123456
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Prepare QA artifacts directory
-        run: mkdir -p .qa-artifacts
-
-      - name: Install project dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        id: lint
-        continue-on-error: true
-        shell: bash
+      - run: mkdir -p .qa-artifacts
+      - name: Install browser runtime
         run: |
-          set -o pipefail
-          npm run lint 2>&1 | tee .qa-artifacts/lint.log
-
-      - name: Unit and component tests
-        run: npm test
-
-      - name: Production build
-        run: npm run build
-
-      - name: Install Playwright for this QA run
-        run: |
-          npm install --no-save playwright@1.54.2
-          npx playwright install --with-deps chromium
-
+          npm ci --silent
+          npm install --no-save --silent playwright@1.54.2
+          npx playwright install --with-deps chromium >/dev/null
       - name: Run authenticated Meal Builder CRUD journey
         run: node .qa/meal-builder-authenticated-qa.mjs
-
+      - name: Print QA report
+        if: always()
+        run: |
+          echo '--- meal-builder-qa-report.json ---'
+          cat .qa-artifacts/meal-builder-qa-report.json || true
       - name: Upload QA screenshots, trace, and report
         if: always()
         uses: actions/upload-artifact@v4
@@ -69,7 +65,3 @@ jobs:
           path: .qa-artifacts
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Enforce lint result
-        if: steps.lint.outcome == 'failure'
-        run: exit 1
