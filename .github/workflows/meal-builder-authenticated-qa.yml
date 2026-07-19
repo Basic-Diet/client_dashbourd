@@ -72,11 +72,11 @@ jobs:
     needs: static
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
-      FRONTEND_URL: https://basic-dite-dashbourd-git-test-meal-b6bfe9-mohamedleos-projects.vercel.app
-      FRONTEND_ACCESS_URL: https://basic-dite-dashbourd-git-test-meal-b6bfe9-mohamedleos-projects.vercel.app/?_vercel_share=L8gTaunKhfWK3dM3oHtptBC1sl9yab1h
+      FRONTEND_URL: http://127.0.0.1:5173
       BACKEND_URL: https://basicdiet145.onrender.com
+      VITE_BACKEND_URL: https://basicdiet145.onrender.com
       QA_EMAIL: admin@basicdiet.com
       QA_PASSWORD: Admin@123456
     steps:
@@ -94,11 +94,27 @@ jobs:
         run: |
           set -o pipefail
           node .qa/meal-builder-api-probe.mjs 2>&1 | tee .qa-artifacts/api-probe.log
-      - name: Install browser runtime
+      - name: Install dependencies and Chromium
         run: |
           npm ci --silent
           npm install --no-save --silent playwright@1.54.2
           npx playwright install --with-deps chromium >/dev/null
+      - name: Build and serve the fixed branch locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          nohup npx vite preview --host 127.0.0.1 --port 5173 > .qa-artifacts/vite-preview.log 2>&1 &
+          echo $! > .qa-artifacts/vite-preview.pid
+          for attempt in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then
+              echo 'Local production build is ready.'
+              exit 0
+            fi
+            sleep 1
+          done
+          cat .qa-artifacts/vite-preview.log || true
+          exit 1
       - name: Run authenticated Meal Builder CRUD journey
         id: browser_qa
         continue-on-error: true
@@ -112,6 +128,7 @@ jobs:
             echo '### Authenticated Meal Builder Browser QA'
             echo
             echo '- Browser outcome: `${{ steps.browser_qa.outcome }}`'
+            echo '- Frontend under test: local production build on approved CORS origin'
             echo
             echo '#### API cleanup preflight'
             echo '```text'
