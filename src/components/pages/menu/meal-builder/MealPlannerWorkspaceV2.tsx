@@ -296,12 +296,18 @@ export function MealPlannerWorkspaceV2({
   async function toggleVisibility(section: MealPlannerSectionV2) {
     const cardType = normalizeCardType(section);
     if (cardType !== "direct_product" && cardType !== "option_family") return;
-    const patch: MealPlannerPatchPayloadV2 = {
-      cardType,
-      selectionType:
-        cardType === "direct_product" ? "full_meal_product" : "standard_meal",
-      visible: section.visible === false,
-    };
+    const patch: MealPlannerPatchPayloadV2 =
+      cardType === "direct_product"
+        ? {
+            cardType: "direct_product",
+            selectionType: "full_meal_product",
+            visible: section.visible === false,
+          }
+        : {
+            cardType: "option_family",
+            selectionType: "standard_meal",
+            visible: section.visible === false,
+          };
     try {
       const response = await visibilityMutation.mutateAsync({
         sectionKey: section.key,
