@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   static:
@@ -23,14 +25,44 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - run: mkdir -p .qa-static
       - run: npm ci --silent
       - run: npm run typecheck
-      - run: npm run lint
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee .qa-static/lint.log
       - run: npm test
       - run: npm run build
+      - name: Comment static QA result
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '### Static Meal Builder QA'
+            echo
+            echo '- Typecheck: `${{ steps.lint.outcome == ''skipped'' && ''unknown'' || ''passed before lint'' }}`'
+            echo '- Lint outcome: `${{ steps.lint.outcome }}`'
+            echo
+            echo '<details><summary>Lint output</summary>'
+            echo
+            echo '```text'
+            tail -n 80 .qa-static/lint.log || true
+            echo '```'
+            echo '</details>'
+          } > .qa-static/comment.md
+          gh pr comment '${{ github.event.pull_request.number }}' --body-file .qa-static/comment.md
+      - name: Enforce lint
+        if: steps.lint.outcome == 'failure'
+        run: exit 1
 
   browser:
     needs: static
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -51,12 +83,24 @@ jobs:
           npm install --no-save --silent playwright@1.54.2
           npx playwright install --with-deps chromium >/dev/null
       - name: Run authenticated Meal Builder CRUD journey
+        id: browser_qa
+        continue-on-error: true
         run: node .qa/meal-builder-authenticated-qa.mjs
-      - name: Print QA report
-        if: always()
+      - name: Comment browser QA result
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo '--- meal-builder-qa-report.json ---'
-          cat .qa-artifacts/meal-builder-qa-report.json || true
+          {
+            echo '### Authenticated Meal Builder Browser QA'
+            echo
+            echo '- Browser outcome: `${{ steps.browser_qa.outcome }}`'
+            echo
+            echo '```json'
+            cat .qa-artifacts/meal-builder-qa-report.json || echo '{"report":"missing"}'
+            echo '```'
+          } > .qa-artifacts/comment.md
+          gh pr comment '${{ github.event.pull_request.number }}' --body-file .qa-artifacts/comment.md
       - name: Upload QA screenshots, trace, and report
         if: always()
         uses: actions/upload-artifact@v4
@@ -65,3 +109,6 @@ jobs:
           path: .qa-artifacts
           if-no-files-found: warn
           retention-days: 14
+      - name: Enforce browser QA
+        if: steps.browser_qa.outcome == 'failure'
+        run: exit 1
