@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - test/meal-builder-authenticated-crud-qa
-  pull_request:
-    branches:
-      - main
-    types: [opened, reopened, synchronize]
+    paths:
+      - .qa/run-authenticated-crud.txt
   workflow_dispatch:
+
+concurrency:
+  group: meal-builder-authenticated-crud-qa
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -44,26 +46,19 @@ jobs:
         id: build
         run: npm run build
       - name: Comment static QA result
-        if: always() && github.event_name == 'pull_request'
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo '### Static Meal Builder QA'
+            echo '### Serialized Static Meal Builder QA'
             echo
             echo '- Typecheck outcome: `${{ steps.typecheck.outcome }}`'
             echo '- Lint outcome: `${{ steps.lint.outcome }}`'
             echo '- Tests outcome: `${{ steps.tests.outcome }}`'
             echo '- Build outcome: `${{ steps.build.outcome }}`'
-            echo
-            echo '<details><summary>Lint output</summary>'
-            echo
-            echo '```text'
-            tail -n 80 .qa-static/lint.log || true
-            echo '```'
-            echo '</details>'
           } > .qa-static/comment.md
-          gh pr comment '${{ github.event.pull_request.number }}' --body-file .qa-static/comment.md
+          gh pr comment 84 --body-file .qa-static/comment.md
       - name: Enforce lint
         if: steps.lint.outcome == 'failure'
         run: exit 1
@@ -86,9 +81,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: mkdir -p .qa-artifacts
-      - name: Verify cleanup state before browser CRUD
+      - name: Clean known QA keys before browser CRUD
         env:
-          CLEANUP_KEYS: qa_1784501133630_direct_updated,qa_1784501133630_direct
+          CLEANUP_KEYS: qa_1784504803186_direct_updated,qa_1784504803186_direct,qa_1784501133630_direct_updated,qa_1784501133630_direct
           RUN_CRUD_PROBE: "false"
         shell: bash
         run: |
@@ -120,27 +115,21 @@ jobs:
         continue-on-error: true
         run: node .qa/meal-builder-authenticated-qa.mjs
       - name: Comment browser QA result
-        if: always() && github.event_name == 'pull_request'
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo '### Authenticated Meal Builder Browser QA'
+            echo '### Serialized Authenticated Meal Builder Browser QA'
             echo
             echo '- Browser outcome: `${{ steps.browser_qa.outcome }}`'
             echo '- Frontend under test: local production build on approved CORS origin'
             echo
-            echo '#### API cleanup preflight'
-            echo '```text'
-            cat .qa-artifacts/api-probe.log || true
-            echo '```'
-            echo
-            echo '#### Browser report'
             echo '```json'
             cat .qa-artifacts/meal-builder-qa-report.json || echo '{"report":"missing"}'
             echo '```'
           } > .qa-artifacts/comment.md
-          gh pr comment '${{ github.event.pull_request.number }}' --body-file .qa-artifacts/comment.md
+          gh pr comment 84 --body-file .qa-artifacts/comment.md
       - name: Upload QA screenshots, trace, and report
         if: always()
         uses: actions/upload-artifact@v4
