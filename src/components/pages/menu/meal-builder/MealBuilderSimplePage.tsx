@@ -1,4 +1,4 @@
 export {
-  MealBuilderSimplifiedPage as MealBuilderSimplePage,
+  MealPlannerWorkspaceV2 as MealBuilderSimplePage,
   type MealBuilderNavigationState,
-} from "./MealBuilderSimplifiedPage";
+} from "./MealPlannerWorkspaceV2";
