@@ -22,11 +22,13 @@ beforeEach(() => {
   Object.values(apiMock).forEach((mock) => mock.mockReset());
 });
 
-function actionEnvelope() {
+function actionEnvelope(
+  contractVersion = "dashboard_meal_builder_card_action.v2"
+) {
   return {
     status: true,
     data: {
-      contractVersion: "dashboard_meal_builder_card_action.v2",
+      contractVersion,
       action: "created",
       sectionKey: "ready_meals",
       previousSectionKey: null,
@@ -196,10 +198,30 @@ describe("Meal Planner V2 API contract", () => {
     );
   });
 
-  it("rejects a v1 action envelope instead of silently using stale state", async () => {
-    const stale = actionEnvelope();
-    stale.data.contractVersion = "dashboard_meal_builder_card_action.v1";
-    apiMock.post.mockResolvedValueOnce({ data: stale });
+  it.each([
+    "dashboard_meal_builder_card_action.v1",
+    "dashboard_meal_builder_card_action.v2",
+  ])("accepts the supported %s action envelope", async (contractVersion) => {
+    apiMock.post.mockResolvedValueOnce({
+      data: actionEnvelope(contractVersion),
+    });
+
+    const response = await createMealPlannerCard({
+      cardType: "direct_product",
+      key: "ready_meals",
+      titleOverride: { ar: "وجبات", en: "Meals" },
+      selectionType: "full_meal_product",
+      selectedProductIds: ["product-1"],
+      visible: true,
+    });
+
+    expect(response.data.contractVersion).toBe(contractVersion);
+  });
+
+  it("rejects unsupported or incomplete action envelopes", async () => {
+    apiMock.post.mockResolvedValueOnce({
+      data: actionEnvelope("dashboard_meal_builder_card_action.v0"),
+    });
 
     await expect(
       createMealPlannerCard({
@@ -210,6 +232,6 @@ describe("Meal Planner V2 API contract", () => {
         selectedProductIds: ["product-1"],
         visible: true,
       })
-    ).rejects.toThrow("v2 contract mismatch");
+    ).rejects.toThrow("card action contract mismatch");
   });
 });
