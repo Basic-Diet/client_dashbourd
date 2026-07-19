@@ -76,6 +76,17 @@ export function MealPlannerCardGridV2({
             onDelete={() => onDelete(section)}
           />
         ))}
+        {!sections.length ? (
+          <div className="grid min-h-72 place-items-center rounded-2xl border border-dashed bg-card p-6 text-center md:col-span-1 2xl:col-span-2">
+            <div className="max-w-sm">
+              <Package className="mx-auto size-8 text-muted-foreground" />
+              <h3 className="mt-3 font-semibold">لا توجد كروت وجبات ديناميكية</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                ابدأ بإضافة كارت منتجات كاملة أو كارت خيارات بروتين أو كارب.
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );

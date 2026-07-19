@@ -43,21 +43,29 @@ export async function getMealPlannerReadiness() {
 }
 
 export async function getMealPlannerProductsPicker(
-  params: MealPlannerPickerParamsV2
+  params: MealPlannerPickerParamsV2,
+  signal?: AbortSignal
 ): Promise<MealPlannerPickerResponseV2> {
   const response = await api.get(
     `${MEAL_PLANNER_DASHBOARD_ROUTE}/pickers/products`,
-    { params: cleanParams({ ...params, lang: params.lang ?? "ar" }) }
+    {
+      params: cleanParams({ ...params, lang: params.lang ?? "ar" }),
+      signal,
+    }
   );
   return assertPickerResponse(response.data, "product");
 }
 
 export async function getMealPlannerOptionsPicker(
-  params: MealPlannerPickerParamsV2
+  params: MealPlannerPickerParamsV2,
+  signal?: AbortSignal
 ): Promise<MealPlannerPickerResponseV2> {
   const response = await api.get(
     `${MEAL_PLANNER_DASHBOARD_ROUTE}/pickers/options`,
-    { params: cleanParams({ ...params, lang: params.lang ?? "ar" }) }
+    {
+      params: cleanParams({ ...params, lang: params.lang ?? "ar" }),
+      signal,
+    }
   );
   return assertPickerResponse(response.data, "option");
 }

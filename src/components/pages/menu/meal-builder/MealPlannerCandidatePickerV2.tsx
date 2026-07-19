@@ -81,7 +81,7 @@ export function MealPlannerCandidatePickerV2({
       debouncedSearch,
     ],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+    queryFn: ({ pageParam, signal }) =>
       type === "product"
         ? getMealPlannerProductsPicker({
             targetSectionKey,
@@ -90,7 +90,7 @@ export function MealPlannerCandidatePickerV2({
             unassignedOnly: true,
             page: Number(pageParam),
             limit: 100,
-          })
+          }, signal)
         : getMealPlannerOptionsPicker({
             targetSectionKey,
             productContextId,
@@ -103,7 +103,7 @@ export function MealPlannerCandidatePickerV2({
             unassignedOnly: true,
             page: Number(pageParam),
             limit: 100,
-          }),
+          }, signal),
     getNextPageParam: (lastPage) => {
       const page = Number(lastPage.data.meta?.page || 1);
       const pages = Number(lastPage.data.meta?.pages || 1);
@@ -315,14 +315,18 @@ function mergeCandidates(
     if (id) map.set(id, candidate);
   }
   for (const id of selectedIds) {
-    if (!map.has(id)) {
-      map.set(id, {
-        id,
-        label: id,
-        selected: true,
-        assignable: true,
-      });
-    }
+    const candidate = map.get(id);
+    map.set(
+      id,
+      candidate
+        ? { ...candidate, selected: true, assignable: true }
+        : {
+            id,
+            label: id,
+            selected: true,
+            assignable: true,
+          }
+    );
   }
   return [...map.values()].sort((left, right) => {
     const leftSelected = selectedIds.includes(candidateId(left)) ? 1 : 0;
