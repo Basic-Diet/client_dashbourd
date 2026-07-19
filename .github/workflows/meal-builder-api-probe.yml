@@ -1,0 +1,57 @@
+name: Meal Builder API Contract Probe
+
+on:
+  push:
+    branches:
+      - test/meal-builder-authenticated-crud-qa
+    paths:
+      - .qa/meal-builder-api-probe.mjs
+      - .github/workflows/meal-builder-api-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BACKEND_URL: https://basicdiet145.onrender.com
+      QA_EMAIL: admin@basicdiet.com
+      QA_PASSWORD: Admin@123456
+      CLEANUP_KEYS: qa_1784501133630_direct_updated,qa_1784501133630_direct
+      RUN_CRUD_PROBE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: mkdir -p .qa-probe
+      - name: Run cleanup and contract probe
+        id: probe
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node .qa/meal-builder-api-probe.mjs 2>&1 | tee .qa-probe/probe.log
+      - name: Publish probe evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '### Meal Builder Production API Probe'
+            echo
+            echo '- Outcome: `${{ steps.probe.outcome }}`'
+            echo
+            echo '```text'
+            cat .qa-probe/probe.log || true
+            echo '```'
+          } > .qa-probe/comment.md
+          gh pr comment 84 --body-file .qa-probe/comment.md
+      - name: Enforce probe result
+        if: steps.probe.outcome == 'failure'
+        run: exit 1
