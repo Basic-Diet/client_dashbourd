@@ -1,0 +1,259 @@
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Check, Loader2, Search, UtensilsCrossed, X } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import type {
+  MealPlannerCatalogCandidate,
+  MealPlannerOptionRole,
+} from "@/types/mealPlannerDashboardTypes";
+import {
+  getMealPlannerOptionsPicker,
+  getMealPlannerProductsPicker,
+} from "@/utils/fetchMealPlannerDashboard";
+import {
+  candidateId,
+  candidateName,
+  candidateReason,
+  candidateSelectable,
+} from "./mealPlannerV2Utils";
+
+export function MealPlannerCandidatePickerV2({
+  type,
+  targetSectionKey,
+  selectedIds,
+  seedCandidates = [],
+  productContextId,
+  sourceGroupId,
+  optionRole,
+  familyKey,
+  disabled = false,
+  onChange,
+}: {
+  type: "product" | "option";
+  targetSectionKey?: string;
+  selectedIds: string[];
+  seedCandidates?: MealPlannerCatalogCandidate[];
+  productContextId?: string;
+  sourceGroupId?: string;
+  optionRole?: MealPlannerOptionRole;
+  familyKey?: string;
+  disabled?: boolean;
+  onChange: (ids: string[]) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const contextReady =
+    type === "product" ||
+    Boolean(productContextId && sourceGroupId && optionRole);
+  const query = useQuery({
+    queryKey: [
+      "dashboard.meal-planner.v2.picker",
+      type,
+      targetSectionKey,
+      productContextId,
+      sourceGroupId,
+      optionRole,
+      familyKey,
+      debouncedSearch,
+    ],
+    queryFn: () =>
+      type === "product"
+        ? getMealPlannerProductsPicker({
+            targetSectionKey,
+            q: debouncedSearch || undefined,
+            includeUnavailable: true,
+            unassignedOnly: true,
+            page: 1,
+            limit: 100,
+          })
+        : getMealPlannerOptionsPicker({
+            targetSectionKey,
+            productContextId,
+            sourceGroupId,
+            optionRole,
+            familyKey:
+              optionRole === "protein" && familyKey ? familyKey : undefined,
+            q: debouncedSearch || undefined,
+            includeUnavailable: true,
+            unassignedOnly: true,
+            page: 1,
+            limit: 100,
+          }),
+    enabled: !disabled && contextReady,
+    staleTime: 10_000,
+  });
+
+  const candidates = useMemo(
+    () =>
+      mergeCandidates(
+        seedCandidates,
+        query.data?.data.candidates ?? [],
+        selectedIds
+      ),
+    [query.data?.data.candidates, seedCandidates, selectedIds]
+  );
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">
+            {type === "product" ? "المنتجات داخل الكارت" : "الخيارات داخل الكارت"}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            العناصر غير الجاهزة أو المستخدمة في كارت آخر تظهر معطلة وسبب واضح.
+          </p>
+        </div>
+        <Badge variant="outline">{selectedIds.length} محدد</Badge>
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="ابحث بالاسم أو المفتاح..."
+          className="pr-9"
+          disabled={disabled || !contextReady}
+        />
+      </div>
+
+      {!contextReady ? (
+        <PickerMessage text="اختر المنتج الأساسي ومجموعة الخيارات أولًا." />
+      ) : query.isLoading || query.isFetching ? (
+        <div className="grid min-h-40 place-items-center rounded-2xl border">
+          <Loader2 className="size-6 animate-spin text-primary" />
+        </div>
+      ) : query.error ? (
+        <PickerMessage
+          text="تعذر تحميل العناصر من الـBackend. راجع الاختيارات وحاول مرة أخرى."
+          destructive
+        />
+      ) : candidates.length ? (
+        <div className="grid max-h-80 gap-2 overflow-y-auto rounded-2xl border bg-muted/15 p-2 sm:grid-cols-2">
+          {candidates.map((candidate) => {
+            const id = candidateId(candidate);
+            const selected = selectedIds.includes(id);
+            const selectable = candidateSelectable(candidate);
+            return (
+              <button
+                key={id}
+                type="button"
+                disabled={!selectable}
+                aria-pressed={selected}
+                onClick={() =>
+                  onChange(
+                    selected
+                      ? selectedIds.filter((item) => item !== id)
+                      : [...selectedIds, id]
+                  )
+                }
+                className={`flex min-h-16 items-center gap-3 rounded-xl border p-3 text-right transition ${
+                  selected
+                    ? "border-primary bg-primary/5"
+                    : "bg-background hover:border-primary/35"
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {candidate.imageUrl ? (
+                  <img
+                    src={candidate.imageUrl}
+                    alt=""
+                    className="size-11 rounded-lg object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-muted">
+                    <UtensilsCrossed className="size-4 text-muted-foreground" />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {candidateName(candidate)}
+                  </span>
+                  <span className="mt-1 block truncate text-xs text-muted-foreground">
+                    {selectable
+                      ? candidate.key || "جاهز للاختيار"
+                      : candidateReason(candidate)}
+                  </span>
+                </span>
+                <span
+                  className={`grid size-6 shrink-0 place-items-center rounded-full border ${
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "bg-background"
+                  }`}
+                >
+                  {selected ? (
+                    <Check className="size-3.5" />
+                  ) : selectable ? null : (
+                    <X className="size-3.5" />
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <PickerMessage text="لا توجد نتائج مطابقة أو عناصر مرتبطة بهذه الاختيارات." />
+      )}
+    </section>
+  );
+}
+
+function PickerMessage({
+  text,
+  destructive = false,
+}: {
+  text: string;
+  destructive?: boolean;
+}) {
+  return (
+    <div
+      className={`grid min-h-32 place-items-center rounded-2xl border border-dashed p-4 text-center text-sm ${
+        destructive
+          ? "border-destructive/30 bg-destructive/5 text-destructive"
+          : "text-muted-foreground"
+      }`}
+    >
+      {text}
+    </div>
+  );
+}
+
+function mergeCandidates(
+  seed: MealPlannerCatalogCandidate[],
+  fetched: MealPlannerCatalogCandidate[],
+  selectedIds: string[]
+) {
+  const map = new Map<string, MealPlannerCatalogCandidate>();
+  for (const candidate of [...seed, ...fetched]) {
+    const id = candidateId(candidate);
+    if (id) map.set(id, candidate);
+  }
+  for (const id of selectedIds) {
+    if (!map.has(id)) {
+      map.set(id, {
+        id,
+        label: id,
+        selected: true,
+        assignable: true,
+      });
+    }
+  }
+  return [...map.values()].sort((left, right) => {
+    const leftSelected = selectedIds.includes(candidateId(left)) ? 1 : 0;
+    const rightSelected = selectedIds.includes(candidateId(right)) ? 1 : 0;
+    return (
+      rightSelected - leftSelected ||
+      candidateName(left).localeCompare(candidateName(right), "ar")
+    );
+  });
+}
