@@ -48,6 +48,7 @@ jobs:
             src/utils/fetchMealPlannerDashboard.ts \
             tests/mealPlannerV2Payloads.test.ts \
             tests/mealPlannerV2ApiContract.test.ts \
+            tests/mealPlannerV2Components.test.tsx \
             2>&1 | tee meal-planner-v2-lint.log
       - name: Upload focused lint report
         if: always()
@@ -55,8 +56,12 @@ jobs:
         with:
           name: meal-planner-v2-lint
           path: meal-planner-v2-lint.log
-      - name: Focused contract tests
-        run: npx vitest run tests/mealPlannerV2Payloads.test.ts tests/mealPlannerV2ApiContract.test.ts
+      - name: Focused V2 tests
+        run: >-
+          npx vitest run
+          tests/mealPlannerV2Payloads.test.ts
+          tests/mealPlannerV2ApiContract.test.ts
+          tests/mealPlannerV2Components.test.tsx
       - name: Full tests
         run: npm test
       - name: Production build
