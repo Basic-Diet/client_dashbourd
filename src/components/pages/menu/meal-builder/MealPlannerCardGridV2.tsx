@@ -1,0 +1,244 @@
+import {
+  Crown,
+  Eye,
+  EyeOff,
+  Layers3,
+  Package,
+  Pencil,
+  Trash2,
+  UtensilsCrossed,
+} from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import type {
+  MealPlannerPremiumSectionV2,
+  MealPlannerSectionV2,
+  MealPlannerValidationIssue,
+} from "@/types/mealPlannerDashboardTypes";
+import {
+  candidateName,
+  canonicalSelectionType,
+  issueText,
+  normalizeCardType,
+  sectionItems,
+  sectionOptionRole,
+  sectionTitle,
+} from "./mealPlannerV2Utils";
+
+export function MealPlannerCardGridV2({
+  premiumSection,
+  sections,
+  issues,
+  pending,
+  onEdit,
+  onToggleVisibility,
+  onDelete,
+}: {
+  premiumSection?: MealPlannerPremiumSectionV2 | null;
+  sections: MealPlannerSectionV2[];
+  issues: MealPlannerValidationIssue[];
+  pending: boolean;
+  onEdit: (section: MealPlannerSectionV2) => void;
+  onToggleVisibility: (section: MealPlannerSectionV2) => void;
+  onDelete: (section: MealPlannerSectionV2) => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">كروت منشئ الوجبات</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Premium أولًا، ثم كروت الوجبات الكاملة، البروتين، والكارب. كل إجراء موجود داخل الكارت نفسه.
+          </p>
+        </div>
+        <Badge variant="outline" className="w-fit">
+          {sections.length + 1} كروت
+        </Badge>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        <PremiumCard premiumSection={premiumSection} />
+        {sections.map((section) => (
+          <DynamicCard
+            key={section.key}
+            section={section}
+            issues={issues.filter(
+              (issue) => !issue.sectionKey || issue.sectionKey === section.key
+            )}
+            pending={pending}
+            onEdit={() => onEdit(section)}
+            onToggleVisibility={() => onToggleVisibility(section)}
+            onDelete={() => onDelete(section)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PremiumCard({
+  premiumSection,
+}: {
+  premiumSection?: MealPlannerPremiumSectionV2 | null;
+}) {
+  const items = premiumSection?.items || [];
+  return (
+    <article className="flex min-h-72 flex-col overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-b from-amber-50 to-card p-4 shadow-sm dark:border-amber-900/60 dark:from-amber-950/25 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold">الوجبات المميزة</h3>
+            <Badge variant="secondary">يُدار من النظام</Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {items.length} {items.length === 1 ? "عنصر" : "عناصر"}
+          </p>
+        </div>
+        <span className="grid size-11 place-items-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+          <Crown className="size-5" />
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {items.slice(0, 3).map((item) => (
+          <ItemPreview key={item.id} name={candidateName(item)} imageUrl={item.imageUrl} />
+        ))}
+        {!items.length ? (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            لا توجد ترقيات Premium فعالة حاليًا.
+          </p>
+        ) : null}
+        {items.length > 3 ? (
+          <p className="text-xs text-muted-foreground">+ {items.length - 3} عناصر أخرى</p>
+        ) : null}
+      </div>
+
+      <p className="mt-auto rounded-xl bg-background/70 p-3 pt-3 text-xs leading-5 text-muted-foreground">
+        هذا الكارت ثابت للقراءة فقط. إضافة أو تعديل عناصر Premium تتم من صفحة Premium Upgrades.
+      </p>
+    </article>
+  );
+}
+
+function DynamicCard({
+  section,
+  issues,
+  pending,
+  onEdit,
+  onToggleVisibility,
+  onDelete,
+}: {
+  section: MealPlannerSectionV2;
+  issues: MealPlannerValidationIssue[];
+  pending: boolean;
+  onEdit: () => void;
+  onToggleVisibility: () => void;
+  onDelete: () => void;
+}) {
+  const cardType = normalizeCardType(section);
+  const role = sectionOptionRole(section);
+  const items = sectionItems(section);
+  const errors = issues.filter((issue) => issue.level !== "warning");
+  const warnings = issues.filter((issue) => issue.level === "warning");
+  const cardLabel =
+    cardType === "direct_product"
+      ? "وجبة كاملة"
+      : role === "carbs"
+        ? "خيارات كارب"
+        : "خيارات بروتين";
+  const Icon = cardType === "direct_product" ? Package : Layers3;
+
+  return (
+    <article className="flex min-h-72 flex-col rounded-2xl border bg-card p-4 shadow-sm transition hover:shadow-md sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="max-w-full truncate font-semibold">{sectionTitle(section)}</h3>
+            <Badge variant="outline">{cardLabel}</Badge>
+            <Badge variant={section.visible === false ? "outline" : "secondary"}>
+              {section.visible === false ? "مخفي" : "ظاهر"}
+            </Badge>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {items.length} {cardType === "direct_product" ? "منتجات" : "خيارات"} • {canonicalSelectionType(section)}
+          </p>
+        </div>
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted">
+          <Icon className="size-5" />
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {items.slice(0, 3).map((item) => (
+          <ItemPreview key={item.id} name={candidateName(item)} imageUrl={item.imageUrl} />
+        ))}
+        {!items.length ? (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            لا توجد عناصر محملة لهذا الكارت. افتح التعديل لمراجعتها.
+          </p>
+        ) : null}
+        {items.length > 3 ? (
+          <p className="text-xs text-muted-foreground">+ {items.length - 3} عناصر أخرى</p>
+        ) : null}
+      </div>
+
+      {errors.length || warnings.length ? (
+        <div className="mt-4 space-y-2">
+          {errors.slice(0, 1).map((issue, index) => (
+            <p key={`${issue.code}-${index}`} className="rounded-xl border border-destructive/30 bg-destructive/8 p-2.5 text-xs leading-5 text-destructive">
+              {issueText(issue)}
+            </p>
+          ))}
+          {!errors.length && warnings.length ? (
+            <p className="rounded-xl border border-amber-300/50 bg-amber-50 p-2.5 text-xs leading-5 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+              {issueText(warnings[0])}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
+        <Button type="button" variant="outline" disabled={pending} onClick={onEdit}>
+          <Pencil className="size-4" />
+          تعديل الكارت
+        </Button>
+        <Button type="button" variant="outline" disabled={pending} onClick={onToggleVisibility}>
+          {section.visible === false ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+          {section.visible === false ? "إظهار" : "إخفاء"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={pending}
+          onClick={onDelete}
+          className="text-destructive hover:text-destructive sm:col-span-2"
+        >
+          <Trash2 className="size-4" />
+          حذف الكارت
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function ItemPreview({
+  name,
+  imageUrl,
+}: {
+  name: string;
+  imageUrl?: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-background p-2.5">
+      {imageUrl ? (
+        <img src={imageUrl} alt="" className="size-10 rounded-lg object-cover" loading="lazy" />
+      ) : (
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted">
+          <UtensilsCrossed className="size-4 text-muted-foreground" />
+        </span>
+      )}
+      <p className="min-w-0 flex-1 truncate text-sm font-medium">{name}</p>
+    </div>
+  );
+}
