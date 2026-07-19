@@ -1,12 +1,14 @@
 name: Patch Meal Planner V2 Workspace
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/meal-planner-v2-full-contract
+      - main
+    types: [opened, reopened]
     paths:
       - .github/workflows/patch-meal-planner-v2-workspace.yml
       - .github/scripts/patch_meal_planner_v2_workspace.py
+  workflow_dispatch:
 
 permissions:
   contents: write
