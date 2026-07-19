@@ -1,4 +1,4 @@
-name: Patch Addon Dialog Lint
+name: Patch QA Harness
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
       - main
     types: [opened, reopened, synchronize]
     paths:
-      - .qa/fix_addon_reducer_state.py
+      - .qa/patch_browser_harness.py
       - .github/workflows/patch-addon-dialog-lint.yml
   workflow_dispatch:
 
@@ -22,8 +22,8 @@ jobs:
         with:
           ref: test/meal-builder-authenticated-crud-qa
           fetch-depth: 0
-      - run: python .qa/fix_addon_reducer_state.py
-      - name: Commit reducer state preservation
+      - run: python .qa/patch_browser_harness.py
+      - name: Commit browser harness hardening
         run: |
           if git diff --quiet; then
             echo 'No patch needed.'
@@ -31,6 +31,6 @@ jobs:
           fi
           git config user.name 'Basic Diet QA'
           git config user.email 'actions@users.noreply.github.com'
-          git add src/components/pages/addons/AddonPlanDialog.tsx
-          git commit -m 'fix(addons): preserve reducer filter state'
+          git add .qa/meal-builder-authenticated-qa.mjs
+          git commit -m 'test(meal-builder): harden preview CRUD evidence and cleanup'
           git push origin HEAD:test/meal-builder-authenticated-crud-qa
