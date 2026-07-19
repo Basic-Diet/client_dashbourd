@@ -98,11 +98,13 @@ function dialogFormReducer(
       };
     case "SET_FIELD":
       return {
+        ...state,
         form: { ...state.form, [action.field]: action.value },
         error: null,
       };
     case "SET_PRODUCT_IDS":
       return {
+        ...state,
         form: {
           ...state.form,
           menuProductIds: uniqueIds(action.productIds),
@@ -121,6 +123,7 @@ function dialogFormReducer(
       };
     case "UPDATE_PRICE":
       return {
+        ...state,
         form: {
           ...state.form,
           prices: upsertPriceRow(
