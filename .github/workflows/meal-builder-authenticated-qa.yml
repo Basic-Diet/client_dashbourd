@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      FRONTEND_URL: https://basic-dite-dashbourd.vercel.app
+      FRONTEND_URL: https://basic-dite-dashbourd-git-test-meal-b6bfe9-mohamedleos-projects.vercel.app
       BACKEND_URL: https://basicdiet145.onrender.com
       QA_EMAIL: admin@basicdiet.com
       QA_PASSWORD: Admin@123456
