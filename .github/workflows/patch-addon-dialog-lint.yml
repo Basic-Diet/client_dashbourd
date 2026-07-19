@@ -1,0 +1,36 @@
+name: Patch Addon Dialog Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+    paths:
+      - .qa/patch_addon_dialog_lint.py
+      - .github/workflows/patch-addon-dialog-lint.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/meal-builder-authenticated-crud-qa
+          fetch-depth: 0
+      - run: python .qa/patch_addon_dialog_lint.py
+      - name: Commit clean reducer reset
+        run: |
+          if git diff --quiet; then
+            echo 'No patch needed.'
+            exit 0
+          fi
+          git config user.name 'Basic Diet QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/components/pages/addons/AddonPlanDialog.tsx
+          git commit -m 'fix(addons): reset dialog filters through reducer'
+          git push origin HEAD:test/meal-builder-authenticated-crud-qa
