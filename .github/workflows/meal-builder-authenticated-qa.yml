@@ -1,0 +1,59 @@
+name: Meal Builder Authenticated CRUD QA
+
+on:
+  push:
+    branches:
+      - test/meal-builder-authenticated-crud-qa
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      FRONTEND_URL: https://basic-dite-dashbourd.vercel.app
+      BACKEND_URL: https://basicdiet145.onrender.com
+      QA_EMAIL: admin@basicdiet.com
+      QA_PASSWORD: Admin@123456
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and component tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright for this QA run
+        run: |
+          npm install --no-save playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Run authenticated Meal Builder CRUD journey
+        run: node .qa/meal-builder-authenticated-qa.mjs
+
+      - name: Upload QA screenshots, trace, and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meal-builder-authenticated-qa
+          path: .qa-artifacts
+          if-no-files-found: warn
+          retention-days: 14
