@@ -50,6 +50,7 @@ import type {
   MealPlannerCardActionResponseV2,
   MealPlannerConfigV2,
   MealPlannerCreatePayloadV2,
+  MealPlannerPatchPayloadV2,
   MealPlannerSectionV2,
   MealPlannerStateResponseV2,
   MealPlannerValidationIssue,
@@ -59,13 +60,16 @@ import {
   createMealPlannerCard,
   deleteMealPlannerCard,
   getMealPlannerDashboardState,
+  getMealPlannerReadiness,
   publishMealPlannerDraft,
+  replaceMealPlannerCardItems,
   resetMealPlannerDraft,
   updateMealPlannerCard,
   validateMealPlannerDraft,
 } from "@/utils/fetchMealPlannerDashboard";
 import { MealPlannerCardDialogV2 } from "./MealPlannerCardDialogV2";
 import { MealPlannerCardGridV2 } from "./MealPlannerCardGridV2";
+import { MealPlannerItemsDialogV2 } from "./MealPlannerItemsDialogV2";
 import {
   canonicalSelectionType,
   issueText,
@@ -88,7 +92,8 @@ type LocalWorkspace = {
 
 type FilterType = "all" | "direct_product" | "protein" | "carbs";
 
-const STATE_KEY = ["dashboard.meal-planner.v2.state"];
+const STATE_KEY = ["dashboard.meal-planner.v2.state"] as const;
+const READINESS_KEY = ["dashboard.meal-planner.v2.readiness"] as const;
 
 export function MealPlannerWorkspaceV2({
   externalNavigationBlocked = false,
@@ -100,6 +105,7 @@ export function MealPlannerWorkspaceV2({
   const queryClient = useQueryClient();
   const [workspace, setWorkspace] = useState<LocalWorkspace | null>(null);
   const [editor, setEditor] = useState<MealPlannerSectionV2 | "create" | null>(null);
+  const [manageTarget, setManageTarget] = useState<MealPlannerSectionV2 | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MealPlannerSectionV2 | null>(null);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -114,9 +120,14 @@ export function MealPlannerWorkspaceV2({
     queryFn: getMealPlannerDashboardState,
     staleTime: 20_000,
   });
+  const readinessQuery = useQuery({
+    queryKey: READINESS_KEY,
+    queryFn: getMealPlannerReadiness,
+    staleTime: 20_000,
+  });
 
   const cardMutation = useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       payload,
       previousKey,
     }: {
@@ -127,6 +138,16 @@ export function MealPlannerWorkspaceV2({
         ? updateMealPlannerCard({ sectionKey: previousKey, patch: payload })
         : createMealPlannerCard(payload),
   });
+  const visibilityMutation = useMutation({
+    mutationFn: ({
+      sectionKey,
+      patch,
+    }: {
+      sectionKey: string;
+      patch: MealPlannerPatchPayloadV2;
+    }) => updateMealPlannerCard({ sectionKey, patch }),
+  });
+  const itemsMutation = useMutation({ mutationFn: replaceMealPlannerCardItems });
   const deleteMutation = useMutation({ mutationFn: deleteMealPlannerCard });
   const validateMutation = useMutation({ mutationFn: validateMealPlannerDraft });
   const publishMutation = useMutation({ mutationFn: publishMealPlannerDraft });
@@ -134,11 +155,13 @@ export function MealPlannerWorkspaceV2({
 
   const pending =
     cardMutation.isPending ||
+    visibilityMutation.isPending ||
+    itemsMutation.isPending ||
     deleteMutation.isPending ||
     validateMutation.isPending ||
     publishMutation.isPending ||
     resetMutation.isPending;
-  const dirty = editor !== null;
+  const dirty = editor !== null || manageTarget !== null;
   const state = stateQuery.data?.data;
   const workingConfig = workspace?.draft ?? state?.draft ?? state?.published ?? null;
   const validation = workspace?.validation ?? state?.validation?.draft ?? null;
@@ -151,7 +174,7 @@ export function MealPlannerWorkspaceV2({
   );
   const sections = useMemo(
     () =>
-      (workingConfig?.sections || [])
+      [...(workingConfig?.sections || [])]
         .filter((section) => normalizeCardType(section) !== "system_premium")
         .sort(
           (left, right) =>
@@ -162,8 +185,8 @@ export function MealPlannerWorkspaceV2({
   const filteredSections = useMemo(() => {
     const query = search.trim().toLowerCase();
     return sections.filter((section) => {
-      const title = `${sectionTitle(section)} ${section.key || ""}`.toLowerCase();
-      if (query && !title.includes(query)) return false;
+      const searchable = `${sectionTitle(section)} ${section.key || ""}`.toLowerCase();
+      if (query && !searchable.includes(query)) return false;
       if (filterType === "all") return true;
       if (filterType === "direct_product") {
         return normalizeCardType(section) === "direct_product";
@@ -201,10 +224,11 @@ export function MealPlannerWorkspaceV2({
   }, [dirty, pending]);
 
   function applyAction(response: MealPlannerCardActionResponseV2) {
-    setWorkspace({
+    const nextWorkspace = {
       draft: response.data.draft,
       validation: response.data.validation,
-    });
+    };
+    setWorkspace(nextWorkspace);
     queryClient.setQueryData<MealPlannerStateResponseV2>(STATE_KEY, (current) =>
       current
         ? {
@@ -225,12 +249,13 @@ export function MealPlannerWorkspaceV2({
           }
         : current
     );
+    void queryClient.invalidateQueries({ queryKey: READINESS_KEY });
   }
 
-  async function refresh() {
+  async function reloadAuthoritative(showToast = false) {
     setWorkspace(null);
-    await stateQuery.refetch();
-    toast.success("تم تحديث بيانات منشئ الوجبات");
+    await Promise.all([stateQuery.refetch(), readinessQuery.refetch()]);
+    if (showToast) toast.success("تم تحديث بيانات منشئ الوجبات");
   }
 
   async function saveCard(
@@ -248,39 +273,39 @@ export function MealPlannerWorkspaceV2({
     }
   }
 
-  async function toggleVisibility(section: MealPlannerSectionV2) {
+  async function saveItems(ids: string[]) {
+    if (!manageTarget) return;
+    const cardType = normalizeCardType(manageTarget);
     try {
-      const cardType = normalizeCardType(section);
-      if (cardType !== "direct_product" && cardType !== "option_family") return;
-      const response = await cardMutation.mutateAsync({
-        previousKey: section.key,
-        payload: {
-          cardType,
-          key: section.key,
-          titleOverride: {
-            ar: section.titleOverride?.ar || sectionTitle(section),
-            en: section.titleOverride?.en || sectionTitle(section),
-          },
-          selectionType:
-            cardType === "direct_product"
-              ? "full_meal_product"
-              : "standard_meal",
-          visible: section.visible === false,
-          sortOrder: Number(section.sortOrder || 0),
-          ...(cardType === "direct_product"
-            ? { selectedProductIds: section.selectedProductIds || [] }
-            : {
-                optionRole: sectionOptionRole(section) || "protein",
-                productContextId: String(section.productContextId || ""),
-                sourceGroupId: String(section.sourceGroupId || ""),
-                selectedOptionIds: section.selectedOptionIds || [],
-                familyKey: String(
-                  section.metadata?.familyKey ||
-                    section.metadata?.proteinFamilyKey ||
-                    ""
-                ),
-              }),
-        } as MealPlannerCreatePayloadV2,
+      const response = await itemsMutation.mutateAsync({
+        sectionKey: manageTarget.key,
+        payload:
+          cardType === "direct_product"
+            ? { productIds: ids }
+            : { optionIds: ids },
+      });
+      applyAction(response);
+      setManageTarget(null);
+      toast.success("تم حفظ عناصر الكارت");
+    } catch (error) {
+      toast.error(mealPlannerErrorMessage(error, "تعذر حفظ عناصر الكارت"));
+      throw error;
+    }
+  }
+
+  async function toggleVisibility(section: MealPlannerSectionV2) {
+    const cardType = normalizeCardType(section);
+    if (cardType !== "direct_product" && cardType !== "option_family") return;
+    const patch: MealPlannerPatchPayloadV2 = {
+      cardType,
+      selectionType:
+        cardType === "direct_product" ? "full_meal_product" : "standard_meal",
+      visible: section.visible === false,
+    };
+    try {
+      const response = await visibilityMutation.mutateAsync({
+        sectionKey: section.key,
+        patch,
       });
       applyAction(response);
       toast.success(section.visible === false ? "تم إظهار الكارت" : "تم إخفاء الكارت");
@@ -322,8 +347,7 @@ export function MealPlannerWorkspaceV2({
       await publishMutation.mutateAsync(publishNotes);
       setPublishOpen(false);
       setPublishNotes("");
-      setWorkspace(null);
-      await stateQuery.refetch();
+      await reloadAuthoritative();
       toast.success("تم نشر تغييرات منشئ الوجبات بنجاح");
     } catch (error) {
       toast.error(mealPlannerErrorMessage(error, "تعذر نشر التغييرات"));
@@ -334,9 +358,9 @@ export function MealPlannerWorkspaceV2({
     try {
       await resetMutation.mutateAsync();
       setResetOpen(false);
-      setWorkspace(null);
       setEditor(null);
-      await stateQuery.refetch();
+      setManageTarget(null);
+      await reloadAuthoritative();
       toast.success("تم إلغاء التغييرات غير المنشورة");
     } catch (error) {
       toast.error(mealPlannerErrorMessage(error, "تعذر إلغاء التغييرات"));
@@ -346,21 +370,13 @@ export function MealPlannerWorkspaceV2({
   if (stateQuery.isLoading) return <WorkspaceLoading />;
   if (stateQuery.error || !state) {
     return (
-      <div className="grid min-h-80 place-items-center rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center" dir="rtl">
-        <div className="max-w-md space-y-4">
-          <AlertCircle className="mx-auto size-10 text-destructive" />
-          <div>
-            <h2 className="font-semibold">تعذر تحميل منشئ الوجبات</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {mealPlannerErrorMessage(stateQuery.error, "تحقق من الاتصال وحاول مرة أخرى")}
-            </p>
-          </div>
-          <Button type="button" variant="outline" onClick={() => void stateQuery.refetch()}>
-            <RefreshCw className="size-4" />
-            إعادة المحاولة
-          </Button>
-        </div>
-      </div>
+      <LoadError
+        message={mealPlannerErrorMessage(
+          stateQuery.error,
+          "تحقق من الاتصال وحاول مرة أخرى"
+        )}
+        onRetry={() => void stateQuery.refetch()}
+      />
     );
   }
 
@@ -371,15 +387,20 @@ export function MealPlannerWorkspaceV2({
         publishedAt={state.published?.publishedAt ?? state.metadata?.publishedAt}
         hasUnpublishedChanges={hasUnpublishedChanges}
         validation={validation}
+        readiness={readinessQuery.data?.data ?? null}
         pending={pending}
         onAdd={() => setEditor("create")}
         onReview={() => void review()}
         onPublished={() => setPublishedOpen(true)}
-        onRefresh={() => void refresh()}
+        onRefresh={() => void reloadAuthoritative(true)}
         onReset={() => setResetOpen(true)}
       />
 
-      <StatusPanel validation={validation} pending={pending} onOpenIssues={() => setIssuesOpen(true)} />
+      <StatusPanel
+        validation={validation}
+        pending={pending}
+        onOpenIssues={() => setIssuesOpen(true)}
+      />
 
       <div className="flex flex-col gap-3 rounded-2xl border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
@@ -391,8 +412,13 @@ export function MealPlannerWorkspaceV2({
             className="pr-9"
           />
         </div>
-        <Select value={filterType} onValueChange={(value) => setFilterType(value as FilterType)}>
-          <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
+        <Select
+          value={filterType}
+          onValueChange={(value) => setFilterType(value as FilterType)}
+        >
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent dir="rtl">
             <SelectItem value="all">كل الكروت</SelectItem>
             <SelectItem value="direct_product">وجبات كاملة</SelectItem>
@@ -409,6 +435,7 @@ export function MealPlannerWorkspaceV2({
           issues={allIssues}
           pending={pending}
           onEdit={setEditor}
+          onManageItems={setManageTarget}
           onToggleVisibility={(section) => void toggleVisibility(section)}
           onDelete={setDeleteTarget}
         />
@@ -417,6 +444,20 @@ export function MealPlannerWorkspaceV2({
           لا توجد كروت مطابقة للبحث.
         </div>
       )}
+
+      {manageTarget ? (
+        <MealPlannerItemsDialogV2
+          key={`items-${manageTarget.key}`}
+          section={manageTarget}
+          pending={itemsMutation.isPending}
+          onClose={() => setManageTarget(null)}
+          onSave={saveItems}
+          onDeleteCard={() => {
+            setManageTarget(null);
+            setDeleteTarget(manageTarget);
+          }}
+        />
+      ) : null}
 
       {editor ? (
         <MealPlannerCardDialogV2
@@ -480,6 +521,7 @@ function WorkspaceHeader({
   publishedAt,
   hasUnpublishedChanges,
   validation,
+  readiness,
   pending,
   onAdd,
   onReview,
@@ -491,6 +533,7 @@ function WorkspaceHeader({
   publishedAt?: string | null;
   hasUnpublishedChanges: boolean;
   validation: MealPlannerValidationV2 | null;
+  readiness: MealPlannerValidationV2 | null;
   pending: boolean;
   onAdd: () => void;
   onReview: () => void;
@@ -509,11 +552,13 @@ function WorkspaceHeader({
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold">منشئ وجبات الاشتراك</h1>
               <Badge variant={hasUnpublishedChanges ? "secondary" : "outline"}>
-                {hasUnpublishedChanges ? "تغييرات غير منشورة" : "النسخة المنشورة"}
+                {hasUnpublishedChanges
+                  ? "تغييرات غير منشورة"
+                  : "النسخة المنشورة"}
               </Badge>
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              أضف كروت الوجبات الكاملة أو خيارات البروتين والكارب، راجع أخطاء الـBackend، ثم انشر.
+              أضف وجبات كاملة أو خيارات بروتين وكارب، راجع أخطاء الـBackend، ثم انشر.
             </p>
           </div>
         </div>
@@ -521,8 +566,17 @@ function WorkspaceHeader({
           <Button type="button" disabled={pending} onClick={onAdd}>
             <Plus className="size-4" /> إضافة كارت
           </Button>
-          <Button type="button" variant="outline" disabled={pending || !hasUnpublishedChanges} onClick={onReview}>
-            {pending ? <Loader2 className="size-4 animate-spin" /> : <ClipboardCheck className="size-4" />}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending || !hasUnpublishedChanges}
+            onClick={onReview}
+          >
+            {pending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ClipboardCheck className="size-4" />
+            )}
             مراجعة ونشر
           </Button>
           <Button type="button" variant="ghost" onClick={onPublished}>
@@ -531,22 +585,36 @@ function WorkspaceHeader({
           <Button type="button" variant="ghost" disabled={pending} onClick={onRefresh}>
             <RefreshCw className="size-4" /> تحديث
           </Button>
-          <Button type="button" variant="ghost" disabled={pending || !hasUnpublishedChanges} onClick={onReset} className="text-destructive hover:text-destructive">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending || !hasUnpublishedChanges}
+            onClick={onReset}
+            className="text-destructive hover:text-destructive"
+          >
             <RotateCcw className="size-4" /> إلغاء التغييرات
           </Button>
         </div>
       </div>
       <div className="grid border-t bg-muted/20 sm:grid-cols-3">
-        <Metric title="النسخة المنشورة" value={versionNumber ? `#${versionNumber}` : "غير محدد"} />
-        <Metric title="آخر نشر" value={publishedAt ? formatDate(publishedAt) : "لا يوجد تاريخ"} />
         <Metric
-          title="حالة الفحص"
+          title="النسخة المنشورة"
+          value={versionNumber ? `#${versionNumber}` : "غير محدد"}
+        />
+        <Metric
+          title="آخر نشر"
+          value={publishedAt ? formatDate(publishedAt) : "لا يوجد تاريخ"}
+        />
+        <Metric
+          title="حالة الجاهزية"
           value={
-            validation?.ready
-              ? "جاهزة للنشر"
-              : validation
-                ? `${validation.errors.length} أخطاء`
-                : "لم تُفحص بعد"
+            readiness?.ready
+              ? "جاهز"
+              : readiness
+                ? "يحتاج إصلاح"
+                : validation?.ready
+                  ? "جاهزة للنشر"
+                  : "غير منشور"
           }
         />
       </div>
@@ -572,11 +640,19 @@ function StatusPanel({
   pending: boolean;
   onOpenIssues: () => void;
 }) {
-  const errors = validation?.errors.length || 0;
-  const warnings = validation?.warnings.length || 0;
+  const errors = validation?.errors?.length || 0;
+  const warnings = validation?.warnings?.length || 0;
   const ready = Boolean(validation?.ready && errors === 0);
   return (
-    <div className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${ready ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20" : errors ? "border-destructive/30 bg-destructive/5" : "bg-card"}`}>
+    <div
+      className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
+        ready
+          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20"
+          : errors
+            ? "border-destructive/30 bg-destructive/5"
+            : "bg-card"
+      }`}
+    >
       <div className="flex items-start gap-3">
         {pending ? (
           <Loader2 className="mt-0.5 size-5 animate-spin" />
@@ -632,23 +708,39 @@ function ValidationDialog({
   const warnings = validation?.warnings || [];
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent dir="rtl" className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        dir="rtl"
+        className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl"
+      >
         <DialogHeader className="text-right">
           <DialogTitle>نتيجة مراجعة الـBackend</DialogTitle>
           <DialogDescription className="text-right leading-6">
-            الأخطاء تمنع النشر. التنبيهات لا تمنعه عادةً، لكنها تحتاج مراجعة.
+            الأخطاء تمنع النشر. التنبيهات تحتاج مراجعة لكنها لا تمنعه عادةً.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-5 py-2">
-          <IssueGroup title="أخطاء تمنع النشر" issues={errors} sections={sections} onOpenSection={onOpenSection} destructive />
-          <IssueGroup title="تنبيهات" issues={warnings} sections={sections} onOpenSection={onOpenSection} />
+          <IssueGroup
+            title="أخطاء تمنع النشر"
+            issues={errors}
+            sections={sections}
+            onOpenSection={onOpenSection}
+            destructive
+          />
+          <IssueGroup
+            title="تنبيهات"
+            issues={warnings}
+            sections={sections}
+            onOpenSection={onOpenSection}
+          />
           {!errors.length && !warnings.length ? (
             <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-100">
               لا توجد أخطاء أو تنبيهات.
             </p>
           ) : null}
         </div>
-        <DialogFooter className="sm:justify-start"><Button variant="outline" onClick={onClose}>إغلاق</Button></DialogFooter>
+        <DialogFooter className="sm:justify-start">
+          <Button variant="outline" onClick={onClose}>إغلاق</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -671,9 +763,15 @@ function IssueGroup({
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-2">
-        {destructive ? <AlertCircle className="size-4 text-destructive" /> : <TriangleAlert className="size-4 text-amber-600" />}
+        {destructive ? (
+          <AlertCircle className="size-4 text-destructive" />
+        ) : (
+          <TriangleAlert className="size-4 text-amber-600" />
+        )}
         <h3 className="text-sm font-semibold">{title}</h3>
-        <Badge variant={destructive ? "destructive" : "outline"}>{issues.length}</Badge>
+        <Badge variant={destructive ? "destructive" : "outline"}>
+          {issues.length}
+        </Badge>
       </div>
       {issues.map((issue, index) => {
         const section = issue.sectionKey
@@ -683,9 +781,18 @@ function IssueGroup({
           <div key={`${issue.code}-${index}`} className="rounded-xl border p-3">
             <p className="text-sm leading-6">{issueText(issue)}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {issue.code ? <code className="text-[11px] text-muted-foreground">{issue.code}</code> : null}
+              {issue.code ? (
+                <code className="text-[11px] text-muted-foreground">
+                  {issue.code}
+                </code>
+              ) : null}
               {section ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => onOpenSection(section.key)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenSection(section.key)}
+                >
                   فتح {sectionTitle(section)}
                 </Button>
               ) : null}
@@ -721,11 +828,20 @@ function PublishDialog({
             ستصبح الكروت الحالية هي النسخة الظاهرة في تطبيق العميل بعد التأكيد.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <Textarea value={notes} onChange={(event) => onNotesChange(event.target.value)} placeholder="ملاحظة النشر (اختيارية)" disabled={pending} />
+        <Textarea
+          value={notes}
+          onChange={(event) => onNotesChange(event.target.value)}
+          placeholder="ملاحظة النشر (اختيارية)"
+          disabled={pending}
+        />
         <AlertDialogFooter className="gap-2 sm:justify-start">
           <AlertDialogCancel disabled={pending}>إلغاء</AlertDialogCancel>
           <AlertDialogAction disabled={pending} onClick={onConfirm}>
-            {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            {pending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
             تأكيد النشر
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -749,14 +865,18 @@ function DeleteDialog({
     <AlertDialog open={Boolean(section)} onOpenChange={(open) => !open && onClose()}>
       <AlertDialogContent dir="rtl">
         <AlertDialogHeader className="text-right">
-          <AlertDialogTitle>حذف كارت «{section ? sectionTitle(section) : ""}»؟</AlertDialogTitle>
+          <AlertDialogTitle>
+            حذف كارت «{section ? sectionTitle(section) : ""}»؟
+          </AlertDialogTitle>
           <AlertDialogDescription className="text-right leading-6">
             سيتم حذفه من تغييرات العمل فقط، ولن يتأثر تطبيق العميل قبل النشر.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:justify-start">
           <AlertDialogCancel disabled={pending}>إلغاء</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" disabled={pending} onClick={onConfirm}>حذف الكارت</AlertDialogAction>
+          <AlertDialogAction variant="destructive" disabled={pending} onClick={onConfirm}>
+            حذف الكارت
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -780,12 +900,14 @@ function ResetDialog({
         <AlertDialogHeader className="text-right">
           <AlertDialogTitle>إلغاء جميع التغييرات غير المنشورة؟</AlertDialogTitle>
           <AlertDialogDescription className="text-right leading-6">
-            سيتم حذف تغييرات العمل والعودة إلى آخر نسخة منشورة. لا يمكن التراجع عن هذا الإجراء.
+            سيتم حذف تغييرات العمل والعودة إلى آخر نسخة منشورة. لا يمكن التراجع.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:justify-start">
           <AlertDialogCancel disabled={pending}>الاحتفاظ بالتغييرات</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" disabled={pending} onClick={onConfirm}>إلغاء التغييرات</AlertDialogAction>
+          <AlertDialogAction variant="destructive" disabled={pending} onClick={onConfirm}>
+            إلغاء التغييرات
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -803,24 +925,42 @@ function PublishedDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent dir="rtl" className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        dir="rtl"
+        className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl"
+      >
         <DialogHeader className="text-right">
           <DialogTitle>النسخة المنشورة</DialogTitle>
-          <DialogDescription className="text-right leading-6">عرض للقراءة فقط لما هو منشور حاليًا.</DialogDescription>
+          <DialogDescription className="text-right leading-6">
+            عرض للقراءة فقط لما هو منشور حاليًا.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           {(config?.sections || []).map((section) => (
-            <div key={section.key} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+            <div
+              key={section.key}
+              className="flex items-center justify-between gap-3 rounded-xl border p-3"
+            >
               <div>
                 <p className="text-sm font-medium">{sectionTitle(section)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{canonicalSelectionType(section)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {canonicalSelectionType(section)}
+                </p>
               </div>
-              <Badge variant="outline">{section.visible === false ? "مخفي" : "ظاهر"}</Badge>
+              <Badge variant="outline">
+                {section.visible === false ? "مخفي" : "ظاهر"}
+              </Badge>
             </div>
           ))}
-          {!config?.sections?.length ? <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">لا توجد نسخة منشورة.</p> : null}
+          {!config?.sections?.length ? (
+            <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+              لا توجد نسخة منشورة.
+            </p>
+          ) : null}
         </div>
-        <DialogFooter className="sm:justify-start"><Button variant="outline" onClick={onClose}>إغلاق</Button></DialogFooter>
+        <DialogFooter className="sm:justify-start">
+          <Button variant="outline" onClick={onClose}>إغلاق</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -832,7 +972,29 @@ function WorkspaceLoading() {
       <Skeleton className="h-44 rounded-2xl" />
       <Skeleton className="h-20 rounded-2xl" />
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-72 rounded-2xl" />)}
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Skeleton key={index} className="h-72 rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div
+      className="grid min-h-80 place-items-center rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center"
+      dir="rtl"
+    >
+      <div className="max-w-md space-y-4">
+        <AlertCircle className="mx-auto size-10 text-destructive" />
+        <div>
+          <h2 className="font-semibold">تعذر تحميل منشئ الوجبات</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+        </div>
+        <Button type="button" variant="outline" onClick={onRetry}>
+          <RefreshCw className="size-4" /> إعادة المحاولة
+        </Button>
       </div>
     </div>
   );
