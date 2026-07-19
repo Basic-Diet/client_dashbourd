@@ -27,7 +27,9 @@ jobs:
           cache: npm
       - run: mkdir -p .qa-static
       - run: npm ci --silent
-      - run: npm run typecheck
+      - name: Typecheck
+        id: typecheck
+        run: npm run typecheck
       - name: Lint
         id: lint
         continue-on-error: true
@@ -35,8 +37,12 @@ jobs:
         run: |
           set -o pipefail
           npm run lint 2>&1 | tee .qa-static/lint.log
-      - run: npm test
-      - run: npm run build
+      - name: Tests
+        id: tests
+        run: npm test
+      - name: Build
+        id: build
+        run: npm run build
       - name: Comment static QA result
         if: always() && github.event_name == 'pull_request'
         env:
@@ -45,8 +51,10 @@ jobs:
           {
             echo '### Static Meal Builder QA'
             echo
-            echo '- Typecheck: `${{ steps.lint.outcome == ''skipped'' && ''unknown'' || ''passed before lint'' }}`'
+            echo '- Typecheck outcome: `${{ steps.typecheck.outcome }}`'
             echo '- Lint outcome: `${{ steps.lint.outcome }}`'
+            echo '- Tests outcome: `${{ steps.tests.outcome }}`'
+            echo '- Build outcome: `${{ steps.build.outcome }}`'
             echo
             echo '<details><summary>Lint output</summary>'
             echo
