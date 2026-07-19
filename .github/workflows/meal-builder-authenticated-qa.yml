@@ -85,6 +85,14 @@ jobs:
           node-version: 20
           cache: npm
       - run: mkdir -p .qa-artifacts
+      - name: Clean previous QA key and probe production card contract
+        env:
+          CLEANUP_KEYS: qa_1784501133630_direct_updated,qa_1784501133630_direct
+          RUN_CRUD_PROBE: "true"
+        shell: bash
+        run: |
+          set -o pipefail
+          node .qa/meal-builder-api-probe.mjs 2>&1 | tee .qa-artifacts/api-probe.log
       - name: Install browser runtime
         run: |
           npm ci --silent
@@ -104,6 +112,12 @@ jobs:
             echo
             echo '- Browser outcome: `${{ steps.browser_qa.outcome }}`'
             echo
+            echo '#### API probe'
+            echo '```text'
+            cat .qa-artifacts/api-probe.log || true
+            echo '```'
+            echo
+            echo '#### Browser report'
             echo '```json'
             cat .qa-artifacts/meal-builder-qa-report.json || echo '{"report":"missing"}'
             echo '```'
