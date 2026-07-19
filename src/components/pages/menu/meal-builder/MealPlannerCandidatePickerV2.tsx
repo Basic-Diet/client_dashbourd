@@ -1,9 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Check, Loader2, Search, UtensilsCrossed, X } from "lucide-react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  Search,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   MealPlannerCatalogCandidate,
   MealPlannerOptionRole,
@@ -44,6 +59,7 @@ export function MealPlannerCandidatePickerV2({
 }) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [category, setCategory] = useState("all");
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -53,7 +69,7 @@ export function MealPlannerCandidatePickerV2({
   const contextReady =
     type === "product" ||
     Boolean(productContextId && sourceGroupId && optionRole);
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: [
       "dashboard.meal-planner.v2.picker",
       type,
@@ -64,14 +80,15 @@ export function MealPlannerCandidatePickerV2({
       familyKey,
       debouncedSearch,
     ],
-    queryFn: () =>
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
       type === "product"
         ? getMealPlannerProductsPicker({
             targetSectionKey,
             q: debouncedSearch || undefined,
             includeUnavailable: true,
             unassignedOnly: true,
-            page: 1,
+            page: Number(pageParam),
             limit: 100,
           })
         : getMealPlannerOptionsPicker({
@@ -84,22 +101,46 @@ export function MealPlannerCandidatePickerV2({
             q: debouncedSearch || undefined,
             includeUnavailable: true,
             unassignedOnly: true,
-            page: 1,
+            page: Number(pageParam),
             limit: 100,
           }),
+    getNextPageParam: (lastPage) => {
+      const page = Number(lastPage.data.meta?.page || 1);
+      const pages = Number(lastPage.data.meta?.pages || 1);
+      return page < pages ? page + 1 : undefined;
+    },
     enabled: !disabled && contextReady,
     staleTime: 10_000,
   });
 
-  const candidates = useMemo(
+  const fetchedCandidates = useMemo(
     () =>
-      mergeCandidates(
-        seedCandidates,
-        query.data?.data.candidates ?? [],
-        selectedIds
-      ),
-    [query.data?.data.candidates, seedCandidates, selectedIds]
+      query.data?.pages.flatMap((page) => page.data.candidates) ?? [],
+    [query.data?.pages]
   );
+  const candidates = useMemo(
+    () => mergeCandidates(seedCandidates, fetchedCandidates, selectedIds),
+    [fetchedCandidates, seedCandidates, selectedIds]
+  );
+  const categories = useMemo(
+    () =>
+      [...new Set(candidates.map((candidate) => candidate.categoryKey).filter(Boolean))]
+        .map(String)
+        .sort((left, right) => left.localeCompare(right, "ar")),
+    [candidates]
+  );
+  const visibleCandidates = useMemo(
+    () =>
+      type === "product" && category !== "all"
+        ? candidates.filter(
+            (candidate) =>
+              selectedIds.includes(candidateId(candidate)) ||
+              candidate.categoryKey === category
+          )
+        : candidates,
+    [candidates, category, selectedIds, type]
+  );
+  const initialLoading = query.isLoading && !query.data;
 
   return (
     <section className="space-y-3">
@@ -115,20 +156,37 @@ export function MealPlannerCandidatePickerV2({
         <Badge variant="outline">{selectedIds.length} محدد</Badge>
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="ابحث بالاسم أو المفتاح..."
-          className="pr-9"
-          disabled={disabled || !contextReady}
-        />
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_12rem]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="ابحث بالاسم أو المفتاح..."
+            className="pr-9"
+            disabled={disabled || !contextReady}
+          />
+        </div>
+        {type === "product" ? (
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="كل التصنيفات" />
+            </SelectTrigger>
+            <SelectContent dir="rtl">
+              <SelectItem value="all">كل التصنيفات</SelectItem>
+              {categories.map((categoryKey) => (
+                <SelectItem key={categoryKey} value={categoryKey}>
+                  {categoryKey}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
 
       {!contextReady ? (
         <PickerMessage text="اختر المنتج الأساسي ومجموعة الخيارات أولًا." />
-      ) : query.isLoading || query.isFetching ? (
+      ) : initialLoading ? (
         <div className="grid min-h-40 place-items-center rounded-2xl border">
           <Loader2 className="size-6 animate-spin text-primary" />
         </div>
@@ -137,70 +195,88 @@ export function MealPlannerCandidatePickerV2({
           text="تعذر تحميل العناصر من الـBackend. راجع الاختيارات وحاول مرة أخرى."
           destructive
         />
-      ) : candidates.length ? (
-        <div className="grid max-h-80 gap-2 overflow-y-auto rounded-2xl border bg-muted/15 p-2 sm:grid-cols-2">
-          {candidates.map((candidate) => {
-            const id = candidateId(candidate);
-            const selected = selectedIds.includes(id);
-            const selectable = candidateSelectable(candidate);
-            return (
-              <button
-                key={id}
-                type="button"
-                disabled={!selectable}
-                aria-pressed={selected}
-                onClick={() =>
-                  onChange(
+      ) : visibleCandidates.length ? (
+        <>
+          <div className="grid max-h-80 gap-2 overflow-y-auto rounded-2xl border bg-muted/15 p-2 sm:grid-cols-2">
+            {visibleCandidates.map((candidate) => {
+              const id = candidateId(candidate);
+              const selected = selectedIds.includes(id);
+              const selectable = candidateSelectable(candidate);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={!selectable}
+                  aria-pressed={selected}
+                  onClick={() =>
+                    onChange(
+                      selected
+                        ? selectedIds.filter((item) => item !== id)
+                        : [...selectedIds, id]
+                    )
+                  }
+                  className={`flex min-h-16 items-center gap-3 rounded-xl border p-3 text-right transition ${
                     selected
-                      ? selectedIds.filter((item) => item !== id)
-                      : [...selectedIds, id]
-                  )
-                }
-                className={`flex min-h-16 items-center gap-3 rounded-xl border p-3 text-right transition ${
-                  selected
-                    ? "border-primary bg-primary/5"
-                    : "bg-background hover:border-primary/35"
-                } disabled:cursor-not-allowed disabled:opacity-60`}
-              >
-                {candidate.imageUrl ? (
-                  <img
-                    src={candidate.imageUrl}
-                    alt=""
-                    className="size-11 rounded-lg object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-muted">
-                    <UtensilsCrossed className="size-4 text-muted-foreground" />
-                  </span>
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
-                    {candidateName(candidate)}
-                  </span>
-                  <span className="mt-1 block truncate text-xs text-muted-foreground">
-                    {selectable
-                      ? candidate.key || "جاهز للاختيار"
-                      : candidateReason(candidate)}
-                  </span>
-                </span>
-                <span
-                  className={`grid size-6 shrink-0 place-items-center rounded-full border ${
-                    selected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "bg-background"
-                  }`}
+                      ? "border-primary bg-primary/5"
+                      : "bg-background hover:border-primary/35"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
                 >
-                  {selected ? (
-                    <Check className="size-3.5" />
-                  ) : selectable ? null : (
-                    <X className="size-3.5" />
+                  {candidate.imageUrl ? (
+                    <img
+                      src={candidate.imageUrl}
+                      alt=""
+                      className="size-11 rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-muted">
+                      <UtensilsCrossed className="size-4 text-muted-foreground" />
+                    </span>
                   )}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {candidateName(candidate)}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      {selectable
+                        ? candidate.key || "جاهز للاختيار"
+                        : candidateReason(candidate)}
+                    </span>
+                  </span>
+                  <span
+                    className={`grid size-6 shrink-0 place-items-center rounded-full border ${
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "bg-background"
+                    }`}
+                  >
+                    {selected ? (
+                      <Check className="size-3.5" />
+                    ) : selectable ? null : (
+                      <X className="size-3.5" />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {query.hasNextPage ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={query.isFetchingNextPage}
+              onClick={() => void query.fetchNextPage()}
+            >
+              {query.isFetchingNextPage ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <ChevronDown className="size-4" />
+              )}
+              تحميل المزيد
+            </Button>
+          ) : null}
+        </>
       ) : (
         <PickerMessage text="لا توجد نتائج مطابقة أو عناصر مرتبطة بهذه الاختيارات." />
       )}
