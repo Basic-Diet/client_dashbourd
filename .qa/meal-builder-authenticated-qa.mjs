@@ -119,7 +119,14 @@ async function cleanupByApi(token) {
         "DELETE",
         `/api/dashboard/meal-builder/sections/${encodeURIComponent(key)}`
       );
-      report.cleanup.push({ key, status: response.status, payload });
+      report.cleanup.push({
+        key,
+        status: response.status,
+        ok: response.ok,
+        contractVersion: payload?.data?.contractVersion || null,
+        action: payload?.data?.action || null,
+        errorCode: payload?.error?.code || null,
+      });
       if (response.ok) console.log(`Cleanup removed ${key}`);
     } catch (error) {
       report.cleanup.push({ key, error: error instanceof Error ? error.message : String(error) });
@@ -336,17 +343,68 @@ try {
   await publishedDialog.waitFor({ state: "detached" });
   check("Published configuration preview opens without mutating the draft");
 
+  const validateResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname.endsWith(
+        "/api/dashboard/meal-builder/validate"
+      ),
+    { timeout: 45_000 }
+  );
   await page.getByRole("button", { name: "مراجعة ونشر" }).click();
-  const validationOrPublish = page.locator('[role="dialog"]').filter({
-    hasText: /نتيجة مراجعة|نشر تغييرات منشئ الوجبات/,
-  });
+  const validateResponse = await validateResponsePromise;
+  const validatePayload = await validateResponse.json().catch(() => null);
+  const validated = validatePayload?.data || {};
+  const validationSummary = {
+    operation: "validate",
+    status: validateResponse.status(),
+    ready: validated.ready === true,
+    errorCount: Array.isArray(validated.errors) ? validated.errors.length : null,
+    warningCount: Array.isArray(validated.warnings)
+      ? validated.warnings.length
+      : null,
+    responseHasChecks: Array.isArray(validated.checks),
+    errorCode: validatePayload?.error?.code || null,
+  };
+  report.apiResponses.push(validationSummary);
+  if (!validateResponse.ok()) {
+    throw new Error(
+      `Backend validation failed with ${validateResponse.status()}`
+    );
+  }
+
+  const readyToPublish =
+    validated.ready === true &&
+    Array.isArray(validated.errors) &&
+    validated.errors.length === 0;
+  const validationOrPublish = page
+    .locator('[role="dialog"], [role="alertdialog"]')
+    .filter({
+      hasText: /نتيجة مراجعة الـBackend|نشر تغييرات منشئ الوجبات/,
+    });
   await validationOrPublish.first().waitFor({ timeout: 45_000 });
+  if (readyToPublish) {
+    await page
+      .getByRole("alertdialog")
+      .getByRole("heading", { name: "نشر تغييرات منشئ الوجبات؟" })
+      .waitFor();
+  } else {
+    await page
+      .getByRole("dialog")
+      .getByRole("heading", { name: "نتيجة مراجعة الـBackend" })
+      .waitFor();
+  }
   await page.screenshot({
     path: path.join(ARTIFACT_DIR, "02-validation-result.png"),
     fullPage: true,
   });
   await page.keyboard.press("Escape");
-  check("Backend validation was triggered from the review flow");
+  await validationOrPublish.first().waitFor({ state: "detached" });
+  check("Backend validation was triggered and surfaced clearly without publishing", {
+    ready: validationSummary.ready,
+    errorCount: validationSummary.errorCount,
+    warningCount: validationSummary.warningCount,
+  });
 
   card = dynamicCard(page, updatedTitle);
   await card.getByRole("button", { name: "حذف الكارت" }).click();
