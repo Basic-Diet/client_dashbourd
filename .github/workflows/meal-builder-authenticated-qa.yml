@@ -75,6 +75,7 @@ jobs:
     timeout-minutes: 25
     env:
       FRONTEND_URL: https://basic-dite-dashbourd-git-test-meal-b6bfe9-mohamedleos-projects.vercel.app
+      FRONTEND_ACCESS_URL: https://basic-dite-dashbourd-git-test-meal-b6bfe9-mohamedleos-projects.vercel.app/?_vercel_share=L8gTaunKhfWK3dM3oHtptBC1sl9yab1h
       BACKEND_URL: https://basicdiet145.onrender.com
       QA_EMAIL: admin@basicdiet.com
       QA_PASSWORD: Admin@123456
@@ -85,10 +86,10 @@ jobs:
           node-version: 20
           cache: npm
       - run: mkdir -p .qa-artifacts
-      - name: Clean previous QA key and probe production card contract
+      - name: Verify cleanup state before browser CRUD
         env:
           CLEANUP_KEYS: qa_1784501133630_direct_updated,qa_1784501133630_direct
-          RUN_CRUD_PROBE: "true"
+          RUN_CRUD_PROBE: "false"
         shell: bash
         run: |
           set -o pipefail
@@ -112,7 +113,7 @@ jobs:
             echo
             echo '- Browser outcome: `${{ steps.browser_qa.outcome }}`'
             echo
-            echo '#### API probe'
+            echo '#### API cleanup preflight'
             echo '```text'
             cat .qa-artifacts/api-probe.log || true
             echo '```'
