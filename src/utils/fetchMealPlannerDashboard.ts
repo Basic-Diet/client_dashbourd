@@ -12,6 +12,10 @@ import type {
 } from "@/types/mealPlannerDashboardTypes";
 
 export const MEAL_PLANNER_DASHBOARD_ROUTE = "/api/dashboard/meal-builder";
+const SUPPORTED_CARD_ACTION_CONTRACTS = new Set([
+  "dashboard_meal_builder_card_action.v1",
+  "dashboard_meal_builder_card_action.v2",
+]);
 
 export async function getMealPlannerDashboardState() {
   const response = await api.get(MEAL_PLANNER_DASHBOARD_ROUTE, {
@@ -179,16 +183,18 @@ export function assertCardActionResponse(
   if (!isRecord(value) || value.status !== true || !isRecord(value.data)) {
     throw new Error("Meal Planner card action response is invalid");
   }
+
   const data = value.data;
   const contractVersion = String(data.contractVersion || "");
   if (
-    contractVersion !== "dashboard_meal_builder_card_action.v2" ||
+    !SUPPORTED_CARD_ACTION_CONTRACTS.has(contractVersion) ||
     !isRecord(data.draft) ||
     !Array.isArray(data.draft.sections) ||
     !isRecord(data.validation)
   ) {
-    throw new Error("Meal Planner card action v2 contract mismatch");
+    throw new Error("Meal Planner card action contract mismatch");
   }
+
   return value as unknown as MealPlannerCardActionResponseV2;
 }
 
