@@ -67,9 +67,9 @@ describe("Meal Planner V2 components", () => {
 
   it("submits a direct card using the canonical full_meal_product payload", async () => {
     const user = userEvent.setup();
-    const onSubmit = vi.fn(
-      async (_payload: MealPlannerCreatePayloadV2) => undefined
-    );
+    const onSubmit = vi.fn(async (payload: MealPlannerCreatePayloadV2) => {
+      expect(payload.cardType).toBe("direct_product");
+    });
     render(
       <MealPlannerCardDialogV2
         catalog={emptyCatalog}
@@ -167,6 +167,8 @@ describe("Meal Planner V2 components", () => {
     expect(
       screen.getByRole("button", { name: "تعديل البيانات" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "حذف الكارت" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "حذف الكارت" })
+    ).toBeInTheDocument();
   });
 });
