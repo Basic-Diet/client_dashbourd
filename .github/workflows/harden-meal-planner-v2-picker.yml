@@ -1,0 +1,32 @@
+name: Harden Meal Planner V2 Picker
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [reopened]
+    paths:
+      - .github/workflows/harden-meal-planner-v2-picker.yml
+      - .github/scripts/harden_meal_planner_v2_picker.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-planner-v2-full-contract
+          fetch-depth: 0
+      - run: python .github/scripts/harden_meal_planner_v2_picker.py
+      - name: Commit picker hardening
+        run: |
+          git config user.name "Basic Diet Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/utils/fetchMealPlannerDashboard.ts src/components/pages/menu/meal-builder/MealPlannerCandidatePickerV2.tsx src/components/pages/menu/meal-builder/MealPlannerCardGridV2.tsx
+          git commit -m "fix(meal-planner): harden picker cancellation and selection"
+          git push origin HEAD:feat/meal-planner-v2-full-contract
