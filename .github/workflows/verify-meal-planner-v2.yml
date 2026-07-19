@@ -32,18 +32,29 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Focused lint
-        run: >-
-          npx eslint
-          src/components/pages/menu/meal-builder/MealPlannerCandidatePickerV2.tsx
-          src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx
-          src/components/pages/menu/meal-builder/MealPlannerCardGridV2.tsx
-          src/components/pages/menu/meal-builder/MealPlannerItemsDialogV2.tsx
-          src/components/pages/menu/meal-builder/MealPlannerWorkspaceV2.tsx
-          src/components/pages/menu/meal-builder/mealPlannerV2Utils.ts
-          src/types/mealPlannerDashboardTypes.ts
-          src/utils/fetchMealPlannerDashboard.ts
-          tests/mealPlannerV2Payloads.test.ts
-          tests/mealPlannerV2ApiContract.test.ts
+        id: focused_lint
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npx eslint \
+            src/components/pages/menu/meal-builder/MealPlannerCandidatePickerV2.tsx \
+            src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx \
+            src/components/pages/menu/meal-builder/MealPlannerCardGridV2.tsx \
+            src/components/pages/menu/meal-builder/MealPlannerItemsDialogV2.tsx \
+            src/components/pages/menu/meal-builder/MealPlannerWorkspaceV2.tsx \
+            src/components/pages/menu/meal-builder/mealPlannerV2Utils.ts \
+            src/types/mealPlannerDashboardTypes.ts \
+            src/utils/fetchMealPlannerDashboard.ts \
+            tests/mealPlannerV2Payloads.test.ts \
+            tests/mealPlannerV2ApiContract.test.ts \
+            2>&1 | tee meal-planner-v2-lint.log
+      - name: Upload focused lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meal-planner-v2-lint
+          path: meal-planner-v2-lint.log
       - name: Focused contract tests
         run: npx vitest run tests/mealPlannerV2Payloads.test.ts tests/mealPlannerV2ApiContract.test.ts
       - name: Full tests
@@ -55,3 +66,6 @@ jobs:
       - name: Full lint diagnostics
         continue-on-error: true
         run: npm run lint
+      - name: Enforce focused lint
+        if: steps.focused_lint.outcome == 'failure'
+        run: exit 1
