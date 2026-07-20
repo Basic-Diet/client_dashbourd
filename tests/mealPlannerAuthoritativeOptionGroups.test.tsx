@@ -260,7 +260,9 @@ describe("MealPlannerBuilderGroupSelector", () => {
 describe("authoritative option-family create dialog", () => {
   it("renders nested Options immediately and submits Product + Group + rules from the selected builderGroup", async () => {
     const user = userEvent.setup();
-    const onSubmit = vi.fn(async (_payload: MealPlannerCreatePayloadV2) => undefined);
+    const onSubmit = vi.fn(async (payload: MealPlannerCreatePayloadV2) => {
+      void payload;
+    });
 
     render(
       <MealPlannerCardDialogV2

@@ -132,7 +132,7 @@ export function MealPlannerBuilderGroupSelector({
   );
 }
 
-export function builderGroupLabel(group: MealPlannerBuilderGroup) {
+function builderGroupLabel(group: MealPlannerBuilderGroup) {
   const product =
     group.product?.name?.ar ||
     group.product?.name?.en ||
@@ -146,7 +146,7 @@ export function builderGroupLabel(group: MealPlannerBuilderGroup) {
   return `${product} ← ${optionGroup}`;
 }
 
-export function builderGroupReason(group: MealPlannerBuilderGroup) {
+function builderGroupReason(group: MealPlannerBuilderGroup) {
   const labels: Record<string, string> = {
     PRODUCT_NOT_READY: "المنتج غير جاهز للاشتراكات",
     OPTION_GROUP_NOT_READY: "مجموعة الخيارات غير جاهزة",

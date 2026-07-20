@@ -258,7 +258,7 @@ export function MealPlannerCandidatePickerV2({
                     </span>
                     <span className="mt-1 block truncate text-xs text-muted-foreground">
                       {selectable
-                        ? candidate.key || "جاهز للاختيار"
+                        ? candidateMeta(candidate)
                         : candidateReason(candidate)}
                     </span>
                   </span>
