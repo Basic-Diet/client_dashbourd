@@ -1,9 +1,10 @@
 name: Apply Authoritative Option Groups
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/meal-builder-authoritative-option-groups
+      - main
+    types: [opened, reopened, synchronize]
     paths:
       - .qa/patch_authoritative_option_groups.py
       - .github/workflows/apply-authoritative-option-groups.yml
