@@ -65,6 +65,36 @@ describe("Meal Planner V2 components", () => {
     expect(screen.queryByText(/system_premium/i)).not.toBeInTheDocument();
   });
 
+  it("reads creatable card types and option roles from cardContract", async () => {
+    const user = userEvent.setup();
+    render(
+      <MealPlannerCardDialogV2
+        catalog={emptyCatalog}
+        cardContract={{
+          dynamicCardTypes: [
+            {
+              cardType: "option_family",
+              allowedOptionRoles: ["carbs"],
+            },
+          ],
+        }}
+        pending={false}
+        onClose={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /منتجات كاملة/ })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /خيارات وجبة مركبة/ })
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("combobox", { name: "نوع الخيارات" }));
+    expect(screen.queryByText("خيارات بروتين")).not.toBeInTheDocument();
+    expect(screen.getByText("خيارات كارب")).toBeInTheDocument();
+  });
+
   it("submits a direct card using the canonical full_meal_product payload", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async (payload: MealPlannerCreatePayloadV2) => {
@@ -125,6 +155,38 @@ describe("Meal Planner V2 components", () => {
     expect(screen.getByText("المنتج الأساسي")).toBeInTheDocument();
     expect(screen.getByText("مجموعة الخيارات")).toBeInTheDocument();
     expect(screen.getByText("عائلة البروتين")).toBeInTheDocument();
+  });
+
+  it("renders contradictory historical sandwich metadata as a complete direct meal", () => {
+    render(
+      <MealPlannerCardGridV2
+        premiumSection={{ automatic: true, items: [] }}
+        sections={[
+          {
+            key: "sandwich",
+            cardType: "option_family",
+            sectionType: "product_category",
+            selectionType: "full_meal_product",
+            optionRole: "protein",
+            titleOverride: { ar: "ساندوتشات", en: "Sandwiches" },
+            selectedProductIds: ["product-1"],
+            selectedOptionIds: [],
+            selectedProducts: [{ id: "product-1", label: "برجر لحم" }],
+            visible: true,
+          },
+        ]}
+        issues={[]}
+        pending={false}
+        onEdit={vi.fn()}
+        onManageItems={vi.fn()}
+        onToggleVisibility={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("وجبة كاملة")).toBeInTheDocument();
+    expect(screen.getByText(/يُحتسب كوجبة كاملة/)).toBeInTheDocument();
+    expect(screen.queryByText("خيارات بروتين")).not.toBeInTheDocument();
   });
 
   it("renders Premium first as read-only while dynamic cards keep contextual actions", () => {

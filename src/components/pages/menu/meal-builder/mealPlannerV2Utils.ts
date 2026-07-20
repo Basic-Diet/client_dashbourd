@@ -2,6 +2,7 @@ import { parseApiError } from "@/lib/apiErrors";
 import type {
   DirectProductCardPayloadV2,
   LocalizedTextValue,
+  MealPlannerCardContractV2,
   MealPlannerCatalogCandidate,
   MealPlannerCreatePayloadV2,
   MealPlannerOptionRole,
@@ -98,21 +99,63 @@ export function normalizeCardType(
   ) {
     return "system_premium";
   }
-  const explicit = String(section.cardType || section.metadata?.cardType || "");
-  if (explicit === "direct_product" || explicit === "option_family") return explicit;
-  if (section.sectionType === "product_list" || section.selectedProductIds?.length) {
+  const selectionType = String(section.selectionType || "");
+  const sectionType = String(section.sectionType || "");
+  const selectedProductCount = section.selectedProductIds?.length || 0;
+  const selectedOptionCount = section.selectedOptionIds?.length || 0;
+
+  // Canonical meal identity wins over contradictory historical card metadata.
+  // Production contains legacy sections where a complete sandwich product still
+  // carries option-family metadata. Those sections must remain direct meals.
+  if (
+    selectionType === "full_meal_product" ||
+    selectionType === "sandwich" ||
+    sectionType === "product_list" ||
+    sectionType === "product_category" ||
+    (selectedProductCount > 0 && selectedOptionCount === 0)
+  ) {
     return "direct_product";
   }
+
+  const explicit = String(section.cardType || section.metadata?.cardType || "");
+  if (explicit === "direct_product" || explicit === "option_family") return explicit;
   if (
-    section.sectionType === "option_group" ||
-    section.sectionType === "option_family" ||
-    section.selectedOptionIds?.length ||
+    sectionType === "option_group" ||
+    sectionType === "option_family" ||
+    selectedOptionCount > 0 ||
     section.productContextId ||
     section.sourceGroupId
   ) {
     return "option_family";
   }
   return "legacy";
+}
+
+export function creatableCardTypes(
+  contract?: MealPlannerCardContractV2 | null
+): Array<"direct_product" | "option_family"> {
+  const values = (contract?.dynamicCardTypes || [])
+    .map((entry) => String(entry.cardType || ""))
+    .filter(
+      (value): value is "direct_product" | "option_family" =>
+        value === "direct_product" || value === "option_family"
+    );
+  return values.length
+    ? Array.from(new Set(values))
+    : ["direct_product", "option_family"];
+}
+
+export function allowedOptionRoles(
+  contract?: MealPlannerCardContractV2 | null
+): MealPlannerOptionRole[] {
+  const optionContract = contract?.dynamicCardTypes?.find(
+    (entry) => entry.cardType === "option_family"
+  );
+  const values = (optionContract?.allowedOptionRoles || []).filter(
+    (value): value is MealPlannerOptionRole =>
+      value === "protein" || value === "carbs"
+  );
+  return values.length ? Array.from(new Set(values)) : ["protein", "carbs"];
 }
 
 export function canonicalSelectionType(section: MealPlannerSectionV2) {

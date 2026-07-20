@@ -412,36 +412,49 @@ try {
     hasText: updatedTitle,
   });
   await deleteDialog.waitFor();
+  const deleteResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "DELETE" &&
+      new URL(response.url()).pathname.endsWith(
+        `/api/dashboard/meal-builder/sections/${encodeURIComponent(renamedKey)}`
+      ),
+    { timeout: 45_000 }
+  );
   await deleteDialog.getByRole("button", { name: "حذف الكارت" }).click();
+  const deleteResponse = await deleteResponsePromise;
+  const deletePayload = await deleteResponse.json().catch(() => null);
+  const deleteDraftKeys = Array.isArray(deletePayload?.data?.draft?.sections)
+    ? deletePayload.data.draft.sections.map((section) => String(section?.key || ""))
+    : [];
+  report.apiResponses.push({
+    operation: "delete",
+    status: deleteResponse.status(),
+    contractVersion: deletePayload?.data?.contractVersion || null,
+    action: deletePayload?.data?.action || null,
+    previousSectionKey: deletePayload?.data?.previousSectionKey || null,
+    responseHasDraft: Array.isArray(deletePayload?.data?.draft?.sections),
+    remainingQaKeys: deleteDraftKeys.filter(
+      (key) => key === originalKey || key === renamedKey
+    ),
+    errorCode: deletePayload?.error?.code || null,
+  });
+  if (!deleteResponse.ok()) {
+    throw new Error(`Delete failed with ${deleteResponse.status()}`);
+  }
+  if (
+    deletePayload?.data?.action !== "deleted" ||
+    deletePayload?.data?.previousSectionKey !== renamedKey ||
+    deleteDraftKeys.includes(originalKey) ||
+    deleteDraftKeys.includes(renamedKey)
+  ) {
+    throw new Error("Delete response did not return a clean authoritative draft");
+  }
   await page.getByRole("heading", { name: updatedTitle, exact: true }).waitFor({
     state: "detached",
     timeout: 45_000,
   });
-  check("Deleted the QA card through the UI");
-
-  const stateResult = await apiRequest(
-    token,
-    "GET",
-    "/api/dashboard/meal-builder?lang=ar"
-  );
-  if (!stateResult.response.ok) {
-    throw new Error(`State verification failed with ${stateResult.response.status}`);
-  }
-  const editableSections =
-    stateResult.payload?.data?.draft?.sections ||
-    stateResult.payload?.data?.published?.sections ||
-    [];
-  const editableSectionKeys = Array.isArray(editableSections)
-    ? editableSections.map((section) => String(section?.key || ""))
-    : [];
-  if (
-    editableSectionKeys.includes(originalKey) ||
-    editableSectionKeys.includes(renamedKey)
-  ) {
-    throw new Error("Deleted QA card is still present in editable Backend sections");
-  }
-  check("Authoritative Backend sections confirm QA card cleanup", {
-    editableSectionCount: editableSectionKeys.length,
+  check("Deleted the QA card and verified the authoritative mutation draft", {
+    remainingSectionCount: deleteDraftKeys.length,
   });
 
   await page.setViewportSize({ width: 390, height: 844 });

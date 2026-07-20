@@ -473,6 +473,7 @@ export function MealPlannerWorkspaceV2({
           key={editor === "create" ? "create" : editor.key}
           section={editor === "create" ? null : editor}
           catalog={catalog}
+          cardContract={state.cardContract ?? catalog.cardContract}
           pending={cardMutation.isPending}
           onClose={() => setEditor(null)}
           onSubmit={saveCard}

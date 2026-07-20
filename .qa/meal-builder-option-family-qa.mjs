@@ -288,9 +288,6 @@ try {
     has: page.getByRole("heading", { name: new RegExp("إدارة عناصر") }),
   });
   await itemsDialog.waitFor();
-  const selectedButton = itemsDialog.locator('button[aria-pressed="true"]:not([disabled])').first();
-  await selectedButton.waitFor({ timeout: 45_000 });
-  const removedText = (await selectedButton.innerText()).trim();
   const selectedCandidates = pickerPayload?.data?.candidates || [];
   const removedCandidate = selectedCandidates.find((candidate) => {
     const id = String(candidate?.optionId || candidate?.id || candidate?._id || "");
@@ -299,9 +296,16 @@ try {
   removedId = String(
     removedCandidate?.optionId || removedCandidate?.id || removedCandidate?._id || ""
   );
-  if (!removedId) {
-    throw new Error("Could not resolve the selected Option canonical ID");
+  const removedKey = String(removedCandidate?.key || "");
+  if (!removedId || !removedKey) {
+    throw new Error("Could not resolve the selected Option canonical identity");
   }
+  const selectedButton = itemsDialog
+    .locator('button[aria-pressed="true"]:not([disabled])')
+    .filter({ hasText: removedKey })
+    .first();
+  await selectedButton.waitFor({ timeout: 45_000 });
+  const removedText = (await selectedButton.innerText()).trim();
   await selectedButton.click();
 
   const reducedIds = originalIds.filter((id) => id !== removedId);
@@ -347,7 +351,7 @@ try {
   await restoreDialog.waitFor();
   const restoreButton = restoreDialog
     .locator('button[aria-pressed="false"]:not([disabled])')
-    .filter({ hasText: removedText })
+    .filter({ hasText: removedKey })
     .first();
   await restoreButton.waitFor({ timeout: 45_000 });
   await restoreButton.click();

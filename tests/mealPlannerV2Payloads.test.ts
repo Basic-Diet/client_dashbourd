@@ -5,6 +5,7 @@ import {
   buildOptionFamilyPayload,
   ERROR_MESSAGES,
   canonicalSelectionType,
+  normalizeCardType,
 } from "../src/components/pages/menu/meal-builder/mealPlannerV2Utils";
 
 describe("Meal Planner V2 payload builders", () => {
@@ -93,6 +94,21 @@ describe("Meal Planner V2 payload builders", () => {
         selectionType: "sandwich",
       })
     ).toBe("full_meal_product");
+  });
+
+  it("keeps a canonical full-meal sandwich direct despite contradictory legacy metadata", () => {
+    const section = {
+      key: "sandwich",
+      cardType: "option_family",
+      sectionType: "product_category",
+      selectionType: "full_meal_product",
+      selectedProductIds: ["product-1"],
+      selectedOptionIds: [],
+      optionRole: "protein",
+    } as const;
+
+    expect(normalizeCardType(section)).toBe("direct_product");
+    expect(canonicalSelectionType(section)).toBe("full_meal_product");
   });
 
   it("maps core backend errors to Arabic", () => {
