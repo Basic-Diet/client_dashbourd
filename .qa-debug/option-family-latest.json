@@ -1,36 +1,36 @@
 {
-  "startedAt": "2026-07-20T02:37:51.639Z",
+  "startedAt": "2026-07-20T02:48:22.694Z",
   "frontendUrl": "http://127.0.0.1:5173",
   "backendUrl": "https://basicdiet145.onrender.com",
   "checks": [
     {
       "name": "Authenticated through the real Dashboard login UI",
       "ok": true,
-      "at": "2026-07-20T02:38:02.939Z"
+      "at": "2026-07-20T02:48:33.993Z"
     },
     {
       "name": "Existing option-family card is rendered with clear user-facing labels",
       "ok": true,
-      "at": "2026-07-20T02:38:13.059Z",
+      "at": "2026-07-20T02:48:43.498Z",
       "targetKey": "carbs",
       "optionRole": "carbs"
     },
     {
       "name": "Option-family edit form keeps card type read-only and exposes its context",
       "ok": true,
-      "at": "2026-07-20T02:38:13.274Z"
+      "at": "2026-07-20T02:48:43.680Z"
     },
     {
       "name": "Removed one linked Option through the UI and verified authoritative state",
       "ok": true,
-      "at": "2026-07-20T02:38:51.828Z",
+      "at": "2026-07-20T02:49:22.003Z",
       "removedOptionId": "6a3e86b03a3b9944089f89e8",
       "removedText": "رز أبيض\nwhite_rice"
     },
     {
       "name": "Restored the exact original option-family list",
       "ok": true,
-      "at": "2026-07-20T02:39:30.530Z",
+      "at": "2026-07-20T02:49:46.910Z",
       "targetKey": "carbs",
       "restoredOptionId": "6a3e86b03a3b9944089f89e8",
       "originalOptionCount": 7
@@ -38,8 +38,8 @@
     {
       "name": "Reversible option-family browser journey",
       "ok": false,
-      "at": "2026-07-20T02:40:00.647Z",
-      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog').filter({ has: getByRole('heading', { name: 'إضافة كارت جديد' }) }).getByRole('radio', { name: /خيارات وجبة مركبة/ })\n"
+      "at": "2026-07-20T02:49:47.304Z",
+      "error": "locator.waitFor: Error: strict mode violation: getByRole('dialog').filter({ has: getByRole('heading', { name: 'إضافة كارت جديد' }) }).getByText('المنتج الأساسي') resolved to 3 elements:\n    1) <p class=\"mt-1 text-xs text-muted-foreground\">اختر النوع، المنتج الأساسي، المجموعة، ثم العناصر …</p> aka getByText('اختر النوع، المنتج الأساسي، المجموعة، ثم العناصر المرتبطة فعليًا')\n    2) <label id=\"_r_3j_-label\" class=\"text-sm font-medium\">المنتج الأساسي</label> aka getByText('المنتج الأساسي', { exact: true })\n    3) <div class=\"grid min-h-32 place-items-center rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground\">اختر المنتج الأساسي ومجموعة الخيارات أولًا.</div> aka getByText('اختر المنتج الأساسي ومجموعة الخيارات أولًا')\n\nCall log:\n  - waiting for getByRole('dialog').filter({ has: getByRole('heading', { name: 'إضافة كارت جديد' }) }).getByText('المنتج الأساسي') to be visible\n"
     }
   ],
   "apiResponses": [
@@ -85,8 +85,8 @@
     "optionRole": "carbs",
     "productContextId": "6a3e870b3a3b9944089f8ca6",
     "sourceGroupId": "6a3e86af3a3b9944089f89e5",
-    "familyKey": null,
+    "familyKey": "carbs",
     "originalOptionCount": 7
   },
-  "finishedAt": "2026-07-20T02:40:21.448Z"
+  "finishedAt": "2026-07-20T02:50:08.237Z"
 }
