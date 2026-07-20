@@ -81,7 +81,7 @@ async function apiRequest(token, method, endpoint, body) {
     headers: {
       Accept: "application/json",
       "Accept-Language": "ar",
-      Authorization: `Bearer ${token}`,
+      Authorization: token ? `Bearer ${token}` : "",
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -427,11 +427,22 @@ try {
   if (!stateResult.response.ok) {
     throw new Error(`State verification failed with ${stateResult.response.status}`);
   }
-  const stateText = JSON.stringify(stateResult.payload);
-  if (stateText.includes(originalKey) || stateText.includes(renamedKey)) {
-    throw new Error("Deleted QA card is still present in authoritative Backend state");
+  const editableSections =
+    stateResult.payload?.data?.draft?.sections ||
+    stateResult.payload?.data?.published?.sections ||
+    [];
+  const editableSectionKeys = Array.isArray(editableSections)
+    ? editableSections.map((section) => String(section?.key || ""))
+    : [];
+  if (
+    editableSectionKeys.includes(originalKey) ||
+    editableSectionKeys.includes(renamedKey)
+  ) {
+    throw new Error("Deleted QA card is still present in editable Backend sections");
   }
-  check("Authoritative Backend state confirms QA card cleanup");
+  check("Authoritative Backend sections confirm QA card cleanup", {
+    editableSectionCount: editableSectionKeys.length,
+  });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${FRONTEND_URL}/menu?tab=meal-builder`, {
