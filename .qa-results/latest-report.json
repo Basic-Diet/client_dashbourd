@@ -1,0 +1,144 @@
+{
+  "runId": "qa_1784511887302",
+  "frontendUrl": "http://127.0.0.1:5173",
+  "protectedPreviewAccessUsed": false,
+  "backendUrl": "https://basicdiet145.onrender.com",
+  "startedAt": "2026-07-20T01:44:47.302Z",
+  "checks": [
+    {
+      "name": "Authenticated through the real Dashboard login UI",
+      "ok": true,
+      "at": "2026-07-20T01:44:48.808Z"
+    },
+    {
+      "name": "Meal Builder route loaded after authentication",
+      "ok": true,
+      "at": "2026-07-20T01:44:59.348Z"
+    },
+    {
+      "name": "Desktop workspace has no horizontal overflow",
+      "ok": true,
+      "at": "2026-07-20T01:44:59.543Z",
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    },
+    {
+      "name": "Premium card is visible first and read-only",
+      "ok": true,
+      "at": "2026-07-20T01:44:59.563Z"
+    },
+    {
+      "name": "Create form blocks incomplete submission",
+      "ok": true,
+      "at": "2026-07-20T01:44:59.668Z"
+    },
+    {
+      "name": "Created and read a direct-product card through the UI",
+      "ok": true,
+      "at": "2026-07-20T01:45:24.273Z",
+      "key": "qa_1784511887302_direct",
+      "selectedProductText": "برجر لحم\nbeef_burger_sandwich"
+    },
+    {
+      "name": "Updated card title and key through the UI",
+      "ok": true,
+      "at": "2026-07-20T01:45:34.487Z",
+      "renamedKey": "qa_1784511887302_direct_updated"
+    },
+    {
+      "name": "Replaced the card product list through the batch-items UI",
+      "ok": true,
+      "at": "2026-07-20T01:46:08.132Z",
+      "addedProductText": "حلوى صحية\nhealthy_dessert"
+    },
+    {
+      "name": "Hid the card through the contextual visibility action",
+      "ok": true,
+      "at": "2026-07-20T01:46:16.040Z"
+    },
+    {
+      "name": "Restored card visibility through the contextual action",
+      "ok": true,
+      "at": "2026-07-20T01:46:24.448Z"
+    },
+    {
+      "name": "Workspace search finds the updated card",
+      "ok": true,
+      "at": "2026-07-20T01:46:24.545Z"
+    },
+    {
+      "name": "Published configuration preview opens without mutating the draft",
+      "ok": true,
+      "at": "2026-07-20T01:46:24.858Z"
+    },
+    {
+      "name": "Backend validation was triggered and surfaced clearly without publishing",
+      "ok": true,
+      "at": "2026-07-20T01:46:33.151Z",
+      "ready": true,
+      "errorCount": 0,
+      "warningCount": 0
+    },
+    {
+      "name": "Deleted the QA card through the UI",
+      "ok": true,
+      "at": "2026-07-20T01:46:33.409Z"
+    },
+    {
+      "name": "Authenticated Meal Builder CRUD browser journey",
+      "ok": false,
+      "at": "2026-07-20T01:46:43.331Z",
+      "error": "Deleted QA card is still present in editable Backend sections"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedApiResponses": [],
+  "apiResponses": [
+    {
+      "operation": "create",
+      "status": 201,
+      "contractVersion": "dashboard_meal_builder_card_action.v1",
+      "action": "created",
+      "responseHasDraft": true,
+      "responseHasValidation": true,
+      "section": {
+        "key": "qa_1784511887302_direct",
+        "cardType": "direct_product",
+        "sectionType": "product_list",
+        "selectionType": "full_meal_product",
+        "selectedProductCount": 1,
+        "selectedOptionCount": 0
+      },
+      "errorCode": null
+    },
+    {
+      "operation": "validate",
+      "status": 200,
+      "ready": true,
+      "errorCount": 0,
+      "warningCount": 0,
+      "responseHasChecks": true,
+      "errorCode": null
+    }
+  ],
+  "cleanup": [
+    {
+      "key": "qa_1784511887302_direct_updated",
+      "status": 404,
+      "ok": false,
+      "contractVersion": null,
+      "action": null,
+      "errorCode": "MEAL_BUILDER_CARD_NOT_FOUND"
+    },
+    {
+      "key": "qa_1784511887302_direct",
+      "status": 404,
+      "ok": false,
+      "contractVersion": null,
+      "action": null,
+      "errorCode": "MEAL_BUILDER_CARD_NOT_FOUND"
+    }
+  ],
+  "finishedAt": "2026-07-20T01:46:59.173Z"
+}
