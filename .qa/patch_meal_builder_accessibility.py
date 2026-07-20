@@ -3,28 +3,21 @@ from pathlib import Path
 path = Path("src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx")
 content = path.read_text(encoding="utf-8")
 
-
-def replace_once(old: str, new: str) -> None:
-    global content
-    count = content.count(old)
-    if count != 1:
-        raise RuntimeError(f"expected one match, found {count}: {old[:160]!r}")
-    content = content.replace(old, new, 1)
-
-
-replace_once(
-    '''import { useMemo, useState } from "react";''',
-    '''import { useId, useMemo, useState } from "react";''',
+content = content.replace(
+    'import { useMemo, useState } from "react";',
+    'import { useId, useMemo, useState } from "react";',
+    1,
 )
-replace_once(
-    '''}) {
+
+content = content.replace(
+    '''} & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type">) {
   return (
     <div className="space-y-2">
       <FieldLabel>{label}</FieldLabel>
       <Input
         type={type}
         value={value}''',
-    '''}) {
+    '''} & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type">) {
   const id = useId();
   return (
     <div className="space-y-2">
@@ -33,15 +26,19 @@ replace_once(
         id={id}
         type={type}
         value={value}''',
+    1,
 )
-replace_once(
-    '''}) {
+
+content = content.replace(
+    '''  onChange: (value: string) => void;
+}) {
   return (
     <div className="space-y-2">
       <FieldLabel>{label}</FieldLabel>
       <Select value={value || undefined} disabled={disabled} onValueChange={onChange}>
         <SelectTrigger className="w-full">''',
-    '''}) {
+    '''  onChange: (value: string) => void;
+}) {
   const id = useId();
   const labelId = `${id}-label`;
   return (
@@ -49,52 +46,14 @@ replace_once(
       <FieldLabel id={labelId}>{label}</FieldLabel>
       <Select value={value || undefined} disabled={disabled} onValueChange={onChange}>
         <SelectTrigger className="w-full" aria-labelledby={labelId}>''',
+    1,
 )
-replace_once(
-    '''}) {
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-xl bg-background p-3">
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+content = content.replace(
+    '''function FieldLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-sm font-medium">{children}</p>;
 }''',
-    '''}) {
-  const id = useId();
-  const descriptionId = `${id}-description`;
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-xl bg-background p-3">
-      <div>
-        <label htmlFor={id} className="text-sm font-medium">
-          {label}
-        </label>
-        <p
-          id={descriptionId}
-          className="mt-1 text-xs leading-5 text-muted-foreground"
-        >
-          {description}
-        </p>
-      </div>
-      <Switch
-        id={id}
-        checked={checked}
-        aria-describedby={descriptionId}
-        onCheckedChange={onChange}
-      />
-    </div>
-  );
-}
-
-function FieldLabel({
+    '''function FieldLabel({
   children,
   htmlFor,
   id,
@@ -109,6 +68,17 @@ function FieldLabel({
     </label>
   );
 }''',
+    1,
 )
+
+required = [
+    'import { useId, useMemo, useState } from "react";',
+    '<FieldLabel htmlFor={id}>{label}</FieldLabel>',
+    'aria-labelledby={labelId}',
+    'htmlFor?: string;',
+]
+missing = [marker for marker in required if marker not in content]
+if missing:
+    raise RuntimeError(f"accessibility markers missing after patch: {missing}")
 
 path.write_text(content, encoding="utf-8")
