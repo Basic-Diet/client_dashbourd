@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -76,11 +76,14 @@ jobs:
       QA_PASSWORD: Admin@123456
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: test/meal-builder-authenticated-crud-qa
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: mkdir -p .qa-artifacts
+      - run: mkdir -p .qa-artifacts .qa-results
       - name: Clean known QA keys before browser CRUD
         env:
           CLEANUP_KEYS: qa_1784504803186_direct_updated,qa_1784504803186_direct,qa_1784501133630_direct_updated,qa_1784501133630_direct
@@ -130,6 +133,22 @@ jobs:
             echo '```'
           } > .qa-artifacts/comment.md
           gh pr comment 84 --body-file .qa-artifacts/comment.md
+      - name: Persist latest QA report on the QA branch
+        if: always()
+        run: |
+          cp .qa-artifacts/meal-builder-qa-report.json .qa-results/latest-report.json 2>/dev/null || echo '{"report":"missing"}' > .qa-results/latest-report.json
+          {
+            echo "browserOutcome=${{ steps.browser_qa.outcome }}"
+            echo "runId=${{ github.run_id }}"
+            echo "headSha=${{ github.sha }}"
+          } > .qa-results/latest-run.txt
+          git config user.name 'Basic Diet QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -f .qa-results/latest-report.json .qa-results/latest-run.txt
+          if ! git diff --cached --quiet; then
+            git commit -m 'test(meal-builder): record latest serialized QA result'
+            git push origin HEAD:test/meal-builder-authenticated-crud-qa
+          fi
       - name: Upload QA screenshots, trace, and report
         if: always()
         uses: actions/upload-artifact@v4
