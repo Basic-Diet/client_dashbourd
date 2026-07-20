@@ -22,6 +22,42 @@ jobs:
         with:
           ref: feat/meal-builder-authoritative-option-groups
           fetch-depth: 0
+      - name: Narrow ambiguous patch target
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.qa/patch_authoritative_option_groups.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''replace_once(
+              grid,
+              \'''  issues,
+            pending,
+            onEdit,\''',
+              \'''  issues,
+            pending,
+            readOnly = false,
+            onEdit,\''',
+          )'''
+          new = '''replace_once(
+              grid,
+              \'''export function MealPlannerCardGridV2({
+            premiumSection,
+            sections,
+            issues,
+            pending,
+            onEdit,\''',
+              \'''export function MealPlannerCardGridV2({
+            premiumSection,
+            sections,
+            issues,
+            pending,
+            readOnly = false,
+            onEdit,\''',
+          )'''
+          if text.count(old) != 1:
+              raise SystemExit(f'Expected one ambiguous grid patch block, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Apply frontend integration patch
         id: patch
         continue-on-error: true
