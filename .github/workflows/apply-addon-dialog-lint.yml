@@ -1,9 +1,9 @@
 name: Apply Addon Dialog Lint Fix
 
 on:
-  push:
-    branches:
-      - fix/addon-dialog-full-lint
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
     paths:
       - .qa/patch_addon_dialog_lint.py
       - .github/workflows/apply-addon-dialog-lint.yml
