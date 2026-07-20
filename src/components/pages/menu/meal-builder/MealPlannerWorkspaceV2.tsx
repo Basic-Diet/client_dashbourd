@@ -94,6 +94,7 @@ type FilterType = "all" | "direct_product" | "protein" | "carbs";
 
 const STATE_KEY = ["dashboard.meal-planner.v2.state"] as const;
 const READINESS_KEY = ["dashboard.meal-planner.v2.readiness"] as const;
+const PICKER_KEY = ["dashboard.meal-planner.v2.picker"] as const;
 
 export function MealPlannerWorkspaceV2({
   externalNavigationBlocked = false,
@@ -250,10 +251,12 @@ export function MealPlannerWorkspaceV2({
         : current
     );
     void queryClient.invalidateQueries({ queryKey: READINESS_KEY });
+    void queryClient.invalidateQueries({ queryKey: PICKER_KEY });
   }
 
   async function reloadAuthoritative(showToast = false) {
     setWorkspace(null);
+    await queryClient.invalidateQueries({ queryKey: PICKER_KEY });
     await Promise.all([stateQuery.refetch(), readinessQuery.refetch()]);
     if (showToast) toast.success("تم تحديث بيانات منشئ الوجبات");
   }

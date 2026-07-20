@@ -210,6 +210,7 @@ export function mealPlannerErrorMessage(error: unknown, fallback: string) {
 
 export const ERROR_MESSAGES: Record<string, string> = {
   MEAL_BUILDER_CARD_KEY_INVALID: "مفتاح الكارت غير صالح",
+  MEAL_BUILDER_CARD_NUMBER_INVALID: "قيمة الترتيب أو العدد غير صالحة",
   MEAL_BUILDER_CARD_KEY_DUPLICATE: "يوجد كارت آخر بنفس المفتاح",
   MEAL_BUILDER_CARD_NOT_FOUND: "الكارت غير موجود",
   MEAL_BUILDER_CARD_TYPE_INVALID: "نوع الكارت غير مدعوم",
@@ -220,8 +221,11 @@ export const ERROR_MESSAGES: Record<string, string> = {
   MEAL_BUILDER_CARD_SELECTION_TYPE_REQUIRED: "نوع الوجبة مطلوب",
   MEAL_BUILDER_CARD_SELECTION_TYPE_INVALID: "نوع الوجبة غير صالح",
   MEAL_BUILDER_CARD_PRODUCTS_REQUIRED: "اختر منتجًا واحدًا على الأقل",
+  MEAL_BUILDER_PRODUCT_IDS_INVALID: "قائمة المنتجات المرسلة غير صالحة",
+  MEAL_BUILDER_PRODUCT_IDS_REQUIRED: "اختر منتجًا واحدًا على الأقل",
   MEAL_BUILDER_PRODUCT_NOT_FOUND: "أحد المنتجات غير موجود",
   MEAL_BUILDER_PRODUCT_UNAVAILABLE: "أحد المنتجات غير جاهز للاشتراكات",
+  MEAL_BUILDER_PRODUCT_TYPE_INVALID: "نوع أحد المنتجات غير مدعوم في الكارت",
   MEAL_BUILDER_PRODUCT_ALREADY_ASSIGNED: "المنتج موجود في كارت آخر",
   MEAL_BUILDER_PRODUCT_NOT_IN_CARD: "المنتج غير موجود داخل هذا الكارت",
   MEAL_BUILDER_OPTION_ROLE_REQUIRED: "اختر نوع الخيارات: بروتين أو كارب",
@@ -239,6 +243,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   MEAL_BUILDER_PREMIUM_OPTION_SYSTEM_MANAGED: "خيارات Premium تُدار من كارت Premium",
   MEAL_BUILDER_CARBS_CARD_REQUIRED: "كروت البروتين تحتاج كارت كارب لنفس المنتج الأساسي",
   MEAL_BUILDER_DRAFT_NOT_FOUND: "لا توجد تغييرات غير منشورة",
+  MEAL_BUILDER_VALIDATION_ERROR: "بيانات الكارت غير صالحة وتحتاج مراجعة",
   MEAL_BUILDER_VALIDATION_FAILED: "لا يمكن النشر قبل إصلاح الأخطاء",
   MEAL_BUILDER_CONFLICT: "حدث تعارض، أعد تحميل الصفحة",
   MEAL_BUILDER_INTERNAL_ERROR: "حدث خطأ غير متوقع",
@@ -255,6 +260,7 @@ const REASON_MESSAGES: Record<string, string> = {
   OPTION_HIDDEN: "الخيار مخفي",
   OPTION_UNAVAILABLE: "الخيار غير متاح",
   OPTION_UNPUBLISHED: "الخيار غير منشور",
+  OPTION_NOT_SUBSCRIPTION_ENABLED: "الخيار غير متاح للاشتراكات",
   CATALOG_ITEM_UNAVAILABLE: "عنصر الكتالوج غير متاح",
 };
 
