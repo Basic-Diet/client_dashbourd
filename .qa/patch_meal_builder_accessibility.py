@@ -71,14 +71,48 @@ content = content.replace(
     1,
 )
 
+content = content.replace(
+    '''  function changeType(cardType: "direct_product" | "option_family") {
+    if (editing || cardType === value.cardType) return;
+    setValue((current) => ({
+      ...current,
+      cardType,
+      selectedIds: [],
+      optionRole: "protein",
+      familyKey: "",
+      productContextId: "",
+      sourceGroupId: "",
+      maxSelections: 1,
+      multiSelect: false,
+    }));
+  }''',
+    '''  function changeType(cardType: "direct_product" | "option_family") {
+    if (editing || cardType === value.cardType) return;
+    const defaultRole = optionRoles[0] || "protein";
+    setValue((current) => ({
+      ...current,
+      cardType,
+      selectedIds: [],
+      optionRole: defaultRole,
+      familyKey: "",
+      productContextId: "",
+      sourceGroupId: "",
+      maxSelections: defaultRole === "carbs" ? 2 : 1,
+      multiSelect: defaultRole === "carbs",
+    }));
+  }''',
+    1,
+)
+
 required = [
     'import { useId, useMemo, useState } from "react";',
     '<FieldLabel htmlFor={id}>{label}</FieldLabel>',
     'aria-labelledby={labelId}',
     'htmlFor?: string;',
+    'const defaultRole = optionRoles[0] || "protein";',
 ]
 missing = [marker for marker in required if marker not in content]
 if missing:
-    raise RuntimeError(f"accessibility markers missing after patch: {missing}")
+    raise RuntimeError(f"form hardening markers missing after patch: {missing}")
 
 path.write_text(content, encoding="utf-8")
