@@ -1,0 +1,42 @@
+name: Patch Final Meal Builder Contract
+
+on:
+  push:
+    branches:
+      - test/meal-builder-authenticated-crud-qa
+    paths:
+      - .qa/patch_final_meal_builder_contract.py
+      - .github/workflows/patch-final-meal-builder-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/meal-builder-authenticated-crud-qa
+          fetch-depth: 0
+      - run: python .qa/patch_final_meal_builder_contract.py
+      - name: Commit final contract hardening
+        run: |
+          if git diff --quiet; then
+            echo 'No patch needed.'
+            exit 0
+          fi
+          git config user.name 'Basic Diet QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add \
+            src/components/pages/menu/meal-builder/mealPlannerV2Utils.ts \
+            src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx \
+            src/components/pages/menu/meal-builder/MealPlannerWorkspaceV2.tsx \
+            tests/mealPlannerV2Payloads.test.ts \
+            tests/mealPlannerV2Components.test.tsx \
+            .qa/meal-builder-authenticated-qa.mjs \
+            .qa/meal-builder-option-family-qa.mjs
+          git commit -m 'fix(meal-builder): honor canonical cards and backend contract'
+          git push origin HEAD:test/meal-builder-authenticated-crud-qa
