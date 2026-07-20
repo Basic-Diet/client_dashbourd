@@ -1,13 +1,6 @@
 name: Patch Meal Builder Accessibility
 
 on:
-  pull_request:
-    branches:
-      - main
-    types: [opened, reopened, synchronize]
-    paths:
-      - .qa/patch_meal_builder_accessibility.py
-      - .github/workflows/patch-meal-builder-accessibility.yml
   workflow_dispatch:
 
 permissions:
