@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 const premiumItemSchema = z.object({
-  premiumMealId: z.string().min(1, "معرف الوجبة المميزة مطلوب"),
-  qty: z.number().min(1, "الكمية يجب أن تكون 1 على الأقل"),
+  premiumKey: z.string().min(1, "معرف الوجبة المميزة مطلوب"),
+  qty: z.number().int("الكمية يجب أن تكون رقماً صحيحاً").min(1, "الكمية يجب أن تكون 1 على الأقل"),
 });
 
 const deliveryAddressSchema = z.object({
