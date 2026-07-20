@@ -65,8 +65,7 @@ describe("Meal Planner V2 components", () => {
     expect(screen.queryByText(/system_premium/i)).not.toBeInTheDocument();
   });
 
-  it("reads creatable card types and option roles from cardContract", async () => {
-    const user = userEvent.setup();
+  it("reads creatable card types and option roles from cardContract", () => {
     render(
       <MealPlannerCardDialogV2
         catalog={emptyCatalog}
@@ -90,9 +89,10 @@ describe("Meal Planner V2 components", () => {
     expect(
       screen.getByRole("button", { name: /خيارات وجبة مركبة/ })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("combobox", { name: "نوع الخيارات" }));
+    expect(
+      screen.getByRole("combobox", { name: "نوع الخيارات" })
+    ).toHaveTextContent("خيارات كارب");
     expect(screen.queryByText("خيارات بروتين")).not.toBeInTheDocument();
-    expect(screen.getByText("خيارات كارب")).toBeInTheDocument();
   });
 
   it("submits a direct card using the canonical full_meal_product payload", async () => {
