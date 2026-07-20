@@ -1,9 +1,10 @@
 name: Patch Meal Builder Accessibility
 
 on:
-  push:
+  pull_request:
     branches:
-      - test/meal-builder-authenticated-crud-qa
+      - main
+    types: [opened, reopened, synchronize]
     paths:
       - .qa/patch_meal_builder_accessibility.py
       - .github/workflows/patch-meal-builder-accessibility.yml
