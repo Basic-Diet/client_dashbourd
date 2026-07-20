@@ -13,7 +13,7 @@ permissions:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,15 +22,57 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Prepare diagnostics
+        run: mkdir -p .qa-diagnostics
       - name: Install dependencies
         run: npm ci
       - name: TypeScript typecheck
-        run: npm run typecheck
+        id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee .qa-diagnostics/typecheck.log
       - name: Full ESLint
-        run: npm run lint
+        id: lint
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee .qa-diagnostics/lint.log
       - name: Full test suite
-        run: npm test
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee .qa-diagnostics/tests.log
       - name: Production build
-        run: npm run build
+        id: build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee .qa-diagnostics/build.log
       - name: Diff integrity
-        run: git diff --check
+        id: diff
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          git diff --check 2>&1 | tee .qa-diagnostics/diff.log
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meal-builder-authoritative-gate-diagnostics
+          path: .qa-diagnostics
+          retention-days: 7
+      - name: Enforce gate
+        if: >-
+          steps.typecheck.outcome == 'failure' ||
+          steps.lint.outcome == 'failure' ||
+          steps.tests.outcome == 'failure' ||
+          steps.build.outcome == 'failure' ||
+          steps.diff.outcome == 'failure'
+        run: exit 1
