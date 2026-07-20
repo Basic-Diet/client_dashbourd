@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { MealPlannerSectionV2 } from "../src/types/mealPlannerDashboardTypes";
 import {
   buildDirectProductPayload,
   buildOptionFamilyPayload,
@@ -97,7 +98,7 @@ describe("Meal Planner V2 payload builders", () => {
   });
 
   it("keeps a canonical full-meal sandwich direct despite contradictory legacy metadata", () => {
-    const section = {
+    const section: MealPlannerSectionV2 = {
       key: "sandwich",
       cardType: "option_family",
       sectionType: "product_category",
@@ -105,7 +106,7 @@ describe("Meal Planner V2 payload builders", () => {
       selectedProductIds: ["product-1"],
       selectedOptionIds: [],
       optionRole: "protein",
-    } as const;
+    };
 
     expect(normalizeCardType(section)).toBe("direct_product");
     expect(canonicalSelectionType(section)).toBe("full_meal_product");
