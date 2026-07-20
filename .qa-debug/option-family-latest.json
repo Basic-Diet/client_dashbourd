@@ -1,45 +1,56 @@
 {
-  "startedAt": "2026-07-20T02:48:22.694Z",
+  "startedAt": "2026-07-20T02:59:47.284Z",
   "frontendUrl": "http://127.0.0.1:5173",
   "backendUrl": "https://basicdiet145.onrender.com",
   "checks": [
     {
       "name": "Authenticated through the real Dashboard login UI",
       "ok": true,
-      "at": "2026-07-20T02:48:33.993Z"
+      "at": "2026-07-20T02:59:58.934Z"
     },
     {
       "name": "Existing option-family card is rendered with clear user-facing labels",
       "ok": true,
-      "at": "2026-07-20T02:48:43.498Z",
+      "at": "2026-07-20T03:00:08.554Z",
       "targetKey": "carbs",
       "optionRole": "carbs"
     },
     {
       "name": "Option-family edit form keeps card type read-only and exposes its context",
       "ok": true,
-      "at": "2026-07-20T02:48:43.680Z"
+      "at": "2026-07-20T03:00:08.796Z"
     },
     {
       "name": "Removed one linked Option through the UI and verified authoritative state",
       "ok": true,
-      "at": "2026-07-20T02:49:22.003Z",
+      "at": "2026-07-20T03:00:49.024Z",
       "removedOptionId": "6a3e86b03a3b9944089f89e8",
       "removedText": "رز أبيض\nwhite_rice"
     },
     {
       "name": "Restored the exact original option-family list",
       "ok": true,
-      "at": "2026-07-20T02:49:46.910Z",
+      "at": "2026-07-20T03:01:13.411Z",
       "targetKey": "carbs",
       "restoredOptionId": "6a3e86b03a3b9944089f89e8",
       "originalOptionCount": 7
     },
     {
-      "name": "Reversible option-family browser journey",
-      "ok": false,
-      "at": "2026-07-20T02:49:47.304Z",
-      "error": "locator.waitFor: Error: strict mode violation: getByRole('dialog').filter({ has: getByRole('heading', { name: 'إضافة كارت جديد' }) }).getByText('المنتج الأساسي') resolved to 3 elements:\n    1) <p class=\"mt-1 text-xs text-muted-foreground\">اختر النوع، المنتج الأساسي، المجموعة، ثم العناصر …</p> aka getByText('اختر النوع، المنتج الأساسي، المجموعة، ثم العناصر المرتبطة فعليًا')\n    2) <label id=\"_r_3j_-label\" class=\"text-sm font-medium\">المنتج الأساسي</label> aka getByText('المنتج الأساسي', { exact: true })\n    3) <div class=\"grid min-h-32 place-items-center rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground\">اختر المنتج الأساسي ومجموعة الخيارات أولًا.</div> aka getByText('اختر المنتج الأساسي ومجموعة الخيارات أولًا')\n\nCall log:\n  - waiting for getByRole('dialog').filter({ has: getByRole('heading', { name: 'إضافة كارت جديد' }) }).getByText('المنتج الأساسي') to be visible\n"
+      "name": "Option-family create form is contextual, guarded, and exposes no legacy sandwich type",
+      "ok": true,
+      "at": "2026-07-20T03:01:13.892Z"
+    },
+    {
+      "name": "Option-family card remains usable on mobile without horizontal overflow",
+      "ok": true,
+      "at": "2026-07-20T03:01:24.473Z",
+      "scrollWidth": 390,
+      "clientWidth": 390
+    },
+    {
+      "name": "No console, page, or Meal Builder API failures were observed",
+      "ok": true,
+      "at": "2026-07-20T03:01:24.473Z"
     }
   ],
   "apiResponses": [
@@ -88,5 +99,5 @@
     "familyKey": "carbs",
     "originalOptionCount": 7
   },
-  "finishedAt": "2026-07-20T02:50:08.237Z"
+  "finishedAt": "2026-07-20T03:01:43.719Z"
 }
