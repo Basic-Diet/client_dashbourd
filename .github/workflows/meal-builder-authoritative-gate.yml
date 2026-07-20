@@ -69,10 +69,19 @@ jobs:
           path: .qa-diagnostics
           retention-days: 7
       - name: Enforce gate
-        if: >-
-          steps.typecheck.outcome == 'failure' ||
-          steps.lint.outcome == 'failure' ||
-          steps.tests.outcome == 'failure' ||
-          steps.build.outcome == 'failure' ||
-          steps.diff.outcome == 'failure'
-        run: exit 1
+        if: always()
+        env:
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          DIFF_OUTCOME: ${{ steps.diff.outcome }}
+        run: |
+          printf 'typecheck=%s lint=%s tests=%s build=%s diff=%s\n' \
+            "$TYPECHECK_OUTCOME" "$LINT_OUTCOME" "$TESTS_OUTCOME" \
+            "$BUILD_OUTCOME" "$DIFF_OUTCOME"
+          test "$TYPECHECK_OUTCOME" = success
+          test "$LINT_OUTCOME" = success
+          test "$TESTS_OUTCOME" = success
+          test "$BUILD_OUTCOME" = success
+          test "$DIFF_OUTCOME" = success
