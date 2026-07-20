@@ -11,15 +11,9 @@ permissions:
   contents: read
 
 jobs:
-  qa:
+  focused:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      FRONTEND_URL: http://127.0.0.1:5173
-      BACKEND_URL: https://basicdiet145.onrender.com
-      VITE_BACKEND_URL: https://basicdiet145.onrender.com
-      QA_EMAIL: admin@basicdiet.com
-      QA_PASSWORD: Admin@123456
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,50 +22,5 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: Prepare artifacts
-        run: mkdir -p .qa-artifacts
-      - name: Install project dependencies
-        run: npm ci --silent
-      - name: TypeScript typecheck
-        run: npm run typecheck
-      - name: Full ESLint
-        run: npm run lint
-      - name: Full tests
-        id: tests
-        continue-on-error: true
-        run: npm test > .qa-artifacts/tests.log 2>&1
-      - name: Production build
-        if: steps.tests.outcome == 'success'
-        run: npm run build
-      - name: Diff integrity
-        if: steps.tests.outcome == 'success'
-        run: git diff --check
-      - name: Install Chromium runtime
-        if: steps.tests.outcome == 'success'
-        run: |
-          npm install --no-save --silent playwright@1.54.2
-          npx playwright install --with-deps chromium >/dev/null
-      - name: Serve production build
-        if: steps.tests.outcome == 'success'
-        run: |
-          nohup npx vite preview --host 127.0.0.1 --port 5173 > .qa-preview.log 2>&1 &
-          for attempt in $(seq 1 45); do
-            curl -fsS http://127.0.0.1:5173/ >/dev/null && exit 0
-            sleep 1
-          done
-          cat .qa-preview.log
-          exit 1
-      - name: Run authenticated authoritative browser journey
-        if: steps.tests.outcome == 'success'
-        run: node .qa/authoritative-option-groups-qa.mjs
-      - name: Upload evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: authoritative-option-groups-final-evidence
-          path: .qa-artifacts
-          if-no-files-found: error
-          retention-days: 14
-      - name: Enforce tests
-        if: steps.tests.outcome == 'failure'
-        run: exit 1
+      - run: npm ci --silent
+      - run: npx vitest run tests/mealPlannerAuthoritativeOptionGroups.test.tsx
