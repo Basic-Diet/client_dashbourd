@@ -201,11 +201,21 @@ export function assertCatalogResponse(value: unknown): {
     throw new Error("Meal Planner authoring catalog contract mismatch");
   }
   const data = value.data;
+  const authoring = isRecord(data.authoring) ? data.authoring : null;
+  const contractVersion = String(
+    data.authoringContractVersion || authoring?.contractVersion || ""
+  );
   const groups = Array.isArray(data.builderGroups)
     ? data.builderGroups
-    : isRecord(data.authoring) && Array.isArray(data.authoring.builderGroups)
-      ? data.authoring.builderGroups
+    : authoring && Array.isArray(authoring.builderGroups)
+      ? authoring.builderGroups
       : null;
+  if (contractVersion !== "dashboard_meal_builder_authoring.v1") {
+    throw new Error("Meal Planner authoring catalog version mismatch");
+  }
+  if (!authoring || authoring.complete !== true) {
+    throw new Error("Meal Planner authoring catalog is incomplete");
+  }
   if (groups === null) {
     throw new Error("Meal Planner authoring catalog is missing builderGroups");
   }

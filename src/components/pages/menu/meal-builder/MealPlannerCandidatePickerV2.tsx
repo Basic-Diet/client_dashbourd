@@ -118,6 +118,25 @@ export function MealPlannerCandidatePickerV2({
       query.data?.pages.flatMap((page) => page.data.candidates) ?? [],
     [query.data?.pages]
   );
+
+  useEffect(() => {
+    if (!query.data || !selectedIds.length) return;
+    const fetchedById = new Map(
+      fetchedCandidates.map((candidate) => [candidateId(candidate), candidate])
+    );
+    const reconciled = selectedIds.filter((id) => {
+      const candidate = fetchedById.get(id);
+      if (!candidate) return true;
+      return candidate.selected === true || candidate.assignable === true;
+    });
+    if (
+      reconciled.length !== selectedIds.length ||
+      reconciled.some((id, index) => id !== selectedIds[index])
+    ) {
+      onChange(reconciled);
+    }
+  }, [fetchedCandidates, onChange, query.data, selectedIds]);
+
   const candidates = useMemo(
     () => mergeCandidates(seedCandidates, fetchedCandidates, selectedIds),
     [fetchedCandidates, seedCandidates, selectedIds]
@@ -319,7 +338,7 @@ function mergeCandidates(
     map.set(
       id,
       candidate
-        ? { ...candidate, selected: true, assignable: true }
+        ? { ...candidate, selected: true }
         : {
             id,
             label: id,

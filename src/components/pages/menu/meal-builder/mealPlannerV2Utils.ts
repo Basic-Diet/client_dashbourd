@@ -307,6 +307,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   MEAL_BUILDER_OPTION_ROLE_GROUP_MISMATCH: "المجموعة لا تناسب نوع الكارت",
   MEAL_BUILDER_CARD_OPTIONS_REQUIRED: "اختر خيارًا واحدًا على الأقل",
   MEAL_BUILDER_OPTION_NOT_FOUND: "أحد الخيارات غير موجود",
+  MEAL_BUILDER_OPTION_NOT_IN_CARD: "الخيار غير موجود داخل هذا الكارت؛ تم طلب تحديث البيانات",
   MEAL_BUILDER_OPTION_GROUP_NOT_FOUND: "مجموعة الخيارات غير موجودة",
   MEAL_BUILDER_OPTION_GROUP_MISMATCH: "أحد الخيارات تابع لمجموعة أخرى",
   MEAL_BUILDER_PRODUCT_GROUP_RELATION_INVALID: "المجموعة غير مرتبطة بالمنتج الأساسي",
