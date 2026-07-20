@@ -49,29 +49,35 @@ function readSubscriptionLabel(response: unknown) {
 function buildSubscriptionPayload(
   data: CreateSubscriptionSchemaType
 ): Record<string, unknown> {
-  const { addons, ...rest } = data;
   const isDelivery = data.delivery.type === "delivery";
   const deliveryWindow = data.delivery.slot?.window?.trim();
-  const delivery = {
-    type: data.delivery.type,
-    ...(isDelivery
-      ? {
-          zoneId: data.delivery.zoneId,
-          address: data.delivery.address,
-        }
-      : {
-          pickupLocationId: data.delivery.pickupLocationId,
-        }),
-    ...(deliveryWindow ? { window: deliveryWindow } : {}),
-    slot: data.delivery.slot,
-  };
 
   return {
-    ...rest,
-    addonSubscriptions: addons.map((addon) => ({
-      addonPlanId: addon.value,
+    userId: data.userId,
+    planId: data.planId,
+    grams: data.grams,
+    mealsPerDay: data.mealsPerDay,
+    startDate: data.startDate,
+    delivery: {
+      type: data.delivery.type,
+      ...(isDelivery
+        ? {
+            zoneId: data.delivery.zoneId,
+            address: data.delivery.address,
+          }
+        : {
+            pickupLocationId: data.delivery.pickupLocationId,
+          }),
+      ...(deliveryWindow ? { window: deliveryWindow } : {}),
+    },
+    premiumItems: data.premiumItems.map((item) => ({
+      premiumKey: item.premiumKey,
+      qty: item.qty,
     })),
-    delivery,
+    addons: data.addons.map((addon) => ({
+      addonId: addon.value,
+      qty: 1,
+    })),
   };
 }
 
@@ -128,22 +134,12 @@ export function CreateSubscriptionFormContent({
   return (
     <div className="mx-auto w-full max-w-4xl" dir="rtl">
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Step 1: User selection (only if no userId provided) */}
         {!userId && <UserSelectionSection form={form} />}
-
-        {/* Step 2: Plan selection */}
         <PlanSelectionSection form={form} />
-
-        {/* Step 3: Premium meals */}
         <PremiumMealsSection form={form} />
-
-        {/* Step 4: Addons */}
         <AddonsSection form={form} />
-
-        {/* Step 5: Delivery */}
         <DeliverySection form={form} />
 
-        {/* Submit */}
         <div className="flex justify-end pb-8">
           <Button
             type="submit"
