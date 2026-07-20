@@ -1,0 +1,29 @@
+name: Sync Main Into Authoritative Meal Builder
+
+on:
+  push:
+    branches:
+      - feat/meal-builder-authoritative-option-groups
+    paths:
+      - .github/workflows/sync-main-into-authoritative-meal-builder.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-authoritative-option-groups
+          fetch-depth: 0
+      - name: Merge latest main
+        run: |
+          git config user.name 'Basic Diet Frontend'
+          git config user.email 'actions@users.noreply.github.com'
+          git fetch origin main
+          git merge --no-edit origin/main
+          git push origin HEAD:feat/meal-builder-authoritative-option-groups
