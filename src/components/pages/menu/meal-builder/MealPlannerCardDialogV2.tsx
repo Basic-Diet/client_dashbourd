@@ -135,16 +135,17 @@ export function MealPlannerCardDialogV2({
 
   function changeType(cardType: "direct_product" | "option_family") {
     if (editing || cardType === value.cardType) return;
+    const defaultRole = optionRoles[0] || "protein";
     setValue((current) => ({
       ...current,
       cardType,
       selectedIds: [],
-      optionRole: "protein",
+      optionRole: defaultRole,
       familyKey: "",
       productContextId: "",
       sourceGroupId: "",
-      maxSelections: 1,
-      multiSelect: false,
+      maxSelections: defaultRole === "carbs" ? 2 : 1,
+      multiSelect: defaultRole === "carbs",
     }));
   }
 
