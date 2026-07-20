@@ -22,3 +22,11 @@ new = '''    expect(
 if old not in text:
     raise SystemExit('Expected carbs family control assertion not found')
 path.write_text(text.replace(old, new, 1))
+
+grid = Path('src/components/pages/menu/meal-builder/MealPlannerCardGridV2.tsx')
+text = grid.read_text()
+old = 'findBuilderGroup(catalog, section.productContextId, section.sourceGroupId)'
+new = 'findBuilderGroup(\n          catalog,\n          section.productContextId ?? undefined,\n          section.sourceGroupId ?? undefined\n        )'
+if old not in text:
+    raise SystemExit('Expected nullable builder-group lookup not found')
+grid.write_text(text.replace(old, new, 1))
