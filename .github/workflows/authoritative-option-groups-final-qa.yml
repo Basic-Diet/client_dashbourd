@@ -1,0 +1,67 @@
+name: Authoritative Option Groups Final QA
+
+on:
+  push:
+    branches:
+      - qa/meal-builder-authoritative-final
+    paths:
+      - .github/workflows/authoritative-option-groups-final-qa.yml
+      - .qa/authoritative-option-groups-qa.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FRONTEND_URL: http://127.0.0.1:5173
+      BACKEND_URL: https://basicdiet145.onrender.com
+      VITE_BACKEND_URL: https://basicdiet145.onrender.com
+      QA_EMAIL: admin@basicdiet.com
+      QA_PASSWORD: Admin@123456
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/meal-builder-authoritative-final
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci --silent
+      - name: TypeScript typecheck
+        run: npm run typecheck
+      - name: Full ESLint
+        run: npm run lint
+      - name: Full tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Diff integrity
+        run: git diff --check
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save --silent playwright@1.54.2
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Serve production build
+        run: |
+          nohup npx vite preview --host 127.0.0.1 --port 5173 > .qa-preview.log 2>&1 &
+          for attempt in $(seq 1 45); do
+            curl -fsS http://127.0.0.1:5173/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat .qa-preview.log
+          exit 1
+      - name: Run authenticated authoritative browser journey
+        run: node .qa/authoritative-option-groups-qa.mjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authoritative-option-groups-final-evidence
+          path: .qa-artifacts
+          if-no-files-found: error
+          retention-days: 14
