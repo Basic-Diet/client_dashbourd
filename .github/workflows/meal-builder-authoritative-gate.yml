@@ -22,56 +22,15 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: Prepare diagnostics
-        run: mkdir -p .qa-diagnostics
       - name: Install dependencies
         run: npm ci --silent
       - name: TypeScript typecheck
-        id: typecheck
-        continue-on-error: true
-        run: npm run typecheck > .qa-diagnostics/typecheck.log 2>&1
+        run: npm run typecheck
       - name: Full ESLint
-        id: lint
-        continue-on-error: true
-        run: npm run lint > .qa-diagnostics/lint.log 2>&1
+        run: npm run lint
       - name: Full test suite
-        id: tests
-        continue-on-error: true
-        run: npm test > .qa-diagnostics/tests.log 2>&1
+        run: npm test
       - name: Production build
-        id: build
-        continue-on-error: true
-        run: npm run build > .qa-diagnostics/build.log 2>&1
+        run: npm run build
       - name: Diff integrity
-        id: diff
-        continue-on-error: true
-        run: git diff --check > .qa-diagnostics/diff.log 2>&1
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: meal-builder-authoritative-gate-diagnostics
-          path: .qa-diagnostics
-          retention-days: 7
-      - name: Enforce gate and print failures
-        if: always()
-        env:
-          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
-          LINT_OUTCOME: ${{ steps.lint.outcome }}
-          TESTS_OUTCOME: ${{ steps.tests.outcome }}
-          BUILD_OUTCOME: ${{ steps.build.outcome }}
-          DIFF_OUTCOME: ${{ steps.diff.outcome }}
-        shell: bash
-        run: |
-          failed=0
-          for check in typecheck lint tests build diff; do
-            variable="${check^^}_OUTCOME"
-            outcome="${!variable}"
-            printf '%s=%s\n' "$check" "$outcome"
-            if [ "$outcome" != success ]; then
-              failed=1
-              echo "--- ${check}.log ---"
-              tail -n 120 ".qa-diagnostics/${check}.log" || true
-            fi
-          done
-          exit "$failed"
+        run: git diff --check
