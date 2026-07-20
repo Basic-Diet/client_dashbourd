@@ -21,16 +21,35 @@ jobs:
         with:
           ref: fix/addon-dialog-full-lint
           fetch-depth: 0
-      - run: python .qa/patch_addon_dialog_lint.py
-      - name: Verify focused file
+      - name: Apply patch
+        id: patch
+        continue-on-error: true
+        shell: bash
         run: |
-          npm ci --silent
-          npm run typecheck
-          npx eslint src/components/pages/addons/AddonPlanDialog.tsx
-      - name: Commit product fix
+          mkdir -p .qa-debug
+          set -o pipefail
+          python .qa/patch_addon_dialog_lint.py 2>&1 | tee .qa-debug/addon-patch.log
+      - name: Commit product fix or diagnostic
+        if: always()
         run: |
           git config user.name 'Basic Diet Frontend'
           git config user.email 'actions@users.noreply.github.com'
-          git add src/components/pages/addons/AddonPlanDialog.tsx
-          git commit -m 'fix(addons): reset product filters through reducer'
+          if [ '${{ steps.patch.outcome }}' = success ]; then
+            npm ci --silent
+            npm run typecheck
+            npx eslint src/components/pages/addons/AddonPlanDialog.tsx
+            git add src/components/pages/addons/AddonPlanDialog.tsx
+            message='fix(addons): reset product filters through reducer'
+          else
+            git reset --hard HEAD
+            git add -f .qa-debug/addon-patch.log
+            message='chore(addons): record patch diagnostic'
+          fi
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "$message"
           git push origin HEAD:fix/addon-dialog-full-lint
+      - name: Enforce patch result
+        if: steps.patch.outcome == 'failure'
+        run: exit 1
