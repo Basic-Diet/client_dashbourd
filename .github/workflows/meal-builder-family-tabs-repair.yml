@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   repair:
     runs-on: ubuntu-latest
@@ -26,7 +29,8 @@ jobs:
       - run: npm ci --silent
       - run: npm run typecheck
       - run: npm run lint
-      - run: npx vitest run tests/mealPlannerAuthoritativeOptionGroups.test.tsx tests/mealPlannerCardDataVisibility.test.tsx
+      - run: npx vitest run tests/mealPlannerAuthoritativeOptionGroups.test.tsx
+      - run: npx vitest run tests/mealPlannerCardDataVisibility.test.tsx
       - run: npm run build
       - name: Commit verified repair
         run: |
