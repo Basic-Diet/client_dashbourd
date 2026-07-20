@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Check, Layers3, Package } from "lucide-react";
 
 import {
@@ -503,10 +503,12 @@ function TextField({
   onChange: (value: string) => void;
   type?: string;
 } & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type">) {
+  const id = useId();
   return (
     <div className="space-y-2">
-      <FieldLabel>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Input
+        id={id}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -531,11 +533,13 @@ function SelectField({
   options: Array<{ value: string; label: string }>;
   onChange: (value: string) => void;
 }) {
+  const id = useId();
+  const labelId = `${id}-label`;
   return (
     <div className="space-y-2">
-      <FieldLabel>{label}</FieldLabel>
+      <FieldLabel id={labelId}>{label}</FieldLabel>
       <Select value={value || undefined} disabled={disabled} onValueChange={onChange}>
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" aria-labelledby={labelId}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent dir="rtl">
@@ -574,8 +578,20 @@ function ToggleField({
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm font-medium">{children}</p>;
+function FieldLabel({
+  children,
+  htmlFor,
+  id,
+}: {
+  children: React.ReactNode;
+  htmlFor?: string;
+  id?: string;
+}) {
+  return (
+    <label id={id} htmlFor={htmlFor} className="text-sm font-medium">
+      {children}
+    </label>
+  );
 }
 
 function suggestedSortOrder(catalog: MealPlannerCatalogV2) {
