@@ -1,0 +1,33 @@
+{
+  "startedAt": "2026-07-20T02:28:14.041Z",
+  "frontendUrl": "http://127.0.0.1:5173",
+  "backendUrl": "https://basicdiet145.onrender.com",
+  "checks": [
+    {
+      "name": "Authenticated through the real Dashboard login UI",
+      "ok": true,
+      "at": "2026-07-20T02:28:25.954Z"
+    },
+    {
+      "name": "Reversible option-family browser journey",
+      "ok": false,
+      "at": "2026-07-20T02:29:05.514Z",
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('article').filter({ has: getByRole('heading', { name: 'نشويات', exact: true }) }).getByText('كارب', { exact: true }) to be visible\n"
+    }
+  ],
+  "apiResponses": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedApiResponses": [],
+  "restore": null,
+  "target": {
+    "key": "carbs",
+    "title": "نشويات",
+    "optionRole": "carbs",
+    "productContextId": "6a3e870b3a3b9944089f8ca6",
+    "sourceGroupId": "6a3e86af3a3b9944089f89e5",
+    "familyKey": null,
+    "originalOptionCount": 7
+  },
+  "finishedAt": "2026-07-20T02:29:24.500Z"
+}
