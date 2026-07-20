@@ -13,12 +13,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
+  MealPlannerCatalogV2,
   MealPlannerPremiumSectionV2,
   MealPlannerSectionV2,
   MealPlannerValidationIssue,
 } from "@/types/mealPlannerDashboardTypes";
 import {
+  candidateId,
   candidateName,
+  findBuilderGroup,
   issueText,
   normalizeCardType,
   sectionItems,
@@ -28,6 +31,7 @@ import {
 
 export function MealPlannerCardGridV2({
   premiumSection,
+  catalog,
   sections,
   issues,
   pending,
@@ -38,6 +42,7 @@ export function MealPlannerCardGridV2({
   onDelete,
 }: {
   premiumSection?: MealPlannerPremiumSectionV2 | null;
+  catalog: MealPlannerCatalogV2;
   sections: MealPlannerSectionV2[];
   issues: MealPlannerValidationIssue[];
   pending: boolean;
@@ -67,6 +72,7 @@ export function MealPlannerCardGridV2({
           <DynamicCard
             key={section.key}
             section={section}
+            catalog={catalog}
             issues={issues.filter(
               (issue) => !issue.sectionKey || issue.sectionKey === section.key
             )}
@@ -146,6 +152,7 @@ function PremiumCard({
 
 function DynamicCard({
   section,
+  catalog,
   issues,
   pending,
   readOnly,
@@ -155,6 +162,7 @@ function DynamicCard({
   onDelete,
 }: {
   section: MealPlannerSectionV2;
+  catalog: MealPlannerCatalogV2;
   issues: MealPlannerValidationIssue[];
   pending: boolean;
   readOnly: boolean;
@@ -165,7 +173,42 @@ function DynamicCard({
 }) {
   const cardType = normalizeCardType(section);
   const role = sectionOptionRole(section);
-  const items = sectionItems(section);
+  const configuredIds =
+    cardType === "direct_product"
+      ? section.selectedProductIds || []
+      : section.selectedOptionIds || [];
+  const hydratedItems = sectionItems(section);
+  const builderGroup =
+    cardType === "option_family"
+      ? findBuilderGroup(
+          catalog,
+          section.productContextId ?? undefined,
+          section.sourceGroupId ?? undefined
+        )
+      : null;
+  const catalogItems =
+    cardType === "direct_product"
+      ? (catalog.products || []).filter((candidate) =>
+          configuredIds.includes(candidateId(candidate))
+        )
+      : (builderGroup?.options || []).filter((candidate) =>
+          configuredIds.includes(candidateId(candidate))
+        );
+  const items = hydratedItems.length ? hydratedItems : catalogItems;
+  const configuredCount = Math.max(items.length, configuredIds.length);
+  const productLabel =
+    builderGroup?.product?.name?.ar ||
+    builderGroup?.product?.name?.en ||
+    builderGroup?.product?.key ||
+    "المنتج الأساسي";
+  const groupLabel =
+    builderGroup?.group?.name?.ar ||
+    builderGroup?.group?.name?.en ||
+    builderGroup?.group?.key ||
+    "مجموعة الخيارات";
+  const familyKey = String(
+    section.metadata?.familyKey || section.metadata?.proteinFamilyKey || ""
+  );
   const errors = issues.filter((issue) => issue.level !== "warning");
   const warnings = issues.filter((issue) => issue.level === "warning");
   const cardLabel =
@@ -190,7 +233,7 @@ function DynamicCard({
             </Badge>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            عدد العناصر: {items.length} •{" "}
+            عدد العناصر: {configuredCount} •{" "}
             {cardType === "direct_product"
               ? "يُحتسب كوجبة كاملة"
               : "يُستخدم ضمن وجبة مركبة"}
@@ -200,6 +243,21 @@ function DynamicCard({
           <Icon className="size-5" />
         </span>
       </div>
+
+      {cardType === "option_family" ? (
+        <div className="mt-4 rounded-xl border bg-muted/20 p-3">
+          <p className="text-sm font-medium">{productLabel} ← {groupLabel}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{role === "carbs" ? "كارب" : "بروتين"}</Badge>
+            {familyKey ? <Badge variant="outline">العائلة: {familyKey}</Badge> : null}
+            <Badge variant="outline">{section.required ? "مطلوب" : "اختياري"}</Badge>
+            <Badge variant="outline">
+              الحد: {section.minSelections ?? 0}–{section.maxSelections ?? "بدون حد"}
+            </Badge>
+            <Badge variant="outline">{section.multiSelect ? "اختيار متعدد" : "اختيار واحد"}</Badge>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-2">
         {items.slice(0, 3).map((item) => (
@@ -211,7 +269,9 @@ function DynamicCard({
         ))}
         {!items.length ? (
           <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
-            لا توجد عناصر محملة لهذا الكارت. افتح إدارة العناصر لمراجعتها.
+            {configuredIds.length
+              ? `يوجد ${configuredIds.length} عنصر محفوظ، لكن تعذر تحميل تفاصيله الآن. حدّث البيانات للمزامنة.`
+              : "لا توجد عناصر محددة لهذا الكارت بعد."}
           </p>
         ) : null}
         {items.length > 3 ? (
@@ -299,7 +359,7 @@ function ItemPreview({
       {imageUrl ? (
         <img
           src={imageUrl}
-          alt=""
+          alt={name}
           className="size-10 rounded-lg object-cover"
           loading="lazy"
         />

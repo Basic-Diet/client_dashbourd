@@ -506,6 +506,7 @@ export function MealPlannerWorkspaceV2({
       {filteredSections.length || !search ? (
         <MealPlannerCardGridV2
           premiumSection={state.premiumSection}
+          catalog={catalog}
           sections={filteredSections}
           issues={allIssues}
           pending={pending}

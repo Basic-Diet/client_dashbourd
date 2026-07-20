@@ -332,10 +332,7 @@ describe("authoritative option-family create dialog", () => {
     await user.click(
       screen.getByRole("button", { name: /وجبة بيسك ← البروتين/ })
     );
-    await user.click(
-      screen.getByRole("combobox", { name: "عائلة البروتين" })
-    );
-    await user.click(screen.getByRole("option", { name: "سمك" }));
+    await user.click(screen.getByRole("button", { name: "سمك" }));
 
     expect(screen.getByRole("button", { name: "فيليه سمك" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "شرائح لحم" })).not.toBeInTheDocument();
@@ -363,7 +360,7 @@ describe("authoritative option-family create dialog", () => {
     );
 
     expect(
-      screen.queryByRole("combobox", { name: "عائلة البروتين" })
+      screen.queryByRole("group", { name: "عائلة البروتين" })
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "رز أبيض" })).toBeEnabled();
   });
