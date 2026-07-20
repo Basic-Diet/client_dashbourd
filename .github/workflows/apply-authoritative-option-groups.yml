@@ -1,0 +1,36 @@
+name: Apply Authoritative Option Groups
+
+on:
+  push:
+    branches:
+      - feat/meal-builder-authoritative-option-groups
+    paths:
+      - .qa/patch_authoritative_option_groups.py
+      - .github/workflows/apply-authoritative-option-groups.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-authoritative-option-groups
+          fetch-depth: 0
+      - name: Apply frontend integration patch
+        run: python .qa/patch_authoritative_option_groups.py
+      - name: Commit product changes
+        run: |
+          if git diff --quiet; then
+            echo 'No product changes to commit.'
+            exit 0
+          fi
+          git config user.name 'Basic Diet Frontend'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src tests
+          git commit -m 'feat(meal-builder): consume authoritative builder groups'
+          git push origin HEAD:feat/meal-builder-authoritative-option-groups
