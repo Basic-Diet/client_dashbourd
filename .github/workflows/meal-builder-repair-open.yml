@@ -1,0 +1,38 @@
+name: Meal Builder Card Visibility Repair
+
+on:
+  pull_request:
+    branches:
+      - feat/meal-builder-authoritative-option-groups
+    types: [opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-authoritative-option-groups
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: python .github/scripts/meal_builder_card_visibility_repair.py
+      - run: npm ci --silent
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx vitest run tests/mealPlannerAuthoritativeOptionGroups.test.tsx tests/mealPlannerCardDataVisibility.test.tsx
+      - run: npm run build
+      - name: Commit verified repair
+        run: |
+          git config user.name 'Basic Diet Frontend'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx src/components/pages/menu/meal-builder/MealPlannerCardGridV2.tsx src/components/pages/menu/meal-builder/MealPlannerWorkspaceV2.tsx tests/mealPlannerAuthoritativeOptionGroups.test.tsx tests/mealPlannerCardDataVisibility.test.tsx
+          git commit -m 'fix(meal-builder): surface authoritative card data'
+          git push origin HEAD:feat/meal-builder-authoritative-option-groups
