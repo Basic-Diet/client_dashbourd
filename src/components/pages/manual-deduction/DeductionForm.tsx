@@ -102,6 +102,10 @@ const REASONS = [
   ["other", "سبب آخر"],
 ] as const;
 
+function sanitizeWholeNumber(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 export function DeductionForm({
   subscription,
   onSubmit,
@@ -228,15 +232,24 @@ export function DeductionForm({
                       <FormLabel>وجبات عادية</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          min={0}
-                          step={1}
+                          type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="off"
                           name={field.name}
                           ref={field.ref}
-                          onBlur={field.onBlur}
-                          value={Number(field.value ?? 0)}
-                          onChange={field.onChange}
+                          value={field.value == null ? "" : String(field.value)}
+                          onFocus={(event) => event.currentTarget.select()}
+                          onChange={(event) => {
+                            const digits = sanitizeWholeNumber(event.target.value);
+                            field.onChange(digits === "" ? "" : Number(digits));
+                          }}
+                          onBlur={() => {
+                            if (field.value === "" || field.value == null) {
+                              field.onChange(0);
+                            }
+                            field.onBlur();
+                          }}
                         />
                       </FormControl>
                       <p className="text-xs text-muted-foreground">
@@ -255,15 +268,24 @@ export function DeductionForm({
                       <FormLabel>وجبات مميزة</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          min={0}
-                          step={1}
+                          type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="off"
                           name={field.name}
                           ref={field.ref}
-                          onBlur={field.onBlur}
-                          value={Number(field.value ?? 0)}
-                          onChange={field.onChange}
+                          value={field.value == null ? "" : String(field.value)}
+                          onFocus={(event) => event.currentTarget.select()}
+                          onChange={(event) => {
+                            const digits = sanitizeWholeNumber(event.target.value);
+                            field.onChange(digits === "" ? "" : Number(digits));
+                          }}
+                          onBlur={() => {
+                            if (field.value === "" || field.value == null) {
+                              field.onChange(0);
+                            }
+                            field.onBlur();
+                          }}
                         />
                       </FormControl>
                       <p className="text-xs text-muted-foreground">
@@ -301,16 +323,25 @@ export function DeductionForm({
                             </div>
                             <FormControl>
                               <Input
-                                type="number"
-                                min={0}
-                                step={1}
+                                type="text"
                                 inputMode="numeric"
+                                pattern="[0-9]*"
+                                autoComplete="off"
                                 className="w-24 text-center"
                                 name={field.name}
                                 ref={field.ref}
-                                onBlur={field.onBlur}
-                                value={Number(field.value ?? 0)}
-                                onChange={field.onChange}
+                                value={field.value == null ? "" : String(field.value)}
+                                onFocus={(event) => event.currentTarget.select()}
+                                onChange={(event) => {
+                                  const digits = sanitizeWholeNumber(event.target.value);
+                                  field.onChange(digits === "" ? "" : Number(digits));
+                                }}
+                                onBlur={() => {
+                                  if (field.value === "" || field.value == null) {
+                                    field.onChange(0);
+                                  }
+                                  field.onBlur();
+                                }}
                               />
                             </FormControl>
                           </div>
