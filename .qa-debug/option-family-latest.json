@@ -1,25 +1,84 @@
 {
-  "startedAt": "2026-07-20T02:28:14.041Z",
+  "startedAt": "2026-07-20T02:37:51.639Z",
   "frontendUrl": "http://127.0.0.1:5173",
   "backendUrl": "https://basicdiet145.onrender.com",
   "checks": [
     {
       "name": "Authenticated through the real Dashboard login UI",
       "ok": true,
-      "at": "2026-07-20T02:28:25.954Z"
+      "at": "2026-07-20T02:38:02.939Z"
+    },
+    {
+      "name": "Existing option-family card is rendered with clear user-facing labels",
+      "ok": true,
+      "at": "2026-07-20T02:38:13.059Z",
+      "targetKey": "carbs",
+      "optionRole": "carbs"
+    },
+    {
+      "name": "Option-family edit form keeps card type read-only and exposes its context",
+      "ok": true,
+      "at": "2026-07-20T02:38:13.274Z"
+    },
+    {
+      "name": "Removed one linked Option through the UI and verified authoritative state",
+      "ok": true,
+      "at": "2026-07-20T02:38:51.828Z",
+      "removedOptionId": "6a3e86b03a3b9944089f89e8",
+      "removedText": "رز أبيض\nwhite_rice"
+    },
+    {
+      "name": "Restored the exact original option-family list",
+      "ok": true,
+      "at": "2026-07-20T02:39:30.530Z",
+      "targetKey": "carbs",
+      "restoredOptionId": "6a3e86b03a3b9944089f89e8",
+      "originalOptionCount": 7
     },
     {
       "name": "Reversible option-family browser journey",
       "ok": false,
-      "at": "2026-07-20T02:29:05.514Z",
-      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('article').filter({ has: getByRole('heading', { name: 'نشويات', exact: true }) }).getByText('كارب', { exact: true }) to be visible\n"
+      "at": "2026-07-20T02:40:00.647Z",
+      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog').filter({ has: getByRole('heading', { name: 'إضافة كارت جديد' }) }).getByRole('radio', { name: /خيارات وجبة مركبة/ })\n"
     }
   ],
-  "apiResponses": [],
+  "apiResponses": [
+    {
+      "operation": "option-picker",
+      "status": 200,
+      "contractVersion": "dashboard_meal_builder_picker.v2",
+      "candidateType": "option",
+      "targetSectionKey": "carbs",
+      "productContextId": "6a3e870b3a3b9944089f8ca6",
+      "sourceGroupId": "6a3e86af3a3b9944089f89e5",
+      "optionRole": "carbs",
+      "familyKey": null,
+      "candidateCount": 7
+    },
+    {
+      "operation": "remove-option-via-put-items",
+      "status": 200,
+      "contractVersion": "dashboard_meal_builder_card_action.v2",
+      "action": "updated",
+      "removedOptionId": "6a3e86b03a3b9944089f89e8"
+    },
+    {
+      "operation": "restore-option-via-put-items",
+      "status": 200,
+      "contractVersion": "dashboard_meal_builder_card_action.v2",
+      "action": "updated",
+      "restoredOptionId": "6a3e86b03a3b9944089f89e8"
+    }
+  ],
   "consoleErrors": [],
   "pageErrors": [],
   "failedApiResponses": [],
-  "restore": null,
+  "restore": {
+    "ok": true,
+    "targetKey": "carbs",
+    "restoredOptionId": "6a3e86b03a3b9944089f89e8",
+    "originalOptionCount": 7
+  },
   "target": {
     "key": "carbs",
     "title": "نشويات",
@@ -29,5 +88,5 @@
     "familyKey": null,
     "originalOptionCount": 7
   },
-  "finishedAt": "2026-07-20T02:29:24.500Z"
+  "finishedAt": "2026-07-20T02:40:21.448Z"
 }
