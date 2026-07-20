@@ -1,0 +1,60 @@
+name: Cleanup PR 84
+
+on:
+  push:
+    branches:
+      - test/meal-builder-authenticated-crud-qa
+    paths:
+      - .github/workflows/cleanup-pr84.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/meal-builder-authenticated-crud-qa
+          fetch-depth: 0
+
+      - name: Restore non-product files and remove temporary QA assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          restore_or_remove() {
+            local path="$1"
+            if git cat-file -e "origin/main:${path}" 2>/dev/null; then
+              git checkout origin/main -- "$path"
+            elif [ -e "$path" ]; then
+              git rm -rf -- "$path"
+            fi
+          }
+
+          while IFS= read -r path; do
+            case "$path" in
+              .qa/*|.qa-debug/*|.qa-probe/*|.qa-results/*)
+                restore_or_remove "$path"
+                ;;
+            esac
+          done < <(git diff --name-only origin/main...HEAD)
+
+          restore_or_remove ".github/workflows/meal-builder-closure-qa.yml"
+          restore_or_remove ".github/workflows/patch-meal-builder-accessibility.yml"
+          restore_or_remove ".github/workflows/cleanup-pr84.yml"
+          restore_or_remove "src/components/pages/addons/AddonPlanDialog.tsx"
+
+      - name: Commit clean product-only diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Basic Diet QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "chore(meal-builder): remove temporary QA assets"
+          git push origin HEAD:test/meal-builder-authenticated-crud-qa
