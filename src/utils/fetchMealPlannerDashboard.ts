@@ -31,7 +31,7 @@ export async function getMealPlannerCatalog(): Promise<{
   const response = await api.get(`${MEAL_PLANNER_DASHBOARD_ROUTE}/catalog`, {
     params: { lang: "ar" },
   });
-  return response.data;
+  return assertCatalogResponse(response.data);
 }
 
 export async function getMealPlannerPublished(): Promise<MealPlannerLifecycleResponseV2> {
@@ -44,6 +44,20 @@ export async function getMealPlannerPublished(): Promise<MealPlannerLifecycleRes
 export async function getMealPlannerReadiness() {
   const response = await api.get(`${MEAL_PLANNER_DASHBOARD_ROUTE}/readiness`);
   return response.data as { status: true; data: MealPlannerValidationV2 };
+}
+
+export async function getMealPlannerHydratedDraft() {
+  const response = await api.get(`${MEAL_PLANNER_DASHBOARD_ROUTE}/draft/hydrated`, {
+    params: { lang: "ar" },
+  });
+  return response.data as MealPlannerLifecycleResponseV2;
+}
+
+export async function getPublicMealPlannerMenu() {
+  const response = await api.get("/api/subscriptions/meal-planner-menu", {
+    params: { lang: "ar" },
+  });
+  return response.data as unknown;
 }
 
 export async function getMealPlannerProductsPicker(
@@ -112,6 +126,33 @@ export async function replaceMealPlannerCardItems({
   return assertCardActionResponse(response.data);
 }
 
+export async function addMealPlannerOptions({
+  sectionKey,
+  optionIds,
+}: {
+  sectionKey: string;
+  optionIds: string[];
+}): Promise<MealPlannerCardActionResponseV2> {
+  const response = await api.post(
+    `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections/${encodeURIComponent(sectionKey)}/options`,
+    { optionIds }
+  );
+  return assertCardActionResponse(response.data);
+}
+
+export async function removeMealPlannerOption({
+  sectionKey,
+  optionId,
+}: {
+  sectionKey: string;
+  optionId: string;
+}): Promise<MealPlannerCardActionResponseV2> {
+  const response = await api.delete(
+    `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections/${encodeURIComponent(sectionKey)}/options/${encodeURIComponent(optionId)}`
+  );
+  return assertCardActionResponse(response.data);
+}
+
 export async function deleteMealPlannerCard(
   sectionKey: string
 ): Promise<MealPlannerCardActionResponseV2> {
@@ -150,6 +191,25 @@ function cleanParams(params: Record<string, unknown>) {
       ([, value]) => value !== undefined && value !== ""
     )
   );
+}
+
+export function assertCatalogResponse(value: unknown): {
+  status: true;
+  data: MealPlannerCatalogV2;
+} {
+  if (!isRecord(value) || value.status !== true || !isRecord(value.data)) {
+    throw new Error("Meal Planner authoring catalog contract mismatch");
+  }
+  const data = value.data;
+  const groups = Array.isArray(data.builderGroups)
+    ? data.builderGroups
+    : isRecord(data.authoring) && Array.isArray(data.authoring.builderGroups)
+      ? data.authoring.builderGroups
+      : null;
+  if (groups === null) {
+    throw new Error("Meal Planner authoring catalog is missing builderGroups");
+  }
+  return value as unknown as { status: true; data: MealPlannerCatalogV2 };
 }
 
 export function assertStateResponse(value: unknown): MealPlannerStateResponseV2 {

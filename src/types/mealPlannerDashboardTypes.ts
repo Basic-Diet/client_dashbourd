@@ -192,6 +192,7 @@ export interface MealPlannerCatalogCandidate {
   productContextId?: string | null;
   optionRole?: MealPlannerOptionRole | string;
   selectionType?: string;
+  familyKey?: string;
   proteinFamilyKey?: string;
   displayCategoryKey?: string;
   isPremium?: boolean;
@@ -211,6 +212,10 @@ export interface MealPlannerCatalogCandidate {
     effective?: boolean;
     [key: string]: unknown;
   };
+  effectiveStatus?: MealPlannerEntityStatus;
+  pricing?: Record<string, unknown> | null;
+  linked?: boolean;
+  relationExists?: boolean;
   status?: MealPlannerEntityStatus;
   reasonCodes?: string[];
   warnings?: MealPlannerValidationIssue[];
@@ -242,8 +247,98 @@ export interface MealPlannerProductOptionGroup {
   [key: string]: unknown;
 }
 
+export interface MealPlannerBuilderOption extends MealPlannerCatalogCandidate {
+  id: string;
+  _id: string;
+  optionId: string;
+  type: "option";
+  key: string;
+  name: LocalizedTextValue;
+  familyKey: string;
+  proteinFamilyKey: string;
+  displayCategoryKey: string;
+  selectionType: "standard_meal";
+  isPremium: boolean;
+  linked: boolean;
+  relationExists: boolean;
+  assignable: boolean;
+  eligible: boolean;
+  relationStatus: {
+    exists?: boolean;
+    active?: boolean;
+    visible?: boolean;
+    available?: boolean;
+    effective?: boolean;
+    [key: string]: unknown;
+  };
+  effectiveStatus: MealPlannerEntityStatus;
+  pricing?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+export interface MealPlannerBuilderGroup {
+  id: string;
+  cardType: "option_family";
+  selectionType: "standard_meal";
+  productContextId: string;
+  sourceGroupId: string;
+  optionRole: MealPlannerOptionRole | null;
+  product: {
+    id: string;
+    key: string;
+    name: LocalizedTextValue;
+    label?: string;
+    status: MealPlannerEntityStatus;
+    mealPlanner?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+  group: {
+    id: string;
+    _id: string;
+    key: string;
+    name: LocalizedTextValue;
+    status: MealPlannerEntityStatus;
+    [key: string]: unknown;
+  };
+  rules: {
+    minSelections?: number;
+    maxSelections?: number | null;
+    isRequired?: boolean;
+    [key: string]: unknown;
+  };
+  families: string[];
+  options: MealPlannerBuilderOption[];
+  optionCount: number;
+  assignableOptionCount: number;
+  compatible: boolean;
+  eligible: boolean;
+  reasonCodes: string[];
+  sortOrder: number;
+  [key: string]: unknown;
+}
+
+export interface MealPlannerAuthoringCatalogV1 {
+  contractVersion: "dashboard_meal_builder_authoring.v1" | string;
+  source?: "product_option_group_relations" | string;
+  canonicalSelectionType?: "standard_meal" | string;
+  cardType?: "option_family" | string;
+  complete?: boolean;
+  builderGroups: MealPlannerBuilderGroup[];
+  counts?: {
+    builderGroups?: number;
+    eligibleBuilderGroups?: number;
+    builderOptions?: number;
+    assignableBuilderOptions?: number;
+    [key: string]: number | undefined;
+  };
+  [key: string]: unknown;
+}
+
 export interface MealPlannerCatalogV2 {
   contractVersion?: string;
+  authoringContractVersion?: "dashboard_meal_builder_authoring.v1" | string;
+  authoring?: MealPlannerAuthoringCatalogV1;
+  builderGroups?: MealPlannerBuilderGroup[];
   generatedAt?: string;
   complete?: boolean;
   counts?: Record<string, number>;

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAuth } from "@/hooks/useAuth";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,11 +59,17 @@ import type {
   MealPlannerValidationV2,
 } from "@/types/mealPlannerDashboardTypes";
 import {
+  addMealPlannerOptions,
   createMealPlannerCard,
   deleteMealPlannerCard,
+  getMealPlannerCatalog,
   getMealPlannerDashboardState,
+  getMealPlannerHydratedDraft,
+  getMealPlannerPublished,
   getMealPlannerReadiness,
+  getPublicMealPlannerMenu,
   publishMealPlannerDraft,
+  removeMealPlannerOption,
   replaceMealPlannerCardItems,
   resetMealPlannerDraft,
   updateMealPlannerCard,
@@ -77,6 +85,7 @@ import {
   normalizeCardType,
   sectionOptionRole,
   sectionTitle,
+  selectedIdsForSection,
 } from "./mealPlannerV2Utils";
 
 export type MealBuilderNavigationState = {
@@ -93,6 +102,7 @@ type LocalWorkspace = {
 type FilterType = "all" | "direct_product" | "protein" | "carbs";
 
 const STATE_KEY = ["dashboard.meal-planner.v2.state"] as const;
+const CATALOG_KEY = ["dashboard.meal-planner.v2.catalog"] as const;
 const READINESS_KEY = ["dashboard.meal-planner.v2.readiness"] as const;
 const PICKER_KEY = ["dashboard.meal-planner.v2.picker"] as const;
 
@@ -104,6 +114,8 @@ export function MealPlannerWorkspaceV2({
   onNavigationStateChange?: (state: MealBuilderNavigationState) => void;
 }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canWrite = user?.role === "admin" || user?.role === "superadmin";
   const [workspace, setWorkspace] = useState<LocalWorkspace | null>(null);
   const [editor, setEditor] = useState<MealPlannerSectionV2 | "create" | null>(null);
   const [manageTarget, setManageTarget] = useState<MealPlannerSectionV2 | null>(null);
@@ -119,6 +131,11 @@ export function MealPlannerWorkspaceV2({
   const stateQuery = useQuery({
     queryKey: STATE_KEY,
     queryFn: getMealPlannerDashboardState,
+    staleTime: 20_000,
+  });
+  const catalogQuery = useQuery({
+    queryKey: CATALOG_KEY,
+    queryFn: getMealPlannerCatalog,
     staleTime: 20_000,
   });
   const readinessQuery = useQuery({
@@ -149,6 +166,8 @@ export function MealPlannerWorkspaceV2({
     }) => updateMealPlannerCard({ sectionKey, patch }),
   });
   const itemsMutation = useMutation({ mutationFn: replaceMealPlannerCardItems });
+  const addOptionsMutation = useMutation({ mutationFn: addMealPlannerOptions });
+  const removeOptionMutation = useMutation({ mutationFn: removeMealPlannerOption });
   const deleteMutation = useMutation({ mutationFn: deleteMealPlannerCard });
   const validateMutation = useMutation({ mutationFn: validateMealPlannerDraft });
   const publishMutation = useMutation({ mutationFn: publishMealPlannerDraft });
@@ -158,6 +177,8 @@ export function MealPlannerWorkspaceV2({
     cardMutation.isPending ||
     visibilityMutation.isPending ||
     itemsMutation.isPending ||
+    addOptionsMutation.isPending ||
+    removeOptionMutation.isPending ||
     deleteMutation.isPending ||
     validateMutation.isPending ||
     publishMutation.isPending ||
@@ -166,7 +187,10 @@ export function MealPlannerWorkspaceV2({
   const state = stateQuery.data?.data;
   const workingConfig = workspace?.draft ?? state?.draft ?? state?.published ?? null;
   const validation = workspace?.validation ?? state?.validation?.draft ?? null;
-  const catalog = state?.catalog ?? { products: [], optionGroups: [], options: [] };
+  const catalog =
+    catalogQuery.data?.data ??
+    state?.catalog ??
+    { products: [], optionGroups: [], options: [], builderGroups: [] };
   const hasUnpublishedChanges = Boolean(
     workspace ||
       state?.draft ||
@@ -250,14 +274,22 @@ export function MealPlannerWorkspaceV2({
           }
         : current
     );
-    void queryClient.invalidateQueries({ queryKey: READINESS_KEY });
-    void queryClient.invalidateQueries({ queryKey: PICKER_KEY });
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: STATE_KEY }),
+      queryClient.invalidateQueries({ queryKey: CATALOG_KEY }),
+      queryClient.invalidateQueries({ queryKey: READINESS_KEY }),
+      queryClient.invalidateQueries({ queryKey: PICKER_KEY }),
+    ]);
   }
 
   async function reloadAuthoritative(showToast = false) {
     setWorkspace(null);
     await queryClient.invalidateQueries({ queryKey: PICKER_KEY });
-    await Promise.all([stateQuery.refetch(), readinessQuery.refetch()]);
+    await Promise.all([
+      stateQuery.refetch(),
+      catalogQuery.refetch(),
+      readinessQuery.refetch(),
+    ]);
     if (showToast) toast.success("تم تحديث بيانات منشئ الوجبات");
   }
 
@@ -265,6 +297,7 @@ export function MealPlannerWorkspaceV2({
     payload: MealPlannerCreatePayloadV2,
     previousKey?: string
   ) {
+    if (!canWrite) throw new Error("ليست لديك صلاحية تعديل منشئ الوجبات");
     try {
       const response = await cardMutation.mutateAsync({ payload, previousKey });
       applyAction(response);
@@ -278,15 +311,36 @@ export function MealPlannerWorkspaceV2({
 
   async function saveItems(ids: string[]) {
     if (!manageTarget) return;
+    if (!canWrite) throw new Error("ليست لديك صلاحية تعديل منشئ الوجبات");
     const cardType = normalizeCardType(manageTarget);
+    const originalIds = selectedIdsForSection(manageTarget);
+    const added = ids.filter((id) => !originalIds.includes(id));
+    const removed = originalIds.filter((id) => !ids.includes(id));
     try {
-      const response = await itemsMutation.mutateAsync({
-        sectionKey: manageTarget.key,
-        payload:
-          cardType === "direct_product"
-            ? { productIds: ids }
-            : { optionIds: ids },
-      });
+      let response: MealPlannerCardActionResponseV2;
+      if (cardType === "option_family" && added.length && !removed.length) {
+        response = await addOptionsMutation.mutateAsync({
+          sectionKey: manageTarget.key,
+          optionIds: added,
+        });
+      } else if (
+        cardType === "option_family" &&
+        removed.length === 1 &&
+        !added.length
+      ) {
+        response = await removeOptionMutation.mutateAsync({
+          sectionKey: manageTarget.key,
+          optionId: removed[0],
+        });
+      } else {
+        response = await itemsMutation.mutateAsync({
+          sectionKey: manageTarget.key,
+          payload:
+            cardType === "direct_product"
+              ? { productIds: ids }
+              : { optionIds: ids },
+        });
+      }
       applyAction(response);
       setManageTarget(null);
       toast.success("تم حفظ عناصر الكارت");
@@ -354,6 +408,11 @@ export function MealPlannerWorkspaceV2({
   async function publish() {
     try {
       await publishMutation.mutateAsync(publishNotes);
+      await Promise.allSettled([
+        getMealPlannerPublished(),
+        getMealPlannerHydratedDraft(),
+        getPublicMealPlannerMenu(),
+      ]);
       setPublishOpen(false);
       setPublishNotes("");
       await reloadAuthoritative();
@@ -398,12 +457,19 @@ export function MealPlannerWorkspaceV2({
         validation={validation}
         readiness={readinessQuery.data?.data ?? null}
         pending={pending}
+        canWrite={canWrite}
         onAdd={() => setEditor("create")}
         onReview={() => void review()}
         onPublished={() => setPublishedOpen(true)}
         onRefresh={() => void reloadAuthoritative(true)}
         onReset={() => setResetOpen(true)}
       />
+
+      {!canWrite ? (
+        <p className="rounded-2xl border border-amber-300/50 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+          حسابك يمكنه عرض منشئ الوجبات فقط. الكتابة متاحة لحسابات Admin وSuperadmin.
+        </p>
+      ) : null}
 
       <StatusPanel
         validation={validation}
@@ -443,6 +509,7 @@ export function MealPlannerWorkspaceV2({
           sections={filteredSections}
           issues={allIssues}
           pending={pending}
+          readOnly={!canWrite}
           onEdit={setEditor}
           onManageItems={setManageTarget}
           onToggleVisibility={(section) => void toggleVisibility(section)}
@@ -454,11 +521,15 @@ export function MealPlannerWorkspaceV2({
         </div>
       )}
 
-      {manageTarget ? (
+      {canWrite && manageTarget ? (
         <MealPlannerItemsDialogV2
           key={`items-${manageTarget.key}`}
           section={manageTarget}
-          pending={itemsMutation.isPending}
+          pending={
+            itemsMutation.isPending ||
+            addOptionsMutation.isPending ||
+            removeOptionMutation.isPending
+          }
           onClose={() => setManageTarget(null)}
           onSave={saveItems}
           onDeleteCard={() => {
@@ -468,7 +539,7 @@ export function MealPlannerWorkspaceV2({
         />
       ) : null}
 
-      {editor ? (
+      {canWrite && editor ? (
         <MealPlannerCardDialogV2
           key={editor === "create" ? "create" : editor.key}
           section={editor === "create" ? null : editor}
@@ -533,6 +604,7 @@ function WorkspaceHeader({
   validation,
   readiness,
   pending,
+  canWrite,
   onAdd,
   onReview,
   onPublished,
@@ -545,6 +617,7 @@ function WorkspaceHeader({
   validation: MealPlannerValidationV2 | null;
   readiness: MealPlannerValidationV2 | null;
   pending: boolean;
+  canWrite: boolean;
   onAdd: () => void;
   onReview: () => void;
   onPublished: () => void;
@@ -573,9 +646,12 @@ function WorkspaceHeader({
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:flex">
+          {canWrite ? (
           <Button type="button" disabled={pending} onClick={onAdd}>
             <Plus className="size-4" /> إضافة كارت
           </Button>
+          ) : null}
+          {canWrite ? (
           <Button
             type="button"
             variant="outline"
@@ -589,12 +665,14 @@ function WorkspaceHeader({
             )}
             مراجعة ونشر
           </Button>
+          ) : null}
           <Button type="button" variant="ghost" onClick={onPublished}>
             <Eye className="size-4" /> المنشور
           </Button>
           <Button type="button" variant="ghost" disabled={pending} onClick={onRefresh}>
             <RefreshCw className="size-4" /> تحديث
           </Button>
+          {canWrite ? (
           <Button
             type="button"
             variant="ghost"
@@ -604,6 +682,7 @@ function WorkspaceHeader({
           >
             <RotateCcw className="size-4" /> إلغاء التغييرات
           </Button>
+          ) : null}
         </div>
       </div>
       <div className="grid border-t bg-muted/20 sm:grid-cols-3">

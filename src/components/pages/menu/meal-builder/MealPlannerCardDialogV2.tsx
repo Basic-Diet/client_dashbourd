@@ -30,21 +30,22 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type {
+  MealPlannerBuilderGroup,
   MealPlannerCardContractV2,
-  MealPlannerCatalogCandidate,
   MealPlannerCatalogV2,
   MealPlannerCreatePayloadV2,
-  MealPlannerOptionRole,
-  MealPlannerProductOptionGroup,
   MealPlannerSectionV2,
 } from "@/types/mealPlannerDashboardTypes";
+import { MealPlannerBuilderGroupSelector } from "./MealPlannerBuilderGroupSelector";
 import { MealPlannerCandidatePickerV2 } from "./MealPlannerCandidatePickerV2";
 import {
   allowedOptionRoles,
+  authoritativeBuilderGroups,
   buildMealPlannerCreatePayload,
+  builderGroupIdentity,
   candidateId,
   creatableCardTypes,
-  candidateName,
+  findBuilderGroup,
   normalizeCardType,
   sectionItems,
   sectionOptionRole,
@@ -94,11 +95,30 @@ export function MealPlannerCardDialogV2({
   const [discardOpen, setDiscardOpen] = useState(false);
   const dirty = JSON.stringify(value) !== JSON.stringify(initialValue);
 
-  const selectedProduct = findProduct(catalog, value.productContextId);
-  const groups = groupsForProduct(selectedProduct, catalog).filter((group) =>
-    groupMatchesRole(group, value.optionRole)
+  const builderGroups = authoritativeBuilderGroups(catalog);
+  const selectedBuilderGroup = findBuilderGroup(
+    catalog,
+    value.productContextId,
+    value.sourceGroupId
   );
-  const families = catalog.searchFacets?.proteinFamilies || [];
+  const selectedBuilderGroupId = selectedBuilderGroup
+    ? builderGroupIdentity(selectedBuilderGroup)
+    : "";
+  const families = selectedBuilderGroup?.families || [];
+  const nestedOptions = (selectedBuilderGroup?.options || []).filter(
+    (option) =>
+      !value.familyKey ||
+      String(option.familyKey || option.proteinFamilyKey || "") === value.familyKey
+  );
+  const originalSelectedIds = section ? selectedIdsForSection(section) : [];
+  const selectedOptionsValid =
+    value.cardType === "direct_product" ||
+    value.selectedIds.every((id) => {
+      if (originalSelectedIds.includes(id)) return true;
+      return nestedOptions.some(
+        (option) => candidateId(option) === id && option.assignable === true
+      );
+    });
   const baseFieldsReady = Boolean(
     value.key.trim() &&
       value.titleAr.trim() &&
@@ -108,11 +128,22 @@ export function MealPlannerCardDialogV2({
   const optionContextReady =
     value.cardType === "direct_product" ||
     Boolean(
-      (value.optionRole === "protein" || value.optionRole === "carbs") &&
+      selectedBuilderGroup &&
+        (editing || selectedBuilderGroup.eligible === true) &&
+        (value.optionRole === "protein" || value.optionRole === "carbs") &&
         value.productContextId?.trim() &&
         value.sourceGroupId?.trim()
     );
-  const canSubmit = baseFieldsReady && optionContextReady;
+  const minSelections = Number(value.minSelections ?? 0);
+  const maxSelections = value.maxSelections;
+  const rulesReady =
+    value.cardType === "direct_product" ||
+    (Number.isInteger(minSelections) &&
+      minSelections >= 0 &&
+      (maxSelections === null ||
+        (Number.isInteger(maxSelections) && maxSelections >= minSelections)));
+  const canSubmit =
+    baseFieldsReady && optionContextReady && selectedOptionsValid && rulesReady;
 
   function requestClose() {
     if (pending) return;
@@ -149,15 +180,25 @@ export function MealPlannerCardDialogV2({
     }));
   }
 
-  function changeRole(optionRole: MealPlannerOptionRole) {
+  function selectBuilderGroup(group: MealPlannerBuilderGroup) {
+    if (editing || group.eligible !== true) return;
+    if (group.optionRole !== "protein" && group.optionRole !== "carbs") return;
+    const minSelections = Number(group.rules?.minSelections ?? 0);
+    const maxSelections =
+      group.rules?.maxSelections === null
+        ? null
+        : Number(group.rules?.maxSelections ?? (group.optionRole === "carbs" ? 2 : 1));
     setValue((current) => ({
       ...current,
-      optionRole,
-      familyKey: optionRole === "carbs" ? "" : current.familyKey,
-      sourceGroupId: "",
+      optionRole: group.optionRole as "protein" | "carbs",
+      productContextId: group.productContextId,
+      sourceGroupId: group.sourceGroupId,
+      familyKey: "",
       selectedIds: [],
-      maxSelections: optionRole === "carbs" ? 2 : 1,
-      multiSelect: optionRole === "carbs",
+      required: group.rules?.isRequired === true,
+      minSelections,
+      maxSelections,
+      multiSelect: maxSelections === null || Number(maxSelections) > 1,
     }));
   }
 
@@ -259,111 +300,124 @@ export function MealPlannerCardDialogV2({
 
             {value.cardType === "option_family" ? (
               <section className="space-y-4 rounded-2xl border bg-muted/15 p-4">
-                <div>
-                  <FieldLabel>تكوين كارت الخيارات</FieldLabel>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    اختر النوع، المنتج الأساسي، المجموعة، ثم العناصر المرتبطة فعليًا.
+                <MealPlannerBuilderGroupSelector
+                  groups={builderGroups}
+                  selectedId={selectedBuilderGroupId}
+                  disabled={editing}
+                  onSelect={selectBuilderGroup}
+                />
+                {editing && !selectedBuilderGroup ? (
+                  <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-destructive">
+                    تعذر العثور على علاقة المنتج والمجموعة الحالية داخل الكتالوج الموثق. حدّث الصفحة قبل الحفظ.
                   </p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <SelectField
-                    label="نوع الخيارات"
-                    value={value.optionRole || "protein"}
-                    onChange={(role) => changeRole(role as MealPlannerOptionRole)}
-                    options={optionRoles.map((role) => ({
-                      value: role,
-                      label: role === "protein" ? "خيارات بروتين" : "خيارات كارب",
-                    }))}
-                  />
-                  <SelectField
-                    label="المنتج الأساسي"
-                    value={value.productContextId || ""}
-                    placeholder="اختر المنتج"
-                    onChange={(productContextId) =>
-                      setValue((current) => ({
-                        ...current,
-                        productContextId,
-                        sourceGroupId: "",
-                        selectedIds: [],
-                      }))
-                    }
-                    options={(catalog.products || [])
-                      .filter(composedProductEligible)
-                      .map((product) => ({
-                        value: candidateId(product),
-                        label: candidateName(product),
-                      }))}
-                  />
-                  <SelectField
-                    label="مجموعة الخيارات"
-                    value={value.sourceGroupId || ""}
-                    placeholder="اختر المجموعة"
-                    disabled={!value.productContextId}
-                    onChange={(sourceGroupId) =>
-                      setValue((current) => ({
-                        ...current,
-                        sourceGroupId,
-                        selectedIds: [],
-                      }))
-                    }
-                    options={groups.map((group) => ({
-                      value: groupId(group),
-                      label: groupName(group),
-                    }))}
-                  />
-                  {value.optionRole === "protein" ? (
+                ) : null}
+                {selectedBuilderGroup ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <SelectField
-                      label="عائلة البروتين"
-                      value={value.familyKey || "all"}
-                      onChange={(familyKey) =>
-                        setValue((current) => ({
-                          ...current,
-                          familyKey: familyKey === "all" ? "" : familyKey,
-                          selectedIds: [],
-                        }))
-                      }
+                      label="نوع الخيارات"
+                      value={selectedBuilderGroup.optionRole || ""}
+                      disabled
                       options={[
-                        { value: "all", label: "كل العائلات المتاحة" },
-                        ...families.map((family) => ({
-                          value: family,
-                          label: familyLabel(family),
-                        })),
+                        {
+                          value: selectedBuilderGroup.optionRole || "unsupported",
+                          label:
+                            selectedBuilderGroup.optionRole === "carbs"
+                              ? "خيارات كارب"
+                              : "خيارات بروتين",
+                        },
                       ]}
+                      onChange={() => undefined}
                     />
-                  ) : null}
-                </div>
-                {value.productContextId && !groups.length ? (
-                  <p className="text-xs text-destructive">
-                    لا توجد مجموعة فعالة تناسب نوع الكارت لهذا المنتج.
-                  </p>
+                    {selectedBuilderGroup.optionRole === "protein" && families.length ? (
+                      <SelectField
+                        label="عائلة البروتين"
+                        value={value.familyKey || "all"}
+                        onChange={(familyKey) =>
+                          setValue((current) => ({
+                            ...current,
+                            familyKey: familyKey === "all" ? "" : familyKey,
+                            selectedIds: [],
+                          }))
+                        }
+                        options={[
+                          { value: "all", label: "كل العائلات المتاحة" },
+                          ...families.map((family) => ({
+                            value: family,
+                            label: familyLabel(family),
+                          })),
+                        ]}
+                      />
+                    ) : null}
+                  </div>
                 ) : null}
               </section>
             ) : null}
 
-            <MealPlannerCandidatePickerV2
-              type={value.cardType === "direct_product" ? "product" : "option"}
-              targetSectionKey={section?.key}
-              selectedIds={value.selectedIds}
-              seedCandidates={section ? sectionItems(section) : []}
-              productContextId={value.productContextId}
-              sourceGroupId={value.sourceGroupId}
-              optionRole={value.optionRole}
-              familyKey={value.familyKey}
-              onChange={(selectedIds) =>
-                setValue((current) => ({ ...current, selectedIds }))
-              }
-            />
-
-            <section className="grid gap-3 rounded-2xl border bg-muted/20 p-4 sm:grid-cols-2">
-              <ToggleField
-                label="إظهار الكارت"
-                description="الكارت المخفي لا يظهر للعميل بعد النشر."
-                checked={value.visible}
-                onChange={(visible) =>
-                  setValue((current) => ({ ...current, visible }))
+            {value.cardType === "direct_product" ? (
+              <MealPlannerCandidatePickerV2
+                type="product"
+                targetSectionKey={section?.key}
+                selectedIds={value.selectedIds}
+                seedCandidates={section ? sectionItems(section) : []}
+                onChange={(selectedIds) =>
+                  setValue((current) => ({ ...current, selectedIds }))
                 }
               />
-              {value.cardType === "option_family" ? (
+            ) : (
+              <MealPlannerCandidatePickerV2
+                type="option"
+                targetSectionKey={section?.key}
+                selectedIds={value.selectedIds}
+                seedCandidates={[
+                  ...nestedOptions,
+                  ...(section ? sectionItems(section) : []),
+                ]}
+                productContextId={value.productContextId}
+                sourceGroupId={value.sourceGroupId}
+                optionRole={value.optionRole}
+                familyKey={value.familyKey}
+                disabled={!selectedBuilderGroup}
+                onChange={(selectedIds) =>
+                  setValue((current) => ({ ...current, selectedIds }))
+                }
+              />
+            )}
+
+            {value.cardType === "option_family" ? (
+              <section className="grid gap-4 rounded-2xl border bg-muted/20 p-4 sm:grid-cols-2">
+                <TextField
+                  label="الحد الأدنى للاختيارات"
+                  value={String(value.minSelections ?? 0)}
+                  type="number"
+                  min={0}
+                  onChange={(input) =>
+                    setValue((current) => ({
+                      ...current,
+                      minSelections: Number(input || 0),
+                    }))
+                  }
+                />
+                <TextField
+                  label="الحد الأقصى للاختيارات"
+                  value={value.maxSelections === null ? "" : String(value.maxSelections ?? 1)}
+                  type="number"
+                  min={0}
+                  placeholder="بدون حد"
+                  onChange={(input) =>
+                    setValue((current) => ({
+                      ...current,
+                      maxSelections: input === "" ? null : Number(input),
+                    }))
+                  }
+                />
+                <ToggleField
+                  label="الاختيار مطلوب"
+                  description="استخدم القيمة التي يرسلها الـBackend ويمكن تعديلها قبل الحفظ."
+                  checked={value.required === true}
+                  onChange={(required) =>
+                    setValue((current) => ({ ...current, required }))
+                  }
+                />
                 <ToggleField
                   label="اختيار متعدد"
                   description="اسمح بأكثر من اختيار حسب الحد الأقصى."
@@ -372,7 +426,18 @@ export function MealPlannerCardDialogV2({
                     setValue((current) => ({ ...current, multiSelect }))
                   }
                 />
-              ) : null}
+              </section>
+            ) : null}
+
+            <section className="rounded-2xl border bg-muted/20 p-4">
+              <ToggleField
+                label="إظهار الكارت"
+                description="الكارت المخفي لا يظهر للعميل بعد النشر."
+                checked={value.visible}
+                onChange={(visible) =>
+                  setValue((current) => ({ ...current, visible }))
+                }
+              />
             </section>
 
             {formError ? (
@@ -598,79 +663,6 @@ function FieldLabel({
 function suggestedSortOrder(catalog: MealPlannerCatalogV2) {
   const count = Number(catalog.counts?.products || 0);
   return Math.max(10, Math.ceil(count / 10) * 10);
-}
-
-function findProduct(catalog: MealPlannerCatalogV2, id?: string) {
-  return (catalog.products || []).find((product) => candidateId(product) === id);
-}
-
-function composedProductEligible(product: MealPlannerCatalogCandidate) {
-  const mealPlanner = product.mealPlanner as
-    | { composedMeal?: { eligible?: boolean } }
-    | undefined;
-  return (
-    mealPlanner?.composedMeal?.eligible === true ||
-    Boolean(product.optionGroups?.length)
-  );
-}
-
-function groupsForProduct(
-  product: MealPlannerCatalogCandidate | undefined,
-  catalog: MealPlannerCatalogV2
-): MealPlannerProductOptionGroup[] {
-  if (!product) return [];
-  if (Array.isArray(product.optionGroups)) return product.optionGroups;
-  const productId = candidateId(product);
-  return (catalog.relations?.productOptionGroups || [])
-    .filter((relation) => String(relation.productId || "") === productId)
-    .map((relation) => {
-      const relationGroupId = String(
-        relation.groupId || relation.optionGroupId || ""
-      );
-      const group = (catalog.optionGroups || []).find(
-        (item) => candidateId(item) === relationGroupId
-      );
-      return {
-        id: relationGroupId,
-        group: group
-          ? { id: candidateId(group), key: group.key, name: group.name }
-          : { id: relationGroupId, key: String(relation.groupKey || "") },
-        relationStatus: relation.relationStatus as Record<string, unknown>,
-      };
-    });
-}
-
-function groupId(group: MealPlannerProductOptionGroup) {
-  return String(group.group?.id || group.group?._id || group.id || "");
-}
-
-function groupKey(group: MealPlannerProductOptionGroup) {
-  return String(group.group?.key || group.key || "").toLowerCase();
-}
-
-function groupName(group: MealPlannerProductOptionGroup) {
-  return (
-    group.group?.name?.ar ||
-    group.name?.ar ||
-    group.group?.name?.en ||
-    group.name?.en ||
-    groupKey(group) ||
-    "مجموعة خيارات"
-  );
-}
-
-function groupMatchesRole(
-  group: MealPlannerProductOptionGroup,
-  role?: MealPlannerOptionRole
-) {
-  const ready =
-    (group.effectiveStatus as { customerReady?: boolean } | undefined)
-      ?.customerReady !== false && group.relationStatus?.effective !== false;
-  if (!ready) return false;
-  const key = groupKey(group);
-  return role === "carbs"
-    ? ["carb", "carbs"].includes(key)
-    : ["protein", "proteins"].includes(key);
 }
 
 function familyLabel(family: string) {

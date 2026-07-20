@@ -31,6 +31,7 @@ export function MealPlannerCardGridV2({
   sections,
   issues,
   pending,
+  readOnly = false,
   onEdit,
   onManageItems,
   onToggleVisibility,
@@ -40,6 +41,7 @@ export function MealPlannerCardGridV2({
   sections: MealPlannerSectionV2[];
   issues: MealPlannerValidationIssue[];
   pending: boolean;
+  readOnly?: boolean;
   onEdit: (section: MealPlannerSectionV2) => void;
   onManageItems: (section: MealPlannerSectionV2) => void;
   onToggleVisibility: (section: MealPlannerSectionV2) => void;
@@ -69,6 +71,7 @@ export function MealPlannerCardGridV2({
               (issue) => !issue.sectionKey || issue.sectionKey === section.key
             )}
             pending={pending}
+            readOnly={readOnly}
             onEdit={() => onEdit(section)}
             onManageItems={() => onManageItems(section)}
             onToggleVisibility={() => onToggleVisibility(section)}
@@ -145,6 +148,7 @@ function DynamicCard({
   section,
   issues,
   pending,
+  readOnly,
   onEdit,
   onManageItems,
   onToggleVisibility,
@@ -153,6 +157,7 @@ function DynamicCard({
   section: MealPlannerSectionV2;
   issues: MealPlannerValidationIssue[];
   pending: boolean;
+  readOnly: boolean;
   onEdit: () => void;
   onManageItems: () => void;
   onToggleVisibility: () => void;
@@ -234,6 +239,7 @@ function DynamicCard({
         </div>
       ) : null}
 
+      {!readOnly ? (
       <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
         <Button
           type="button"
@@ -272,6 +278,11 @@ function DynamicCard({
           حذف الكارت
         </Button>
       </div>
+      ) : (
+        <p className="mt-auto rounded-xl bg-muted/50 p-3 pt-3 text-xs leading-5 text-muted-foreground">
+          عرض فقط — التعديل متاح لحسابات Admin وSuperadmin.
+        </p>
+      )}
     </article>
   );
 }

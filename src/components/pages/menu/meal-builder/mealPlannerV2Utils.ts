@@ -2,8 +2,10 @@ import { parseApiError } from "@/lib/apiErrors";
 import type {
   DirectProductCardPayloadV2,
   LocalizedTextValue,
+  MealPlannerBuilderGroup,
   MealPlannerCardContractV2,
   MealPlannerCatalogCandidate,
+  MealPlannerCatalogV2,
   MealPlannerCreatePayloadV2,
   MealPlannerOptionRole,
   MealPlannerSectionV2,
@@ -158,6 +160,33 @@ export function allowedOptionRoles(
   return values.length ? Array.from(new Set(values)) : ["protein", "carbs"];
 }
 
+export function authoritativeBuilderGroups(
+  catalog?: MealPlannerCatalogV2 | null
+): MealPlannerBuilderGroup[] {
+  const topLevel = catalog?.builderGroups;
+  if (Array.isArray(topLevel)) return topLevel;
+  const mirrored = catalog?.authoring?.builderGroups;
+  return Array.isArray(mirrored) ? mirrored : [];
+}
+
+export function builderGroupIdentity(group: MealPlannerBuilderGroup) {
+  return String(group.id || `${group.productContextId}:${group.sourceGroupId}`);
+}
+
+export function findBuilderGroup(
+  catalog: MealPlannerCatalogV2 | null | undefined,
+  productContextId?: string,
+  sourceGroupId?: string
+) {
+  const productId = String(productContextId || "");
+  const groupId = String(sourceGroupId || "");
+  return authoritativeBuilderGroups(catalog).find(
+    (group) =>
+      String(group.productContextId) === productId &&
+      String(group.sourceGroupId) === groupId
+  );
+}
+
 export function canonicalSelectionType(section: MealPlannerSectionV2) {
   const cardType = normalizeCardType(section);
   if (cardType === "direct_product") return "full_meal_product";
@@ -254,6 +283,8 @@ export function mealPlannerErrorMessage(error: unknown, fallback: string) {
 export const ERROR_MESSAGES: Record<string, string> = {
   MEAL_BUILDER_CARD_KEY_INVALID: "مفتاح الكارت غير صالح",
   MEAL_BUILDER_CARD_NUMBER_INVALID: "قيمة الترتيب أو العدد غير صالحة",
+  MEAL_BUILDER_INVALID_REFERENCE: "البيانات قديمة أو غير مرتبطة؛ تم طلب تحديث الكتالوج",
+  MEAL_BUILDER_OPTION_IDS_INVALID: "قائمة الخيارات المرسلة غير صالحة",
   MEAL_BUILDER_CARD_KEY_DUPLICATE: "يوجد كارت آخر بنفس المفتاح",
   MEAL_BUILDER_CARD_NOT_FOUND: "الكارت غير موجود",
   MEAL_BUILDER_CARD_TYPE_INVALID: "نوع الكارت غير مدعوم",
@@ -299,6 +330,11 @@ const REASON_MESSAGES: Record<string, string> = {
   PRODUCT_UNAVAILABLE: "المنتج غير متاح",
   PRODUCT_UNPUBLISHED: "المنتج غير منشور",
   PRODUCT_NOT_SUBSCRIPTION_ENABLED: "غير متاح للاشتراكات",
+  PRODUCT_NOT_READY: "المنتج غير جاهز للاشتراكات",
+  OPTION_GROUP_NOT_READY: "مجموعة الخيارات غير جاهزة",
+  PRODUCT_GROUP_RELATION_UNAVAILABLE: "العلاقة بين المنتج والمجموعة غير متاحة",
+  UNSUPPORTED_OPTION_GROUP_ROLE: "دور مجموعة الخيارات غير مدعوم",
+  NO_ASSIGNABLE_STANDARD_OPTIONS: "لا توجد خيارات عادية قابلة للاختيار",
   OPTION_INACTIVE: "الخيار غير نشط",
   OPTION_HIDDEN: "الخيار مخفي",
   OPTION_UNAVAILABLE: "الخيار غير متاح",

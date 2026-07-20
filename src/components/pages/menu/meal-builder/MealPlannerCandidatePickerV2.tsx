@@ -89,7 +89,7 @@ export function MealPlannerCandidatePickerV2({
             includeUnavailable: true,
             unassignedOnly: true,
             page: Number(pageParam),
-            limit: 100,
+            limit: 1000,
           }, signal)
         : getMealPlannerOptionsPicker({
             targetSectionKey,
@@ -102,7 +102,7 @@ export function MealPlannerCandidatePickerV2({
             includeUnavailable: true,
             unassignedOnly: true,
             page: Number(pageParam),
-            limit: 100,
+            limit: 1000,
           }, signal),
     getNextPageParam: (lastPage) => {
       const page = Number(lastPage.data.meta?.page || 1);
@@ -140,7 +140,7 @@ export function MealPlannerCandidatePickerV2({
         : candidates,
     [candidates, category, selectedIds, type]
   );
-  const initialLoading = query.isLoading && !query.data;
+  const initialLoading = query.isLoading && !query.data && !seedCandidates.length;
 
   return (
     <section className="space-y-3">
@@ -336,4 +336,15 @@ function mergeCandidates(
       candidateName(left).localeCompare(candidateName(right), "ar")
     );
   });
+}
+
+function candidateMeta(candidate: MealPlannerCatalogCandidate) {
+  const parts = [candidate.key];
+  const family = candidate.familyKey || candidate.proteinFamilyKey;
+  if (family) parts.push(`العائلة: ${family}`);
+  const price = candidate.extraPriceHalala ?? candidate.priceHalala;
+  if (typeof price === "number") {
+    parts.push(`${(price / 100).toFixed(2)} ${candidate.currency || "SAR"}`);
+  }
+  return parts.filter(Boolean).join(" • ") || "جاهز للاختيار";
 }
