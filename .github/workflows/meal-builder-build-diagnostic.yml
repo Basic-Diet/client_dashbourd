@@ -1,0 +1,40 @@
+name: Meal Builder Build Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - feat/meal-builder-authoritative-option-groups
+    types: [opened]
+
+permissions:
+  contents: read
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  build-log:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-authoritative-option-groups
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: python .github/scripts/meal_builder_final_test_repair.py
+      - run: npm ci --silent
+      - name: Capture production build
+        id: build
+        continue-on-error: true
+        run: npm run build > meal-builder-build.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: meal-builder-build-log
+          path: meal-builder-build.log
+      - name: Enforce build
+        if: steps.build.outcome == 'failure'
+        run: exit 1
