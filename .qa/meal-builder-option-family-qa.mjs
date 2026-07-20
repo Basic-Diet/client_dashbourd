@@ -402,7 +402,9 @@ try {
     has: page.getByRole("heading", { name: "إضافة كارت جديد" }),
   });
   await createDialog.waitFor();
-  await createDialog.getByRole("radio", { name: /خيارات وجبة مركبة/ }).click();
+  await createDialog
+    .getByRole("button", { name: /خيارات وجبة مركبة/ })
+    .click();
   await createDialog.getByText("نوع الخيارات").waitFor();
   await createDialog.getByText("المنتج الأساسي").waitFor();
   await createDialog.getByText("مجموعة الخيارات").waitFor();
