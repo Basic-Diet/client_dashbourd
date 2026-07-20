@@ -1,0 +1,36 @@
+name: Apply Addon Dialog Lint Fix
+
+on:
+  push:
+    branches:
+      - fix/addon-dialog-full-lint
+    paths:
+      - .qa/patch_addon_dialog_lint.py
+      - .github/workflows/apply-addon-dialog-lint.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/addon-dialog-full-lint
+          fetch-depth: 0
+      - run: python .qa/patch_addon_dialog_lint.py
+      - name: Verify focused file
+        run: |
+          npm ci --silent
+          npm run typecheck
+          npx eslint src/components/pages/addons/AddonPlanDialog.tsx
+      - name: Commit product fix
+        run: |
+          git config user.name 'Basic Diet Frontend'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/components/pages/addons/AddonPlanDialog.tsx
+          git commit -m 'fix(addons): reset product filters through reducer'
+          git push origin HEAD:fix/addon-dialog-full-lint
