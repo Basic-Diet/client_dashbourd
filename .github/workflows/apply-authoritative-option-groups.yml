@@ -23,15 +23,31 @@ jobs:
           ref: feat/meal-builder-authoritative-option-groups
           fetch-depth: 0
       - name: Apply frontend integration patch
-        run: python .qa/patch_authoritative_option_groups.py
-      - name: Commit product changes
+        id: patch
+        continue-on-error: true
+        shell: bash
         run: |
-          if git diff --quiet; then
-            echo 'No product changes to commit.'
-            exit 0
-          fi
+          mkdir -p .qa-debug
+          set -o pipefail
+          python .qa/patch_authoritative_option_groups.py 2>&1 | tee .qa-debug/patch-error.log
+      - name: Commit product changes or diagnostics
+        if: always()
+        run: |
           git config user.name 'Basic Diet Frontend'
           git config user.email 'actions@users.noreply.github.com'
-          git add src tests
-          git commit -m 'feat(meal-builder): consume authoritative builder groups'
+          if [ '${{ steps.patch.outcome }}' = 'success' ]; then
+            git add src tests
+            message='feat(meal-builder): consume authoritative builder groups'
+          else
+            git reset --hard HEAD
+            git add -f .qa-debug/patch-error.log
+            message='chore(meal-builder): record patch diagnostic'
+          fi
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "$message"
           git push origin HEAD:feat/meal-builder-authoritative-option-groups
+      - name: Enforce patch result
+        if: steps.patch.outcome == 'failure'
+        run: exit 1
