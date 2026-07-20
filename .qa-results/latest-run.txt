@@ -1,3 +1,0 @@
-browserOutcome=failure
-runId=29711286700
-headSha=9ceda6f3470700563501ab541d7f5ca6ed0bfb6b

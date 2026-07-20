@@ -1,1 +1,0 @@
-Run authenticated Meal Builder CRUD against the local production build after the clear Arabic card-copy fix.

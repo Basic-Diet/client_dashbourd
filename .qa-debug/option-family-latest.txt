@@ -1,3 +1,0 @@
-optionOutcome=success
-runId=29713458221
-headSha=5b5b95cb30db3bdfccc0053c686eec6154a37615
