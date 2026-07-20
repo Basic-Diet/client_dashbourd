@@ -405,9 +405,9 @@ try {
   await createDialog
     .getByRole("button", { name: /خيارات وجبة مركبة/ })
     .click();
-  await createDialog.getByText("نوع الخيارات").waitFor();
-  await createDialog.getByText("المنتج الأساسي").waitFor();
-  await createDialog.getByText("مجموعة الخيارات").waitFor();
+  await createDialog.getByText("نوع الخيارات", { exact: true }).waitFor();
+  await createDialog.getByText("المنتج الأساسي", { exact: true }).waitFor();
+  await createDialog.getByText("مجموعة الخيارات", { exact: true }).waitFor();
   if (!(await createDialog.getByRole("button", { name: "إنشاء الكارت" }).isDisabled())) {
     throw new Error("Option-family create button must remain disabled before context and options");
   }
