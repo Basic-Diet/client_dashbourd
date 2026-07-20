@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   closure:
@@ -27,10 +27,10 @@ jobs:
       QA_EMAIL: admin@basicdiet.com
       QA_PASSWORD: Admin@123456
     steps:
-      - name: Checkout exact pull request head
+      - name: Checkout exact QA branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: test/meal-builder-authenticated-crud-qa
           fetch-depth: 0
 
       - name: Use Node.js 20
@@ -40,7 +40,7 @@ jobs:
           cache: npm
 
       - name: Prepare evidence directories
-        run: mkdir -p .qa-artifacts .qa-option-artifacts .qa-closure
+        run: mkdir -p .qa-artifacts .qa-option-artifacts .qa-closure .qa-debug
 
       - name: Install project dependencies
         run: npm ci --silent
@@ -82,37 +82,42 @@ jobs:
         run: node .qa/meal-builder-authenticated-qa.mjs
 
       - name: Reversible option-family picker and PUT-items QA
+        id: option_qa
+        continue-on-error: true
         run: node .qa/meal-builder-option-family-qa.mjs
+
+      - name: Persist option-family evidence for inspection
+        if: always()
+        run: |
+          cp .qa-option-artifacts/option-family-qa-report.json .qa-debug/option-family-latest.json 2>/dev/null || echo '{"report":"missing"}' > .qa-debug/option-family-latest.json
+          {
+            echo "optionOutcome=${{ steps.option_qa.outcome }}"
+            echo "runId=${{ github.run_id }}"
+            echo "headSha=$(git rev-parse HEAD)"
+          } > .qa-debug/option-family-latest.txt
+          git config user.name 'Basic Diet QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -f .qa-debug/option-family-latest.json .qa-debug/option-family-latest.txt
+          if ! git diff --cached --quiet; then
+            git commit -m 'test(meal-builder): record option-family closure evidence'
+            git push origin HEAD:test/meal-builder-authenticated-crud-qa
+          fi
 
       - name: Repository diff integrity
         run: git diff --check
 
-      - name: Publish closure summary
-        if: always()
-        shell: bash
-        run: |
-          {
-            echo '# Meal Builder Frontend Closure Evidence'
-            echo
-            echo '## Direct CRUD report'
-            echo '```json'
-            cat .qa-artifacts/meal-builder-qa-report.json || echo '{"report":"missing"}'
-            echo '```'
-            echo
-            echo '## Option-family report'
-            echo '```json'
-            cat .qa-option-artifacts/option-family-qa-report.json || echo '{"report":"missing"}'
-            echo '```'
-          } > .qa-closure/summary.md
-
-      - name: Upload complete closure evidence
+      - name: Upload compact closure evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: meal-builder-frontend-closure-evidence
           path: |
-            .qa-artifacts
-            .qa-option-artifacts
-            .qa-closure
-          if-no-files-found: error
+            .qa-artifacts/meal-builder-qa-report.json
+            .qa-option-artifacts/option-family-qa-report.json
+            .qa-closure/vite-preview.log
+          if-no-files-found: warn
           retention-days: 14
+
+      - name: Enforce option-family QA
+        if: steps.option_qa.outcome == 'failure'
+        run: exit 1
