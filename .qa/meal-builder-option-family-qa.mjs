@@ -217,7 +217,11 @@ try {
 
   let card = optionCard(page, targetTitle);
   await card.waitFor({ timeout: 45_000 });
-  await card.getByText(optionRole === "carbs" ? "كارب" : "بروتين", { exact: true }).waitFor();
+  await card
+    .getByText(optionRole === "carbs" ? "خيارات كارب" : "خيارات بروتين", {
+      exact: true,
+    })
+    .waitFor();
   await card.getByText(/يُستخدم ضمن وجبة مركبة/).waitFor();
   check("Existing option-family card is rendered with clear user-facing labels", {
     targetKey,
