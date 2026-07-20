@@ -26,9 +26,11 @@ interface PremiumMealsSectionProps {
 
 interface BuilderPremiumMeal {
   id: string;
+  premiumKey: string;
   name: { ar?: string; en?: string } | string;
   imageUrl?: string;
   extraFeeHalala?: number;
+  currency?: string;
   isActive?: boolean;
 }
 
@@ -45,6 +47,11 @@ const fetchBuilderPremiumMeals = async (): Promise<BuilderPremiumMealsResponse> 
 const getMealName = (meal: BuilderPremiumMeal) =>
   typeof meal.name === "string" ? meal.name : meal.name.ar || meal.name.en || "";
 
+const formatSar = (halala: number) => {
+  const sar = halala / 100;
+  return Number.isInteger(sar) ? String(sar) : sar.toFixed(2).replace(/\.?0+$/, "");
+};
+
 export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
   const { data: premiumResponse, isLoading } = useQuery({
     queryKey: ["builder-premium-meals"],
@@ -59,10 +66,11 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
     name: "premiumItems",
   });
 
-  const selectedIds = form.watch("premiumItems")?.map((p) => p.premiumMealId) || [];
+  const premiumItems = form.watch("premiumItems") || [];
+  const selectedKeys = premiumItems.map((item) => item.premiumKey);
 
-  const getSelectedMeal = (mealId: string): BuilderPremiumMeal | undefined =>
-    premiumMeals.find((meal) => meal.id === mealId);
+  const getSelectedMeal = (premiumKey: string): BuilderPremiumMeal | undefined =>
+    premiumMeals.find((meal) => meal.premiumKey === premiumKey);
 
   return (
     <Card>
@@ -81,7 +89,7 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => append({ premiumMealId: "", qty: 1 })}
+            onClick={() => append({ premiumKey: "", qty: 1 })}
           >
             <Plus className="size-3.5" />
             إضافة وجبة
@@ -107,15 +115,17 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
         ) : (
           <div className="space-y-3">
             {fields.map((field, index) => {
-              const selectedMeal = getSelectedMeal(
-                form.watch(`premiumItems.${index}.premiumMealId`)
-              );
+              const premiumKey = premiumItems[index]?.premiumKey || "";
+              const qty = Math.max(1, Number(premiumItems[index]?.qty) || 1);
+              const selectedMeal = getSelectedMeal(premiumKey);
+              const unitPriceHalala = selectedMeal?.extraFeeHalala || 0;
+              const totalHalala = unitPriceHalala * qty;
+
               return (
                 <div
                   key={field.id}
                   className="flex items-start gap-3 rounded-xl border border-border/50 bg-card p-4 shadow-sm transition-all hover:border-border/80"
                 >
-                  {/* Meal image preview */}
                   {selectedMeal?.imageUrl && (
                     <img
                       src={selectedMeal.imageUrl}
@@ -125,13 +135,13 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
                   )}
 
                   <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
-                    {/* Meal selector */}
                     <div className="flex-1 space-y-1.5">
                       <label className="text-xs text-muted-foreground">الوجبة المميزة</label>
                       <Select
-                        value={form.watch(`premiumItems.${index}.premiumMealId`)}
+                        value={premiumKey}
                         onValueChange={(value) =>
-                          form.setValue(`premiumItems.${index}.premiumMealId`, value, {
+                          form.setValue(`premiumItems.${index}.premiumKey`, value, {
+                            shouldDirty: true,
                             shouldValidate: true,
                           })
                         }
@@ -142,53 +152,57 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
                         <SelectContent>
                           {premiumMeals.map((meal) => (
                             <SelectItem
-                              key={meal.id}
-                              value={meal.id}
+                              key={meal.premiumKey}
+                              value={meal.premiumKey}
                               disabled={
-                                selectedIds.includes(meal.id) &&
-                                form.watch(`premiumItems.${index}.premiumMealId`) !== meal.id
+                                selectedKeys.includes(meal.premiumKey) &&
+                                premiumKey !== meal.premiumKey
                               }
                             >
                               <span className="flex items-center gap-2">
                                 {getMealName(meal)}
                                 <span className="text-xs text-muted-foreground">
-                                  ({((meal.extraFeeHalala || 0) / 100).toFixed(0)} ريال)
+                                  ({formatSar(meal.extraFeeHalala || 0)} ريال)
                                 </span>
                               </span>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      {form.formState.errors.premiumItems?.[index]?.premiumMealId && (
+                      {form.formState.errors.premiumItems?.[index]?.premiumKey && (
                         <p className="text-xs text-destructive">
-                          {form.formState.errors.premiumItems[index].premiumMealId?.message}
+                          {form.formState.errors.premiumItems[index].premiumKey?.message}
                         </p>
                       )}
                     </div>
 
-                    {/* Quantity */}
                     <div className="w-24 space-y-1.5">
                       <label className="text-xs text-muted-foreground">الكمية</label>
                       <Input
                         type="number"
                         min={1}
+                        step={1}
+                        inputMode="numeric"
                         {...form.register(`premiumItems.${index}.qty`, {
                           valueAsNumber: true,
                         })}
                       />
                     </div>
 
-                    {/* Price info */}
                     {selectedMeal && (
-                      <div className="flex flex-col items-center gap-1 px-2">
-                        <span className="text-[10px] text-muted-foreground">السعر</span>
+                      <div className="min-w-24 rounded-lg bg-amber-500/10 px-3 py-2 text-center">
+                        <span className="block text-[10px] text-muted-foreground">
+                          الإجمالي
+                        </span>
                         <span className="text-sm font-bold text-amber-600">
-                          {((selectedMeal.extraFeeHalala || 0) / 100).toFixed(0)} ريال
+                          {formatSar(totalHalala)} ريال
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground">
+                          {qty} × {formatSar(unitPriceHalala)}
                         </span>
                       </div>
                     )}
 
-                    {/* Remove */}
                     <Button
                       type="button"
                       variant="ghost"
