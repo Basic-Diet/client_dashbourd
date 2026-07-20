@@ -1,0 +1,153 @@
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str, label: str) -> None:
+    file = Path(path)
+    text = file.read_text()
+    if old not in text:
+        raise SystemExit(f"Expected {label} not found in {path}")
+    file.write_text(text.replace(old, new, 1))
+
+
+replace_once(
+    "src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx",
+    "(Number.isInteger(maxSelections) && maxSelections >= minSelections)",
+    '(typeof maxSelections === "number" &&\n          Number.isInteger(maxSelections) &&\n          maxSelections >= minSelections)',
+    "maxSelections guard",
+)
+replace_once(
+    "tests/mealPlannerAuthoritativeOptionGroups.test.tsx",
+    'await user.click(screen.getByRole("option", { name: "سمك" }));',
+    'await user.keyboard("{ArrowDown}{Enter}");',
+    "Radix Select assertion",
+)
+
+grid = "src/components/pages/menu/meal-builder/MealPlannerCardGridV2.tsx"
+for old, new, label in [
+    ("import type {\n  MealPlannerPremiumSectionV2,", "import type {\n  MealPlannerCatalogV2,\n  MealPlannerPremiumSectionV2,", "catalog type import"),
+    ("  candidateName,\n  issueText,", "  candidateId,\n  candidateName,\n  findBuilderGroup,\n  issueText,", "catalog helper imports"),
+    ("export function MealPlannerCardGridV2({\n  premiumSection,\n  sections,", "export function MealPlannerCardGridV2({\n  premiumSection,\n  catalog,\n  sections,", "grid catalog prop"),
+    ("  premiumSection?: MealPlannerPremiumSectionV2 | null;\n  sections: MealPlannerSectionV2[];", "  premiumSection?: MealPlannerPremiumSectionV2 | null;\n  catalog: MealPlannerCatalogV2;\n  sections: MealPlannerSectionV2[];", "grid catalog prop type"),
+    ("            section={section}\n            issues={issues.filter(", "            section={section}\n            catalog={catalog}\n            issues={issues.filter(", "dynamic card catalog prop"),
+    ("function DynamicCard({\n  section,\n  issues,", "function DynamicCard({\n  section,\n  catalog,\n  issues,", "dynamic card catalog argument"),
+    ("  section: MealPlannerSectionV2;\n  issues: MealPlannerValidationIssue[];", "  section: MealPlannerSectionV2;\n  catalog: MealPlannerCatalogV2;\n  issues: MealPlannerValidationIssue[];", "dynamic card catalog type"),
+]:
+    replace_once(grid, old, new, label)
+
+replace_once(
+    grid,
+    """  const cardType = normalizeCardType(section);
+  const role = sectionOptionRole(section);
+  const items = sectionItems(section);""",
+    """  const cardType = normalizeCardType(section);
+  const role = sectionOptionRole(section);
+  const configuredIds =
+    cardType === "direct_product"
+      ? section.selectedProductIds || []
+      : section.selectedOptionIds || [];
+  const hydratedItems = sectionItems(section);
+  const builderGroup =
+    cardType === "option_family"
+      ? findBuilderGroup(catalog, section.productContextId, section.sourceGroupId)
+      : null;
+  const catalogItems =
+    cardType === "direct_product"
+      ? (catalog.products || []).filter((candidate) =>
+          configuredIds.includes(candidateId(candidate))
+        )
+      : (builderGroup?.options || []).filter((candidate) =>
+          configuredIds.includes(candidateId(candidate))
+        );
+  const items = hydratedItems.length ? hydratedItems : catalogItems;
+  const configuredCount = Math.max(items.length, configuredIds.length);
+  const productLabel =
+    builderGroup?.product?.name?.ar ||
+    builderGroup?.product?.name?.en ||
+    builderGroup?.product?.key ||
+    "المنتج الأساسي";
+  const groupLabel =
+    builderGroup?.group?.name?.ar ||
+    builderGroup?.group?.name?.en ||
+    builderGroup?.group?.key ||
+    "مجموعة الخيارات";
+  const familyKey = String(
+    section.metadata?.familyKey || section.metadata?.proteinFamilyKey || ""
+  );""",
+    "authoritative card item fallback",
+)
+replace_once(grid, '            عدد العناصر: {items.length} •{" "}', '            عدد العناصر: {configuredCount} •{" "}', "configured card count")
+replace_once(
+    grid,
+    """        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted">
+          <Icon className="size-5" />
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2">""",
+    """        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted">
+          <Icon className="size-5" />
+        </span>
+      </div>
+
+      {cardType === "option_family" ? (
+        <div className="mt-4 rounded-xl border bg-muted/20 p-3">
+          <p className="text-sm font-medium">{productLabel} ← {groupLabel}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{role === "carbs" ? "كارب" : "بروتين"}</Badge>
+            {familyKey ? <Badge variant="outline">العائلة: {familyKey}</Badge> : null}
+            <Badge variant="outline">{section.required ? "مطلوب" : "اختياري"}</Badge>
+            <Badge variant="outline">
+              الحد: {section.minSelections ?? 0}–{section.maxSelections ?? "بدون حد"}
+            </Badge>
+            <Badge variant="outline">{section.multiSelect ? "اختيار متعدد" : "اختيار واحد"}</Badge>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-2">""",
+    "card relationship summary",
+)
+replace_once(
+    grid,
+    """        {!items.length ? (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            لا توجد عناصر محملة لهذا الكارت. افتح إدارة العناصر لمراجعتها.
+          </p>
+        ) : null}""",
+    """        {!items.length ? (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            {configuredIds.length
+              ? `يوجد ${configuredIds.length} عنصر محفوظ، لكن تعذر تحميل تفاصيله الآن. حدّث البيانات للمزامنة.`
+              : "لا توجد عناصر محددة لهذا الكارت بعد."}
+          </p>
+        ) : null}""",
+    "non-empty configured card state",
+)
+replace_once(grid, '          alt=""', "          alt={name}", "item image alt text")
+replace_once(
+    "src/components/pages/menu/meal-builder/MealPlannerWorkspaceV2.tsx",
+    "          premiumSection={state.premiumSection}\n          sections={filteredSections}",
+    "          premiumSection={state.premiumSection}\n          catalog={catalog}\n          sections={filteredSections}",
+    "workspace catalog handoff",
+)
+
+Path("tests/mealPlannerCardDataVisibility.test.tsx").write_text(
+    '''// @vitest-environment jsdom
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MealPlannerCardGridV2 } from "../src/components/pages/menu/meal-builder/MealPlannerCardGridV2";
+import type { MealPlannerCatalogV2, MealPlannerSectionV2 } from "../src/types/mealPlannerDashboardTypes";
+afterEach(cleanup);
+describe("Meal Planner card data visibility", () => {
+  it("shows authoritative Product, Group, and selected Option without opening actions", () => {
+    const catalog = { products: [], optionGroups: [], options: [], builderGroups: [{ id: "basic:proteins", cardType: "option_family", selectionType: "standard_meal", productContextId: "basic", sourceGroupId: "proteins", optionRole: "protein", product: { id: "basic", key: "basic_meal", name: { ar: "وجبة بيسك", en: "Basic Meal" }, status: { customerReady: true } }, group: { id: "proteins", _id: "proteins", key: "proteins", name: { ar: "البروتين", en: "Proteins" }, status: { customerReady: true } }, rules: { minSelections: 1, maxSelections: 1, isRequired: true }, families: ["fish"], options: [{ id: "fish-fillet", _id: "fish-fillet", optionId: "fish-fillet", type: "option", key: "fish_fillet", name: { ar: "فيليه سمك", en: "Fish Fillet" }, imageUrl: "https://example.com/fish.png", familyKey: "fish", proteinFamilyKey: "fish", displayCategoryKey: "fish", selectionType: "standard_meal", isPremium: false, linked: true, relationExists: true, assignable: true, eligible: true, relationStatus: { effective: true }, effectiveStatus: { customerReady: true } }], optionCount: 1, assignableOptionCount: 1, compatible: true, eligible: true, reasonCodes: [], sortOrder: 10 }] } as MealPlannerCatalogV2;
+    const section = { key: "fish_options", sectionType: "option_group", cardType: "option_family", titleOverride: { ar: "اختيارات السمك", en: "Fish Options" }, productContextId: "basic", sourceGroupId: "proteins", selectedOptionIds: ["fish-fillet"], selectedProductIds: [], selectionType: "standard_meal", includeMode: "selected", required: true, minSelections: 1, maxSelections: 1, multiSelect: false, visible: true, sortOrder: 10, availableFor: ["subscription"], metadata: { cardType: "option_family", optionRole: "protein", familyKey: "fish" } } as MealPlannerSectionV2;
+    render(<MealPlannerCardGridV2 catalog={catalog} sections={[section]} issues={[]} pending={false} onEdit={vi.fn()} onManageItems={vi.fn()} onToggleVisibility={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getByText("وجبة بيسك ← البروتين")).toBeInTheDocument();
+    expect(screen.getByText("فيليه سمك")).toBeInTheDocument();
+    expect(screen.getByText("العائلة: fish")).toBeInTheDocument();
+    expect(screen.queryByText(/افتح إدارة العناصر/)).not.toBeInTheDocument();
+  });
+});
+'''
+)
