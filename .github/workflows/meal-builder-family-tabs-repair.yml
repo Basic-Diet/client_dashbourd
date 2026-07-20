@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: python .github/scripts/meal_builder_family_tabs_repair.py
+      - run: python .github/scripts/meal_builder_final_test_repair.py
       - run: npm ci --silent
       - run: npm run typecheck
       - run: npm run lint
