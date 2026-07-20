@@ -1,12 +1,10 @@
 name: Authoritative Option Groups Final QA
 
 on:
-  push:
+  pull_request:
     branches:
-      - qa/meal-builder-authoritative-final
-    paths:
-      - .github/workflows/authoritative-option-groups-final-qa.yml
-      - .qa/authoritative-option-groups-qa.mjs
+      - feat/meal-builder-authoritative-option-groups
+    types: [opened, reopened, synchronize]
   workflow_dispatch:
 
 permissions:
