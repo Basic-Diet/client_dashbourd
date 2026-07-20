@@ -1,0 +1,57 @@
+name: Meal Builder Repair
+
+on:
+  push:
+    branches:
+      - feat/meal-builder-authoritative-option-groups
+    paths:
+      - .github/workflows/meal-builder-repair.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/meal-builder-authoritative-option-groups
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply focused frontend fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          dialog = Path('src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx')
+          text = dialog.read_text()
+          old = '(Number.isInteger(maxSelections) && maxSelections >= minSelections)'
+          new = '(typeof maxSelections === "number" &&\n          Number.isInteger(maxSelections) &&\n          maxSelections >= minSelections)'
+          if old in text:
+              dialog.write_text(text.replace(old, new))
+
+          test = Path('tests/mealPlannerAuthoritativeOptionGroups.test.tsx')
+          text = test.read_text()
+          old = 'await user.click(screen.getByRole("option", { name: "سمك" }));'
+          new = 'await user.click(await screen.findByRole("option", { name: "سمك" }));'
+          if old in text:
+              test.write_text(text.replace(old, new))
+          PY
+      - run: npm ci --silent
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx vitest run tests/mealPlannerAuthoritativeOptionGroups.test.tsx
+      - run: npm run build
+      - name: Commit repair
+        run: |
+          git config user.name 'Basic Diet Frontend'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx tests/mealPlannerAuthoritativeOptionGroups.test.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'fix(meal-builder): close authoritative QA blockers'
+          git push origin HEAD:feat/meal-builder-authoritative-option-groups
