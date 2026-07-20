@@ -1,11 +1,10 @@
 name: Meal Builder Repair
 
 on:
-  push:
+  pull_request:
     branches:
       - feat/meal-builder-authoritative-option-groups
-    paths:
-      - .github/workflows/meal-builder-repair.yml
+    types: [reopened]
   workflow_dispatch:
 
 permissions:
@@ -32,15 +31,17 @@ jobs:
           text = dialog.read_text()
           old = '(Number.isInteger(maxSelections) && maxSelections >= minSelections)'
           new = '(typeof maxSelections === "number" &&\n          Number.isInteger(maxSelections) &&\n          maxSelections >= minSelections)'
-          if old in text:
-              dialog.write_text(text.replace(old, new))
+          if old not in text:
+              raise SystemExit('Expected maxSelections guard not found')
+          dialog.write_text(text.replace(old, new, 1))
 
           test = Path('tests/mealPlannerAuthoritativeOptionGroups.test.tsx')
           text = test.read_text()
           old = 'await user.click(screen.getByRole("option", { name: "سمك" }));'
           new = 'await user.click(await screen.findByRole("option", { name: "سمك" }));'
-          if old in text:
-              test.write_text(text.replace(old, new))
+          if old not in text:
+              raise SystemExit('Expected Radix Select assertion not found')
+          test.write_text(text.replace(old, new, 1))
           PY
       - run: npm ci --silent
       - run: npm run typecheck
@@ -52,6 +53,5 @@ jobs:
           git config user.name 'Basic Diet Frontend'
           git config user.email 'actions@users.noreply.github.com'
           git add src/components/pages/menu/meal-builder/MealPlannerCardDialogV2.tsx tests/mealPlannerAuthoritativeOptionGroups.test.tsx
-          if git diff --cached --quiet; then exit 0; fi
           git commit -m 'fix(meal-builder): close authoritative QA blockers'
           git push origin HEAD:feat/meal-builder-authoritative-option-groups
