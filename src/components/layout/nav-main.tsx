@@ -4,6 +4,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Link } from "@tanstack/react-router";
 
@@ -16,6 +17,14 @@ export function NavMain({
     icon?: React.ReactNode;
   }[];
 }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const closeMobileSidebar = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -24,6 +33,7 @@ export function NavMain({
             <SidebarMenuItem key={item.title}>
               <Link
                 to={item.url}
+                onClick={closeMobileSidebar}
                 activeProps={{
                   className:
                     "bg-primary block rounded-md text-background dark:text-foreground",
