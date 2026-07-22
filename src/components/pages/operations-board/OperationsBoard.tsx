@@ -2,7 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, ChefHat, Search, Store, Truck } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { FulfillDialog } from "@/components/pages/pickup-board/FulfillDialog";
+import { toast } from "sonner";
 import { ReasonActionDialog } from "@/components/pages/pickup-board/ReasonActionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ export function OperationsBoard() {
     pendingActions,
     requestAction,
   } = useOperationsBoard({ date, q: debouncedSearch });
-  const { dialogState, openReasonDialog, openFulfillDialog, closeDialog } =
+  const { dialogState, openReasonDialog, closeDialog } =
     useOperationsBoardDialog();
   const activeTab = getSafeOperationsTab(tabFromUrl, visibleScreens);
   const dialogOrderPending = Boolean(
@@ -78,20 +78,26 @@ export function OperationsBoard() {
     closeDialog();
   };
 
-  const handleFulfillConfirm = (pickupCode?: string) => {
-    if (dialogState.item) {
-      requestAction(
-        dialogState.item,
-        "fulfill",
-        "تم الاستلام",
-        false,
-        undefined,
-        undefined,
-        pickupCode
+  const handleDirectFulfill = (item: UnifiedQueueItem) => {
+    const pickupCode =
+      item.fulfillment?.pickup?.pickupCode || item.pickup?.pickupCode;
+
+    if (!pickupCode) {
+      toast.error(
+        "تعذر إتمام الاستلام لأن رمز الاستلام غير متاح في بيانات الطلب."
       );
+      return;
     }
 
-    closeDialog();
+    requestAction(
+      item,
+      "fulfill",
+      "تم الاستلام",
+      false,
+      undefined,
+      undefined,
+      pickupCode
+    );
   };
 
   if (isLoading) {
@@ -188,7 +194,7 @@ export function OperationsBoard() {
             isPending={isPending}
             pendingActions={pendingActions}
             onAction={handleRequestAction}
-            onFulfill={openFulfillDialog}
+            onFulfill={handleDirectFulfill}
           />
         </TabsContent>
         <TabsContent value="courier">
@@ -203,10 +209,7 @@ export function OperationsBoard() {
 
       <ReasonActionDialog
         dialogState={{
-          open:
-            !!dialogState.item &&
-            !!dialogState.action &&
-            !dialogState.isFulfillOpen,
+          open: !!dialogState.item && !!dialogState.action,
           item: dialogState.item,
           action: dialogState.action,
           actionLabel: dialogState.actionLabel,
@@ -216,15 +219,6 @@ export function OperationsBoard() {
           if (!open) closeDialog();
         }}
         onSubmit={(values) => handleReasonConfirm(values.reason, values.notes)}
-        isPending={dialogOrderPending}
-      />
-
-      <FulfillDialog
-        item={dialogState.isFulfillOpen ? dialogState.item : null}
-        onOpenChange={(open) => {
-          if (!open) closeDialog();
-        }}
-        onSubmit={(values) => handleFulfillConfirm(values.pickupCode)}
         isPending={dialogOrderPending}
       />
     </div>
