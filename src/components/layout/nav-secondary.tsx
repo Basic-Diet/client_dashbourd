@@ -9,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 export function NavSecondary({
@@ -21,6 +22,14 @@ export function NavSecondary({
     icon?: React.ReactNode;
   }[];
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const closeMobileSidebar = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
@@ -33,7 +42,7 @@ export function NavSecondary({
                   tooltip={item.title}
                   className="transition-colors hover:bg-primary hover:text-white"
                 >
-                  <a href={item.url}>
+                  <a href={item.url} onClick={closeMobileSidebar}>
                     {item.icon}
                     <span>{item.title}</span>
                   </a>
@@ -41,6 +50,7 @@ export function NavSecondary({
               ) : (
                 <Link
                   to={item.url}
+                  onClick={closeMobileSidebar}
                   activeProps={{
                     className:
                       "bg-primary block rounded-md text-background dark:text-foreground",
