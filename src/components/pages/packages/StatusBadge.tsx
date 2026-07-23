@@ -7,20 +7,25 @@ import { fetchTogglePlanStatus } from "@/utils/fetchTogglePlanStatus";
 import { useQueryClient } from "@tanstack/react-query";
 import { packagesQueryOptions } from "@/hooks/usePackagesQuery";
 import { ToastMessage } from "@/components/global/ToastMessage";
+import { packageId } from "@/utils/packageAdapter";
 
 export function StatusBadge({ pkg }: { pkg: Package }) {
   const queryClient = useQueryClient();
   const [isToggling, setIsToggling] = useState(false);
 
   const handleToggle = async () => {
+    const id = packageId(pkg);
+    if (!id) {
+      ToastMessage("تعذر تحديد الباقة المطلوبة", "error");
+      return;
+    }
+
     setIsToggling(true);
     try {
-      await fetchTogglePlanStatus(pkg._id);
+      await fetchTogglePlanStatus(id);
       await queryClient.invalidateQueries(packagesQueryOptions());
       ToastMessage(
-        pkg.isActive
-          ? "تم تعطيل الباقة بنجاح"
-          : "تم تفعيل الباقة بنجاح",
+        pkg.isActive ? "تم تعطيل الباقة بنجاح" : "تم تفعيل الباقة بنجاح",
         "success"
       );
     } catch (error: unknown) {
@@ -37,7 +42,16 @@ export function StatusBadge({ pkg }: { pkg: Package }) {
   return (
     <Badge
       variant="outline"
+      role="button"
+      tabIndex={0}
+      aria-label={pkg.isActive ? "تعطيل الباقة" : "تفعيل الباقة"}
       onClick={handleToggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          void handleToggle();
+        }
+      }}
       className={cn(
         "cursor-pointer select-none transition-all hover:opacity-80",
         isToggling && "pointer-events-none opacity-60",
