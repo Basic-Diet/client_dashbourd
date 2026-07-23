@@ -155,8 +155,19 @@
   }
 }
 
+/* DialogContent ships with a responsive sm:max-w-md default. These explicit
+   selectors let larger dialog utilities keep their intended width at the same
+   breakpoint instead of being squeezed into the default modal width. */
 [data-slot="dialog-content"].max-w-5xl {
   max-width: min(calc(100vw - 1rem), 64rem) !important;
+}
+
+[data-slot="dialog-content"].max-w-4xl {
+  max-width: min(calc(100vw - 1rem), 56rem) !important;
+}
+
+[data-slot="dialog-content"].max-w-3xl {
+  max-width: min(calc(100vw - 1rem), 48rem) !important;
 }
 
 [data-slot="dialog-content"].max-w-2xl {
