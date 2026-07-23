@@ -1,16 +1,7 @@
 import api from "@/lib/apis";
-import { filterCanonicalSubscriptionPlans } from "@/constants/menuCatalog";
-
-export { filterCanonicalSubscriptionPlans };
+import { normalizePackagesResponse } from "@/utils/packageAdapter";
 
 export const fetchGetPackagesData = async () => {
-  try {
-    const response = await api.get("/api/dashboard/plans");
-    if (response && response.data && Array.isArray(response.data.data)) {
-      response.data.data = filterCanonicalSubscriptionPlans(response.data.data);
-    }
-    return response.data;
-  } catch (error) {
-    console.log(error);
-  }
+  const response = await api.get("/api/dashboard/plans");
+  return normalizePackagesResponse(response.data);
 };
