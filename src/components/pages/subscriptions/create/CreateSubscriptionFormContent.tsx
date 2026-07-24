@@ -73,8 +73,8 @@ function readQuoteSummary(response: unknown): SubscriptionQuoteSummary | null {
 
   const premiumItems = Array.isArray(data?.premiumItems) ? data.premiumItems : [];
   const addonPlans = Array.isArray(data?.addonPlans) ? data.addonPlans : [];
-  const sumItems = (items: unknown[]) =>
-    items.reduce((total, item) => {
+  const sumItems = (items: unknown[]): number =>
+    items.reduce<number>((total, item) => {
       const itemTotal = readFiniteNumber(asRecord(item)?.totalHalala);
       return total + (itemTotal ?? 0);
     }, 0);
