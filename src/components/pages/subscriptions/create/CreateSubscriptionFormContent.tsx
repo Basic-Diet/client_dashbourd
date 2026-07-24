@@ -95,16 +95,16 @@ function readPaymentMethodOptions(response: unknown): PaymentMethodOption[] {
   const values = Array.isArray(data?.paymentMethodOptions)
     ? data.paymentMethodOptions
     : [];
-  const parsed = values.flatMap((value) => {
+  const parsed: PaymentMethodOption[] = values.flatMap((value) => {
     const option = asRecord(value);
     const method = readString(option?.method);
     if (method !== "cash" && method !== "visa") return [];
     return [
       {
-        method,
+        method: method as PaymentMethod,
         labelAr:
           readString(option?.labelAr) || (method === "cash" ? "كاش" : "فيزا"),
-        gatewayRequired: false as const,
+        gatewayRequired: false,
       },
     ];
   });
