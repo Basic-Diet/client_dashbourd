@@ -9,6 +9,7 @@ import type {
   DashboardNotificationLogsResponse,
   DashboardNotificationSummaryResponse,
   DashboardTodayReportResponse,
+  SubscriptionPaymentDailyReportResponse,
   SubscriptionTermsPayload,
   SubscriptionTermsResponse,
 } from "@/types/dashboardAdminTypes";
@@ -75,6 +76,17 @@ export const fetchAccountingDailyReport = async (
   const resolved = resolveAccountingDailyReportParams(params);
   const response = await api.get<AccountingDailyReportResponse>(
     accountingDailyReportUrl(toQueryParams(resolved))
+  );
+  return response.data;
+};
+
+export const fetchSubscriptionPaymentDailyReport = async (
+  params: AccountingDailyReportParams = {}
+): Promise<SubscriptionPaymentDailyReportResponse> => {
+  const resolved = resolveAccountingDailyReportParams(params);
+  const response = await api.get<SubscriptionPaymentDailyReportResponse>(
+    "/api/dashboard/accounting/subscription-payments/daily",
+    { params: toQueryParams(resolved) }
   );
   return response.data;
 };
