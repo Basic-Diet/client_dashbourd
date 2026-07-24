@@ -16,10 +16,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useDeliveryOptionsQuery } from "@/hooks/useDeliveryOptionsQuery";
+import { DELIVERY_SLOT_REQUIRED_MESSAGE } from "@/lib/validations/createSubscriptionSchema";
 import { Truck, MapPin, Store } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
-import type { DeliveryMethod, DeliveryArea, DeliverySlotOption } from "@/types/deliveryTypes";
+import type {
+  DeliveryMethod,
+  DeliveryArea,
+  DeliverySlotOption,
+} from "@/types/deliveryTypes";
+import {
+  getDeliverySlotSelectionValues,
+  getSubscriptionFulfillmentResetValues,
+  subscriptionFulfillmentSetValueOptions,
+} from "@/utils/subscriptionFulfillmentState";
 
 interface DeliverySectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
@@ -37,11 +47,16 @@ export function DeliverySection({ form }: DeliverySectionProps) {
     "";
 
   const selectedMethodId = form.watch("delivery.type");
-  const selectedMethod = methods.find((m: DeliveryMethod) => m.id === selectedMethodId);
+  const selectedMethod = methods.find(
+    (m: DeliveryMethod) => m.id === selectedMethodId
+  );
 
   const isDelivery = selectedMethodId === "delivery";
   const isPickup = selectedMethodId === "pickup";
   const slots = selectedMethod?.slots || [];
+  const deliverySlotError =
+    form.formState.errors.delivery?.slot?.slotId?.message ||
+    form.formState.errors.delivery?.slot?.window?.message;
 
   useEffect(() => {
     if (!isPickup || !firstPickupLocationId) return;
@@ -49,6 +64,8 @@ export function DeliverySection({ form }: DeliverySectionProps) {
 
     form.setValue("delivery.pickupLocationId", firstPickupLocationId, {
       shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
     });
   }, [firstPickupLocationId, form, isPickup]);
 
@@ -65,9 +82,17 @@ export function DeliverySection({ form }: DeliverySectionProps) {
       </CardHeader>
       <CardContent className="space-y-5">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
+          <>
+            <div className="flex items-center justify-center py-8">
+              <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+            {isDelivery ? (
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">فترة التوصيل</Label>
+                <DeliverySlotValidationMessage message={deliverySlotError} />
+              </div>
+            ) : null}
+          </>
         ) : (
           <>
             {/* Method selection */}
@@ -80,19 +105,72 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                     key={method.id}
                     type="button"
                     onClick={() => {
-                      form.setValue("delivery.type", method.id, { shouldValidate: true });
-                      form.setValue("delivery.slot.type", method.type);
-                      form.setValue("delivery.slot.window", "", { shouldValidate: true });
-                      form.setValue("delivery.slot.slotId", "");
                       if (method.type === "pickup") {
-                        form.setValue("delivery.zoneId", "", { shouldValidate: true });
-                        form.setValue("delivery.pickupLocationId", firstPickupLocationId, {
-                          shouldValidate: true,
-                        });
+                        const resetValues =
+                          getSubscriptionFulfillmentResetValues(
+                            "pickup",
+                            firstPickupLocationId
+                          );
+
+                        form.setValue(
+                          "delivery.type",
+                          resetValues.type,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.slot.type",
+                          resetValues.slot.type,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.slot.window",
+                          resetValues.slot.window,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.slot.slotId",
+                          resetValues.slot.slotId,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.zoneId",
+                          resetValues.zoneId,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.pickupLocationId",
+                          resetValues.pickupLocationId,
+                          subscriptionFulfillmentSetValueOptions
+                        );
                       } else {
-                        form.setValue("delivery.pickupLocationId", "", {
-                          shouldValidate: true,
-                        });
+                        const resetValues =
+                          getSubscriptionFulfillmentResetValues("delivery");
+
+                        form.setValue(
+                          "delivery.type",
+                          resetValues.type,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.slot.type",
+                          resetValues.slot.type,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.slot.window",
+                          resetValues.slot.window,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.slot.slotId",
+                          resetValues.slot.slotId,
+                          subscriptionFulfillmentSetValueOptions
+                        );
+                        form.setValue(
+                          "delivery.pickupLocationId",
+                          resetValues.pickupLocationId,
+                          subscriptionFulfillmentSetValueOptions
+                        );
                       }
                     }}
                     className={`flex items-start gap-3 rounded-xl border p-4 text-right transition-all ${
@@ -112,7 +190,9 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                     </div>
                     <div>
                       <p className="text-sm font-semibold">{method.title}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{method.subtitle}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {method.subtitle}
+                      </p>
                       <span className="mt-1.5 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                         {method.feeLabel}
                       </span>
@@ -132,7 +212,11 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                 <Select
                   value={form.watch("delivery.zoneId")}
                   onValueChange={(value) =>
-                    form.setValue("delivery.zoneId", value, { shouldValidate: true })
+                    form.setValue(
+                      "delivery.zoneId",
+                      value,
+                      subscriptionFulfillmentSetValueOptions
+                    )
                   }
                 >
                   <SelectTrigger>
@@ -160,50 +244,68 @@ export function DeliverySection({ form }: DeliverySectionProps) {
             )}
 
             {/* Time slot selection */}
-            {slots.length > 0 && (
+            {isDelivery && (
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">فترة التوصيل</Label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {slots.map((slot: DeliverySlotOption) => {
-                    const isSelected =
-                      form.watch("delivery.slot.slotId") === slot.id;
-                    return (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        onClick={() => {
-                          form.setValue("delivery.slot.slotId", slot.id);
-                          form.setValue("delivery.slot.window", slot.window, {
-                            shouldValidate: true,
-                          });
-                          form.setValue("delivery.slot.type", slot.type);
-                        }}
-                        className={`rounded-lg border px-4 py-3 text-center text-sm font-medium transition-all ${
-                          isSelected
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border/50 hover:border-border hover:bg-muted/30"
-                        }`}
-                      >
-                        {slot.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                {form.formState.errors.delivery?.slot?.window && (
-                  <p className="text-xs text-destructive">
-                    {form.formState.errors.delivery.slot.window.message}
+                {slots.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {slots.map((slot: DeliverySlotOption) => {
+                      const selectedSlot = getDeliverySlotSelectionValues(slot);
+                      const isSelected =
+                        form.watch("delivery.slot.slotId") ===
+                        selectedSlot.slotId;
+                      return (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          onClick={() => {
+                            form.setValue(
+                              "delivery.slot.slotId",
+                              selectedSlot.slotId,
+                              subscriptionFulfillmentSetValueOptions
+                            );
+                            form.setValue(
+                              "delivery.slot.window",
+                              selectedSlot.window,
+                              subscriptionFulfillmentSetValueOptions
+                            );
+                            form.setValue(
+                              "delivery.slot.type",
+                              selectedSlot.type,
+                              subscriptionFulfillmentSetValueOptions
+                            );
+                          }}
+                          className={`rounded-lg border px-4 py-3 text-center text-sm font-medium transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border/50 hover:border-border hover:bg-muted/30"
+                          }`}
+                        >
+                          {slot.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                    لا توجد فترات توصيل متاحة حالياً
                   </p>
                 )}
+                <DeliverySlotValidationMessage message={deliverySlotError} />
               </div>
             )}
 
             {/* Address fields (delivery only) */}
             {isDelivery && (
               <div className="space-y-4 rounded-xl border border-dashed border-border/50 p-4">
-                <h4 className="text-sm font-semibold text-foreground">عنوان التوصيل</h4>
+                <h4 className="text-sm font-semibold text-foreground">
+                  عنوان التوصيل
+                </h4>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">تصنيف العنوان</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    تصنيف العنوان
+                  </Label>
                   <Input
                     placeholder="مثال: المنزل، العمل"
                     {...form.register("delivery.address.label")}
@@ -217,7 +319,9 @@ export function DeliverySection({ form }: DeliverySectionProps) {
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">المدينة</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      المدينة
+                    </Label>
                     <Input
                       placeholder="أدخل المدينة"
                       {...form.register("delivery.address.city")}
@@ -230,14 +334,19 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">الحي</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      الحي
+                    </Label>
                     <Input
                       placeholder="أدخل الحي"
                       {...form.register("delivery.address.district")}
                     />
                     {form.formState.errors.delivery?.address?.district && (
                       <p className="text-xs text-destructive">
-                        {form.formState.errors.delivery.address.district.message}
+                        {
+                          form.formState.errors.delivery.address.district
+                            .message
+                        }
                       </p>
                     )}
                   </div>
@@ -245,7 +354,9 @@ export function DeliverySection({ form }: DeliverySectionProps) {
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">الشارع</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      الشارع
+                    </Label>
                     <Input
                       placeholder="أدخل اسم الشارع"
                       {...form.register("delivery.address.street")}
@@ -258,14 +369,19 @@ export function DeliverySection({ form }: DeliverySectionProps) {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">رقم المبنى</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      رقم المبنى
+                    </Label>
                     <Input
                       placeholder="أدخل رقم المبنى"
                       {...form.register("delivery.address.building")}
                     />
                     {form.formState.errors.delivery?.address?.building && (
                       <p className="text-xs text-destructive">
-                        {form.formState.errors.delivery.address.building.message}
+                        {
+                          form.formState.errors.delivery.address.building
+                            .message
+                        }
                       </p>
                     )}
                   </div>
@@ -303,5 +419,15 @@ export function DeliverySection({ form }: DeliverySectionProps) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function DeliverySlotValidationMessage({ message }: { message: unknown }) {
+  if (!message) return null;
+
+  return (
+    <p className="text-xs text-destructive">
+      {String(message) || DELIVERY_SLOT_REQUIRED_MESSAGE}
+    </p>
   );
 }
