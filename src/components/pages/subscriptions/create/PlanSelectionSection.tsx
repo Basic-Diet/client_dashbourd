@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -22,25 +23,44 @@ import type { Package as PackageType, GramsOption, MealOption } from "@/types/pa
 
 interface PlanSelectionSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
+  onPriceChange?: (price: { halala: number; currency?: string }) => void;
 }
 
-export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
+export function PlanSelectionSection({
+  form,
+  onPriceChange,
+}: PlanSelectionSectionProps) {
   const { data: packagesResponse } = usePackagesQuery();
   const packages = packagesResponse?.data || [];
 
   const selectedPlanId = form.watch("planId");
   const selectedPackage = packages.find(
-    (pkg: PackageType) => pkg._id === selectedPlanId
+    (pkg: PackageType) => (pkg.id || pkg._id) === selectedPlanId
   );
 
   const gramsOptions =
     selectedPackage?.gramsOptions?.filter((g: GramsOption) => g.isActive) || [];
   const selectedGrams = form.watch("grams");
   const selectedGramsOption = gramsOptions.find(
-    (g: GramsOption) => g.grams === selectedGrams
+    (g: GramsOption) => Number(g.grams) === Number(selectedGrams)
   );
   const mealsOptions =
     selectedGramsOption?.mealsOptions?.filter((m: MealOption) => m.isActive) || [];
+  const selectedMealsPerDay = form.watch("mealsPerDay");
+  const selectedMealOption = mealsOptions.find(
+    (m: MealOption) => Number(m.mealsPerDay) === Number(selectedMealsPerDay)
+  );
+
+  useEffect(() => {
+    onPriceChange?.({
+      halala: selectedMealOption?.priceHalala || 0,
+      currency: selectedPackage?.currency || "SAR",
+    });
+  }, [
+    onPriceChange,
+    selectedMealOption?.priceHalala,
+    selectedPackage?.currency,
+  ]);
 
   return (
     <Card>
@@ -54,7 +74,6 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
         <CardDescription>اختر الباقة وحدد تفاصيل الاشتراك</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Package Selector */}
         <div className="space-y-1.5">
           <Label className="text-sm font-medium">الباقة</Label>
           <Select
@@ -69,11 +88,14 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
               <SelectValue placeholder="اختر الباقة" />
             </SelectTrigger>
             <SelectContent>
-              {packages.map((pkg: PackageType) => (
-                <SelectItem key={pkg._id} value={pkg._id}>
-                  {pkg.name?.ar || pkg.name?.en} — {pkg.daysCount} يوم
-                </SelectItem>
-              ))}
+              {packages.map((pkg: PackageType) => {
+                const id = pkg.id || pkg._id;
+                return (
+                  <SelectItem key={id} value={id}>
+                    {pkg.name?.ar || pkg.name?.en} — {pkg.daysCount} يوم
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           {form.formState.errors.planId && (
@@ -83,7 +105,6 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
           )}
         </div>
 
-        {/* Selected package info */}
         {selectedPackage && (
           <div className="flex items-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/30 p-3">
             <CalendarDays className="size-5 text-muted-foreground" />
@@ -95,7 +116,6 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
           </div>
         )}
 
-        {/* Grams & Meals */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">الجرامات</Label>
@@ -128,7 +148,7 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">عدد الوجبات في اليوم</Label>
             <Select
-              value={form.watch("mealsPerDay") ? String(form.watch("mealsPerDay")) : ""}
+              value={selectedMealsPerDay ? String(selectedMealsPerDay) : ""}
               onValueChange={(value) =>
                 form.setValue("mealsPerDay", Number(value), { shouldValidate: true })
               }
@@ -153,7 +173,6 @@ export function PlanSelectionSection({ form }: PlanSelectionSectionProps) {
           </div>
         </div>
 
-        {/* Start Date */}
         <div className="space-y-1.5">
           <Label className="text-sm font-medium">تاريخ البداية</Label>
           <Input
