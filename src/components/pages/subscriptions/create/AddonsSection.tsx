@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -14,9 +14,10 @@ import type { Addon } from "@/types/addonTypes";
 
 interface AddonsSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
+  onPriceChange?: (price: { halala: number; currency?: string }) => void;
 }
 
-export function AddonsSection({ form }: AddonsSectionProps) {
+export function AddonsSection({ form, onPriceChange }: AddonsSectionProps) {
   const { data: addonsResponse, isLoading } = useAddonsQuery();
   const allAddons = addonsResponse?.data?.filter((a) => a.isActive) || [];
   const selectedPlanId = form.watch("planId");
@@ -28,6 +29,8 @@ export function AddonsSection({ form }: AddonsSectionProps) {
     control: form.control,
     name: "addons",
   });
+
+  const selectedAddons = form.watch("addons") || [];
 
   const getSelectedSet = () =>
     new Set(fields.map((field) => field.addonPlanId));
@@ -45,6 +48,23 @@ export function AddonsSection({ form }: AddonsSectionProps) {
     },
     [fields, remove, append]
   );
+
+  const addonsTotalSar = selectedAddons.reduce((total, selected) => {
+    const addon = allAddons.find(
+      (item) => getAddonPlanId(item) === selected.addonPlanId
+    );
+    if (!addon) return total;
+
+    const quantity = Math.max(0, Number(selected.quantityPerDay) || 0);
+    return total + resolveAddonPriceSar(addon, selectedPlanId) * quantity;
+  }, 0);
+
+  useEffect(() => {
+    onPriceChange?.({
+      halala: Math.round(addonsTotalSar * 100),
+      currency: "SAR",
+    });
+  }, [addonsTotalSar, onPriceChange]);
 
   return (
     <Card>
@@ -142,6 +162,19 @@ function getAddonPlanId(addon: Addon) {
   return addon.id || addon._id;
 }
 
+function resolveAddonPriceSar(addon: Addon, selectedPlanId: string) {
+  const matchingPrice = addon.planPrices?.find(
+    (price) => price.basePlanId === selectedPlanId
+  );
+  return Number(
+    matchingPrice?.priceSar ??
+      addon.planPrices?.[0]?.priceSar ??
+      addon.priceSar ??
+      addon.price ??
+      0
+  );
+}
+
 function AddonCard({
   addon,
   selectedPlanId,
@@ -154,15 +187,7 @@ function AddonCard({
   onToggle: (id: string) => void;
 }) {
   const planId = getAddonPlanId(addon);
-  const matchingPrice = addon.planPrices?.find(
-    (price) => price.basePlanId === selectedPlanId
-  );
-  const priceSar =
-    matchingPrice?.priceSar ??
-    addon.planPrices?.[0]?.priceSar ??
-    addon.priceSar ??
-    addon.price ??
-    0;
+  const priceSar = resolveAddonPriceSar(addon, selectedPlanId);
   const description = addon.description?.ar || addon.category;
 
   return (
