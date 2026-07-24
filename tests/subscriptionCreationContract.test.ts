@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import createSubscriptionSchema from "../src/lib/validations/createSubscriptionSchema";
-import { buildSubscriptionCreationPayload } from "../src/utils/buildSubscriptionCreationPayload";
+import {
+  buildSubscriptionCreationPayload,
+  buildSubscriptionQuotePayload,
+} from "../src/utils/buildSubscriptionCreationPayload";
 import { isSelectablePremiumMeal } from "../src/components/pages/subscriptions/create/PremiumMealsSection";
 
 const baseData = {
@@ -12,6 +15,7 @@ const baseData = {
   startDate: "2026-07-21",
   premiumItems: [],
   addons: [],
+  paymentMethod: "cash" as const,
   delivery: {
     type: "pickup" as const,
     zoneId: "STALE_ZONE",
@@ -32,6 +36,38 @@ const baseData = {
 };
 
 describe("subscription creation contract", () => {
+  it("requires an explicit payment method", () => {
+    const { paymentMethod: _paymentMethod, ...withoutPayment } = baseData;
+    const result = createSubscriptionSchema.safeParse(withoutPayment);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.paymentMethod).toContain(
+        "يرجى اختيار طريقة الدفع"
+      );
+    }
+  });
+
+  it.each(["cash", "visa"] as const)(
+    "sends only payment.method for %s and keeps quote unchanged",
+    (paymentMethod) => {
+      const parsed = createSubscriptionSchema.parse({
+        ...baseData,
+        paymentMethod,
+      });
+      const createPayload = buildSubscriptionCreationPayload(parsed);
+      const quotePayload = buildSubscriptionQuotePayload(parsed);
+
+      expect(createPayload.payment).toEqual({ method: paymentMethod });
+      expect(quotePayload).not.toHaveProperty("payment");
+      expect(createPayload).not.toHaveProperty("paymentStatus");
+      expect(createPayload).not.toHaveProperty("collectedAmountHalala");
+      expect(createPayload).not.toHaveProperty("amountHalala");
+      expect(createPayload).not.toHaveProperty("paymentUrl");
+      expect(createPayload).not.toHaveProperty("providerInvoiceId");
+    }
+  );
+
   it("uses premiumKey and canonical addon fields only", () => {
     const parsed = createSubscriptionSchema.parse({
       ...baseData,

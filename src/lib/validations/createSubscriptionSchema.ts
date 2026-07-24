@@ -51,6 +51,9 @@ const createSubscriptionSchema = z
     premiumItems: z.array(premiumItemSchema),
     addons: z.array(addonSelectionSchema),
     delivery: deliverySchema,
+    paymentMethod: z.enum(["cash", "visa"], {
+      message: "يرجى اختيار طريقة الدفع",
+    }),
   })
   .superRefine((data, ctx) => {
     if (data.delivery.type === "delivery") {
