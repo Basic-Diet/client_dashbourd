@@ -7,7 +7,7 @@ import type {
 } from "@/types/dashboardAdminTypes";
 import { getDashboardStaffRoleLabel } from "@/lib/roleLabels";
 import {
-  SUPPORTED_DASHBOARD_STAFF_ROLES,
+  ASSIGNABLE_DASHBOARD_STAFF_ROLES,
   isDashboardStaffRole,
   normalizeDashboardStaffRoles,
 } from "@/utils/fetchDashboardUsers";
@@ -135,7 +135,7 @@ export type ResetDashboardStaffPasswordFormValues = z.input<
 >;
 
 export const defaultAssignableRoles = (): DashboardStaffRole[] => [
-  ...SUPPORTED_DASHBOARD_STAFF_ROLES,
+  ...ASSIGNABLE_DASHBOARD_STAFF_ROLES,
 ];
 
 export const getAssignableDashboardStaffRoles = normalizeDashboardStaffRoles;
@@ -145,9 +145,7 @@ export const getDefaultDashboardStaffRole = (
 ): DashboardStaffRole =>
   assignableRoles.includes("restaurant")
     ? "restaurant"
-    : assignableRoles.includes("admin")
-      ? "admin"
-      : assignableRoles[0] ?? "restaurant";
+    : assignableRoles[0] ?? "restaurant";
 
 export const isAssignableDashboardStaffRole = (
   role: DashboardStaffRole,
