@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -22,6 +23,7 @@ import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubsc
 
 interface PremiumMealsSectionProps {
   form: UseFormReturn<CreateSubscriptionSchemaType>;
+  onPriceChange?: (price: { halala: number; currency?: string }) => void;
 }
 
 export interface BuilderPremiumMeal {
@@ -73,7 +75,10 @@ const formatSar = (halala: number) => {
   return Number.isInteger(sar) ? String(sar) : sar.toFixed(2).replace(/\.?0+$/, "");
 };
 
-export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
+export function PremiumMealsSection({
+  form,
+  onPriceChange,
+}: PremiumMealsSectionProps) {
   const { data: premiumResponse, isLoading } = useQuery({
     queryKey: ["builder-premium-meals"],
     queryFn: fetchBuilderPremiumMeals,
@@ -91,6 +96,23 @@ export function PremiumMealsSection({ form }: PremiumMealsSectionProps) {
 
   const getSelectedMeal = (premiumKey: string): BuilderPremiumMeal | undefined =>
     premiumMeals.find((meal) => meal.premiumKey === premiumKey);
+
+  const premiumTotalHalala = premiumItems.reduce((total, item) => {
+    const meal = getSelectedMeal(item.premiumKey);
+    const unitPrice = meal?.extraFeeHalala ?? meal?.priceHalala ?? 0;
+    const qty = Math.max(0, Number(item.qty) || 0);
+    return total + unitPrice * qty;
+  }, 0);
+  const selectedCurrency = premiumItems
+    .map((item) => getSelectedMeal(item.premiumKey)?.currency)
+    .find(Boolean);
+
+  useEffect(() => {
+    onPriceChange?.({
+      halala: premiumTotalHalala,
+      currency: selectedCurrency || "SAR",
+    });
+  }, [onPriceChange, premiumTotalHalala, selectedCurrency]);
 
   return (
     <Card>
