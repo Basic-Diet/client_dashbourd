@@ -29,6 +29,7 @@ import {
   fetchDashboardNotificationsSummary,
   fetchDashboardReportsToday,
   fetchNotificationLogs,
+  fetchSubscriptionPaymentDailyReport,
   fetchSubscriptionTerms,
   updateSubscriptionTerms,
 } from "@/utils/fetchDashboardSupportData";
@@ -89,6 +90,17 @@ export const accountingDailyReportQueryOptions = (
     staleTime: 1000 * 60,
   });
 
+export const subscriptionPaymentDailyReportQueryOptions = (
+  params: AccountingDailyReportParams = {}
+) =>
+  queryOptions({
+    queryKey: ["subscription-payment-daily-report", params],
+    queryFn: () => fetchSubscriptionPaymentDailyReport(params),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60,
+    retry: false,
+  });
+
 export const dashboardLogsQueryOptions = (params: DashboardLogFilters = {}) =>
   queryOptions({
     queryKey: ["dashboard-logs", params],
@@ -133,6 +145,10 @@ export const useDashboardStaffUsersQuery = (
 export const useAccountingDailyReportQuery = (
   params: AccountingDailyReportParams = {}
 ) => useQuery(accountingDailyReportQueryOptions(params));
+
+export const useSubscriptionPaymentDailyReportQuery = (
+  params: AccountingDailyReportParams = {}
+) => useQuery(subscriptionPaymentDailyReportQueryOptions(params));
 
 export const useCreateDashboardStaffUserMutation = () => {
   const queryClient = useQueryClient();
