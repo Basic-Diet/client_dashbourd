@@ -35,7 +35,12 @@ export interface SubscriptionCreationPayload extends Record<string, unknown> {
           slotId: string;
         };
       };
+  payment: {
+    method: "cash" | "visa";
+  };
 }
+
+export type SubscriptionQuotePayload = Omit<SubscriptionCreationPayload, "payment">;
 
 export function buildSubscriptionCreationPayload(
   data: CreateSubscriptionSchemaType
@@ -76,5 +81,16 @@ export function buildSubscriptionCreationPayload(
       quantityPerDay: addon.quantityPerDay,
     })),
     delivery,
+    payment: {
+      method: data.paymentMethod,
+    },
   };
+}
+
+export function buildSubscriptionQuotePayload(
+  data: CreateSubscriptionSchemaType
+): SubscriptionQuotePayload {
+  const { payment: _payment, ...quotePayload } =
+    buildSubscriptionCreationPayload(data);
+  return quotePayload;
 }
