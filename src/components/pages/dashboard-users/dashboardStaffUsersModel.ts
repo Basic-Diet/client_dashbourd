@@ -5,34 +5,30 @@ import type {
   DashboardStaffUserDto,
   UpdateDashboardStaffUserPayload,
 } from "@/types/dashboardAdminTypes";
-import { getDashboardStaffRoleLabel } from "@/lib/roleLabels";
+import { getDashboardStaffRoleLabel, getRoleLabel } from "@/lib/roleLabels";
 import {
   SUPPORTED_DASHBOARD_STAFF_ROLES,
   isDashboardStaffRole,
   normalizeDashboardStaffRoles,
 } from "@/utils/fetchDashboardUsers";
 
-export const DASHBOARD_STAFF_ROLE_LABELS: Record<
-  DashboardStaffRole,
-  string
-> = {
-  admin: getDashboardStaffRoleLabel("admin"),
+export const DASHBOARD_STAFF_ROLE_LABELS: Record<DashboardStaffRole, string> = {
+  superadmin: getDashboardStaffRoleLabel("superadmin"),
   restaurant: getDashboardStaffRoleLabel("restaurant"),
-  kitchen: getDashboardStaffRoleLabel("kitchen"),
   courier: getDashboardStaffRoleLabel("courier"),
-  cashier: getDashboardStaffRoleLabel("cashier"),
 };
 
 export const DASHBOARD_STAFF_ROLE_LABELS_EN: Record<
   DashboardStaffRole,
   string
 > = {
-  admin: getDashboardStaffRoleLabel("admin", "en"),
+  superadmin: getDashboardStaffRoleLabel("superadmin", "en"),
   restaurant: getDashboardStaffRoleLabel("restaurant", "en"),
-  kitchen: getDashboardStaffRoleLabel("kitchen", "en"),
   courier: getDashboardStaffRoleLabel("courier", "en"),
-  cashier: getDashboardStaffRoleLabel("cashier", "en"),
 };
+
+export const getDashboardStaffUserRoleLabel = (role: string) =>
+  getRoleLabel(role) || role;
 
 export const DASHBOARD_STAFF_STATUS_LABELS = {
   active: "نشط",
@@ -145,9 +141,9 @@ export const getDefaultDashboardStaffRole = (
 ): DashboardStaffRole =>
   assignableRoles.includes("restaurant")
     ? "restaurant"
-    : assignableRoles.includes("admin")
-      ? "admin"
-      : assignableRoles[0] ?? "restaurant";
+    : assignableRoles.includes("superadmin")
+      ? "superadmin"
+      : (assignableRoles[0] ?? "restaurant");
 
 export const isAssignableDashboardStaffRole = (
   role: DashboardStaffRole,

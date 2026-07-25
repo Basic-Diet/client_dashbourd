@@ -17,19 +17,14 @@ export interface DashboardStatusResponse<T> {
   data: T;
 }
 
-export type DashboardStaffRole =
-  | "admin"
-  | "restaurant"
-  | "kitchen"
-  | "courier"
-  | "cashier";
+export type DashboardStaffRole = "superadmin" | "restaurant" | "courier";
 
 export type DashboardStaffStatusFilter = "active" | "inactive";
 
 export interface DashboardStaffUserDto {
   id: string;
   email: string;
-  role: DashboardStaffRole;
+  role: DashboardStaffRole | string;
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
@@ -61,8 +56,9 @@ export interface ResetDashboardStaffPasswordPayload {
   password: string;
 }
 
-export interface DashboardStaffUsersListResponse
-  extends DashboardStatusResponse<DashboardStaffUserDto[]> {
+export interface DashboardStaffUsersListResponse extends DashboardStatusResponse<
+  DashboardStaffUserDto[]
+> {
   meta: DashboardPaginationMeta;
   assignableRoles: DashboardStaffRole[];
 }
@@ -154,8 +150,7 @@ export interface AccountingDailyReportParams {
   includeDetails?: boolean | string;
 }
 
-export type AccountingDailyReportResponse =
-  DashboardStatusResponse<JsonObject>;
+export type AccountingDailyReportResponse = DashboardStatusResponse<JsonObject>;
 
 export type SubscriptionPaymentMethod = "cash" | "visa" | "unknown";
 
@@ -213,8 +208,9 @@ export interface DashboardLogFilters {
   to?: string;
 }
 
-export interface DashboardLogsResponse
-  extends DashboardStatusResponse<JsonObject[]> {
+export interface DashboardLogsResponse extends DashboardStatusResponse<
+  JsonObject[]
+> {
   meta: DashboardPaginationMeta;
 }
 
@@ -227,8 +223,9 @@ export interface DashboardNotificationLogFilters {
   to?: string;
 }
 
-export interface DashboardNotificationLogsResponse
-  extends DashboardStatusResponse<JsonObject[]> {
+export interface DashboardNotificationLogsResponse extends DashboardStatusResponse<
+  JsonObject[]
+> {
   meta: DashboardPaginationMeta;
 }
 
@@ -247,5 +244,4 @@ export interface SubscriptionTermsContent {
 export type SubscriptionTermsResponse =
   DashboardStatusResponse<SubscriptionTermsContent>;
 
-export type DashboardHealthReportResponse =
-  DashboardStatusResponse<JsonObject>;
+export type DashboardHealthReportResponse = DashboardStatusResponse<JsonObject>;

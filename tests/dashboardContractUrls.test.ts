@@ -50,10 +50,10 @@ test("dashboardContractUrls.test", () => {
       page: 2,
       limit: 10,
       q: "manager",
-      role: "admin",
+      role: "restaurant",
       status: "active",
     }),
-    "/api/dashboard/staff-users?page=2&limit=10&q=manager&role=admin&status=active"
+    "/api/dashboard/staff-users?page=2&limit=10&q=manager&role=restaurant&status=active"
   );
   assert.equal(
     dashboardStaffUserUrl("staff-1"),
@@ -63,10 +63,7 @@ test("dashboardContractUrls.test", () => {
     dashboardStaffResetPasswordUrl("staff-1"),
     "/api/dashboard/staff-users/staff-1/reset-password"
   );
-  assert.equal(
-    promoCodeValidateUrl(),
-    "/api/dashboard/promo-codes/validate"
-  );
+  assert.equal(promoCodeValidateUrl(), "/api/dashboard/promo-codes/validate");
   assert.equal(
     promoCodeToggleUrl("promo-1"),
     "/api/dashboard/promo-codes/promo-1/toggle"

@@ -16,28 +16,23 @@ import {
 } from "@/utils/dashboardApiContract";
 
 export const SUPPORTED_DASHBOARD_STAFF_ROLES = [
-  "admin",
+  "superadmin",
   "restaurant",
-  "kitchen",
   "courier",
-  "cashier",
 ] as const satisfies readonly DashboardStaffRole[];
 
 const dashboardStaffErrorMessages: Record<string, string> = {
   INVALID_EMAIL: "البريد الإلكتروني غير صحيح.",
   WEAK_PASSWORD: "كلمة المرور لا تحقق متطلبات الأمان.",
   INVALID_DASHBOARD_ROLE: "نوع صلاحية المستخدم غير صحيح.",
-  DASHBOARD_USER_EXISTS:
-    "يوجد مستخدم لوحة تحكم بهذا البريد الإلكتروني بالفعل.",
+  DASHBOARD_USER_EXISTS: "يوجد مستخدم لوحة تحكم بهذا البريد الإلكتروني بالفعل.",
   DASHBOARD_USER_NOT_FOUND: "لم يتم العثور على مستخدم لوحة التحكم.",
-  SUPERADMIN_PROTECTED:
-    "لا يمكن تعديل حساب السوبر أدمن من هذه الشاشة.",
+  SUPERADMIN_PROTECTED: "لا يمكن تعديل حساب السوبر أدمن من هذه الشاشة.",
   UNAUTHORIZED: "انتهت الجلسة أو بيانات الدخول غير صحيحة.",
   FORBIDDEN: "ليس لديك صلاحية لتنفيذ هذا الإجراء.",
   TOKEN_REVOKED:
     "تم إنهاء الجلسة بسبب تغيير بيانات الحساب. سجل الدخول مرة أخرى.",
-  LOCKED:
-    "الحساب مقفل مؤقتا بسبب محاولات تسجيل الدخول الفاشلة.",
+  LOCKED: "الحساب مقفل مؤقتا بسبب محاولات تسجيل الدخول الفاشلة.",
   INTERNAL: "حدث خطأ غير متوقع. حاول مرة أخرى.",
 };
 
@@ -47,20 +42,15 @@ export const isDashboardStaffRole = (
   SUPPORTED_DASHBOARD_STAFF_ROLES.includes(role as DashboardStaffRole);
 
 export const normalizeDashboardStaffRoles = (
-  roles: unknown
-): DashboardStaffRole[] => {
-  if (!Array.isArray(roles)) return [...SUPPORTED_DASHBOARD_STAFF_ROLES];
-
-  const normalized = roles.filter(isDashboardStaffRole);
-  return normalized.length ? normalized : [...SUPPORTED_DASHBOARD_STAFF_ROLES];
-};
+  _roles: unknown
+): DashboardStaffRole[] => [...SUPPORTED_DASHBOARD_STAFF_ROLES];
 
 const normalizeStaffUsersListResponse = (
   response: DashboardStaffUsersListResponse
 ): DashboardStaffUsersListResponse => ({
   ...response,
   assignableRoles: normalizeDashboardStaffRoles(response.assignableRoles),
-  data: response.data.filter((user) => isDashboardStaffRole(user.role)),
+  data: response.data,
 });
 
 export const fetchDashboardStaffUsers = async (

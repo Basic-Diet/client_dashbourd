@@ -42,7 +42,7 @@ export function MealPlannerCardGridV2({
   onDelete,
 }: {
   premiumSection?: MealPlannerPremiumSectionV2 | null;
-  catalog: MealPlannerCatalogV2;
+  catalog?: MealPlannerCatalogV2 | null;
   sections: MealPlannerSectionV2[];
   issues: MealPlannerValidationIssue[];
   pending: boolean;
@@ -52,39 +52,56 @@ export function MealPlannerCardGridV2({
   onToggleVisibility: (section: MealPlannerSectionV2) => void;
   onDelete: (section: MealPlannerSectionV2) => void;
 }) {
+  const hasResponsePremiumSection = sections.some(
+    (section) => normalizeCardType(section) === "system_premium"
+  );
+  const showFallbackPremiumCard =
+    !hasResponsePremiumSection && Boolean(premiumSection);
+  const renderedCardCount = sections.length + (showFallbackPremiumCard ? 1 : 0);
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">كروت منشئ الوجبات</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Premium أولًا، ثم الوجبات الكاملة والبروتين والكارب. كل إجراء بجوار الكارت الذي يؤثر عليه.
+            تظهر كل الكروت القادمة من الباك إند بترتيبها الفعلي. كل إجراء بجوار الكارت الذي يؤثر عليه.
           </p>
         </div>
         <Badge variant="outline" className="w-fit">
-          {sections.length + 1} كروت
+          {renderedCardCount} كروت
         </Badge>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-        <PremiumCard premiumSection={premiumSection} />
+        {showFallbackPremiumCard ? (
+          <PremiumCard premiumSection={premiumSection} />
+        ) : null}
         {sections.map((section) => (
-          <DynamicCard
-            key={section.key}
-            section={section}
-            catalog={catalog}
-            issues={issues.filter(
-              (issue) => !issue.sectionKey || issue.sectionKey === section.key
-            )}
-            pending={pending}
-            readOnly={readOnly}
-            onEdit={() => onEdit(section)}
-            onManageItems={() => onManageItems(section)}
-            onToggleVisibility={() => onToggleVisibility(section)}
-            onDelete={() => onDelete(section)}
-          />
+          normalizeCardType(section) === "system_premium" ? (
+            <PremiumCard
+              key={section.key}
+              section={section}
+              premiumSection={premiumSection}
+            />
+          ) : (
+            <DynamicCard
+              key={section.key}
+              section={section}
+              catalog={catalog}
+              issues={issues.filter(
+                (issue) => !issue.sectionKey || issue.sectionKey === section.key
+              )}
+              pending={pending}
+              readOnly={readOnly}
+              onEdit={() => onEdit(section)}
+              onManageItems={() => onManageItems(section)}
+              onToggleVisibility={() => onToggleVisibility(section)}
+              onDelete={() => onDelete(section)}
+            />
+          )
         ))}
-        {!sections.length ? (
+        {!renderedCardCount ? (
           <div className="grid min-h-72 place-items-center rounded-2xl border border-dashed bg-card p-6 text-center md:col-span-1 2xl:col-span-2">
             <div className="max-w-sm">
               <Package className="mx-auto size-8 text-muted-foreground" />
@@ -101,17 +118,20 @@ export function MealPlannerCardGridV2({
 }
 
 function PremiumCard({
+  section,
   premiumSection,
 }: {
+  section?: MealPlannerSectionV2;
   premiumSection?: MealPlannerPremiumSectionV2 | null;
 }) {
-  const items = premiumSection?.items || [];
+  const items = section ? sectionItems(section) : premiumSection?.items || [];
+  const title = section ? sectionTitle(section) : "الوجبات المميزة";
   return (
     <article className="flex min-h-72 flex-col overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-b from-amber-50 to-card p-4 shadow-sm dark:border-amber-900/60 dark:from-amber-950/25 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold">الوجبات المميزة</h3>
+            <h3 className="font-semibold">{title}</h3>
             <Badge variant="secondary">يُدار من النظام</Badge>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -162,7 +182,7 @@ function DynamicCard({
   onDelete,
 }: {
   section: MealPlannerSectionV2;
-  catalog: MealPlannerCatalogV2;
+  catalog?: MealPlannerCatalogV2 | null;
   issues: MealPlannerValidationIssue[];
   pending: boolean;
   readOnly: boolean;
@@ -173,10 +193,14 @@ function DynamicCard({
 }) {
   const cardType = normalizeCardType(section);
   const role = sectionOptionRole(section);
+  const editableCard =
+    !readOnly && (cardType === "direct_product" || cardType === "option_family");
   const configuredIds =
     cardType === "direct_product"
       ? section.selectedProductIds || []
-      : section.selectedOptionIds || [];
+      : cardType === "option_family"
+        ? section.selectedOptionIds || []
+        : [];
   const hydratedItems = sectionItems(section);
   const builderGroup =
     cardType === "option_family"
@@ -188,12 +212,14 @@ function DynamicCard({
       : null;
   const catalogItems =
     cardType === "direct_product"
-      ? (catalog.products || []).filter((candidate) =>
+      ? (catalog?.products || []).filter((candidate) =>
           configuredIds.includes(candidateId(candidate))
         )
-      : (builderGroup?.options || []).filter((candidate) =>
-          configuredIds.includes(candidateId(candidate))
-        );
+      : cardType === "option_family"
+        ? (builderGroup?.options || []).filter((candidate) =>
+            configuredIds.includes(candidateId(candidate))
+          )
+        : [];
   const items = hydratedItems.length ? hydratedItems : catalogItems;
   const configuredCount = Math.max(items.length, configuredIds.length);
   const productLabel =
@@ -214,10 +240,17 @@ function DynamicCard({
   const cardLabel =
     cardType === "direct_product"
       ? "وجبة كاملة"
-      : role === "carbs"
-        ? "خيارات كارب"
-        : "خيارات بروتين";
-  const Icon = cardType === "direct_product" ? Package : Layers3;
+      : cardType === "option_family"
+        ? role === "carbs"
+          ? "خيارات كارب"
+          : "خيارات بروتين"
+        : "كارت من الاستجابة";
+  const Icon =
+    cardType === "direct_product"
+      ? Package
+      : cardType === "option_family"
+        ? Layers3
+        : Crown;
 
   return (
     <article className="flex min-h-72 flex-col rounded-2xl border bg-card p-4 shadow-sm transition hover:shadow-md sm:p-5">
@@ -236,7 +269,9 @@ function DynamicCard({
             عدد العناصر: {configuredCount} •{" "}
             {cardType === "direct_product"
               ? "يُحتسب كوجبة كاملة"
-              : "يُستخدم ضمن وجبة مركبة"}
+              : cardType === "option_family"
+                ? "يُستخدم ضمن وجبة مركبة"
+                : "معروض كما ورد من الباك إند"}
           </p>
         </div>
         <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted">
@@ -299,7 +334,7 @@ function DynamicCard({
         </div>
       ) : null}
 
-      {!readOnly ? (
+      {editableCard ? (
       <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
         <Button
           type="button"

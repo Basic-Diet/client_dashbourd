@@ -14,11 +14,7 @@ import {
   UserCheck,
   UserX,
 } from "lucide-react";
-import {
-  useForm,
-  type Path,
-  type UseFormRegister,
-} from "react-hook-form";
+import { useForm, type Path, type UseFormRegister } from "react-hook-form";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,6 +94,7 @@ import {
   editDashboardStaffUserSchemaForRoles,
   getDefaultDashboardStaffRole,
   getAssignableDashboardStaffRoles,
+  getDashboardStaffUserRoleLabel,
   hasUpdatePatchChanges,
   resetDashboardStaffPasswordSchema,
   type CreateDashboardStaffUserFormValues,
@@ -118,11 +115,8 @@ const formatDate = (value: string | null) =>
       }).format(new Date(value))
     : "لم يسجل الدخول بعد";
 
-const hasFilters = (
-  q: string,
-  role: string,
-  status: string
-) => Boolean(q || role !== ALL_ROLES_VALUE || status !== ALL_STATUSES_VALUE);
+const hasFilters = (q: string, role: string, status: string) =>
+  Boolean(q || role !== ALL_ROLES_VALUE || status !== ALL_STATUSES_VALUE);
 
 export function DashboardStaffUsersWorkspace() {
   const { user } = useAuth();
@@ -155,9 +149,7 @@ export function DashboardStaffUsersWorkspace() {
       page,
       limit,
       ...(debouncedSearch ? { q: debouncedSearch } : {}),
-      ...(role !== ALL_ROLES_VALUE
-        ? { role: role as DashboardStaffRole }
-        : {}),
+      ...(role !== ALL_ROLES_VALUE ? { role: role as DashboardStaffRole } : {}),
       ...(status !== ALL_STATUSES_VALUE
         ? { status: status as DashboardStaffStatusFilter }
         : {}),
@@ -210,9 +202,7 @@ export function DashboardStaffUsersWorkspace() {
         <Card>
           <CardHeader>
             <CardTitle>ليس لديك صلاحية</CardTitle>
-            <CardDescription>
-              هذه الصفحة متاحة للسوبر أدمن فقط.
-            </CardDescription>
+            <CardDescription>هذه الصفحة متاحة للسوبر أدمن فقط.</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -250,9 +240,7 @@ export function DashboardStaffUsersWorkspace() {
       <Card>
         <CardContent className="grid gap-3 p-4 lg:grid-cols-[minmax(240px,1fr)_180px_160px_auto]">
           <div className="grid gap-2">
-            <Label htmlFor="staff-search">
-              البحث بالبريد الإلكتروني
-            </Label>
+            <Label htmlFor="staff-search">البحث بالبريد الإلكتروني</Label>
             <Input
               id="staff-search"
               value={search}
@@ -464,9 +452,7 @@ export function DashboardStaffUsersTable({
               <TableCell className="min-w-60 font-medium" dir="ltr">
                 {user.email}
               </TableCell>
-              <TableCell>
-                {DASHBOARD_STAFF_ROLE_LABELS[user.role]}
-              </TableCell>
+              <TableCell>{getDashboardStaffUserRoleLabel(user.role)}</TableCell>
               <TableCell>
                 <Badge variant={user.isActive ? "default" : "destructive"}>
                   {user.isActive
@@ -648,7 +634,10 @@ export function CreateDashboardStaffUserDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
           <FormError message={mutation.error ?? dialogError} />
-          <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message}>
+          <Field
+            label="البريد الإلكتروني"
+            error={form.formState.errors.email?.message}
+          >
             <Input
               {...form.register("email")}
               type="email"
@@ -696,7 +685,10 @@ export function CreateDashboardStaffUserDialog({
             >
               إلغاء
             </Button>
-            <Button type="submit" disabled={mutation.isPending || accessBlocked}>
+            <Button
+              type="submit"
+              disabled={mutation.isPending || accessBlocked}
+            >
               إضافة مستخدم
             </Button>
           </DialogFooter>
@@ -729,11 +721,15 @@ export function EditDashboardStaffUserDialog({
   const [pendingPatch, setPendingPatch] =
     React.useState<UpdateDashboardStaffUserPayload | null>(null);
   const submittingRef = React.useRef(false);
+  const editableRole =
+    user && safeRoles.includes(user.role as DashboardStaffRole)
+      ? (user.role as DashboardStaffRole)
+      : getDefaultDashboardStaffRole(safeRoles);
   const form = useForm<EditDashboardStaffUserFormValues>({
     resolver: zodResolver(editDashboardStaffUserSchema),
     values: {
       email: user?.email ?? "",
-      role: user?.role ?? "admin",
+      role: editableRole,
       isActive: user?.isActive ?? true,
     },
     shouldFocusError: true,
@@ -759,7 +755,9 @@ export function EditDashboardStaffUserDialog({
     !hasUpdatePatchChanges(patch) ||
     submittingRef.current;
 
-  const submitPatch = async (patchToSubmit: UpdateDashboardStaffUserPayload) => {
+  const submitPatch = async (
+    patchToSubmit: UpdateDashboardStaffUserPayload
+  ) => {
     if (accessBlocked || submittingRef.current) return;
     submittingRef.current = true;
     setDialogError(null);
@@ -781,9 +779,8 @@ export function EditDashboardStaffUserDialog({
 
   const onSubmit = form.handleSubmit(async (values) => {
     if (accessBlocked || submittingRef.current) return;
-    const parsedValues = editDashboardStaffUserSchemaForRoles(safeRoles).parse(
-      values
-    );
+    const parsedValues =
+      editDashboardStaffUserSchemaForRoles(safeRoles).parse(values);
     const nextPatch = buildUpdateDashboardStaffUserPatch(
       user,
       parsedValues as ParsedEditDashboardStaffUserFormValues
@@ -1099,7 +1096,10 @@ export function ResetDashboardStaffPasswordDialog({
             >
               إلغاء
             </Button>
-            <Button type="submit" disabled={mutation.isPending || accessBlocked}>
+            <Button
+              type="submit"
+              disabled={mutation.isPending || accessBlocked}
+            >
               تغيير كلمة المرور
             </Button>
           </DialogFooter>

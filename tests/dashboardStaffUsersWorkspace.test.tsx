@@ -67,14 +67,13 @@ vi.mock("@/hooks/useDashboardAdminQuery", () => ({
   useDashboardStaffUsersQuery: (...args: unknown[]) => staffQueryMock(...args),
   useCreateDashboardStaffUserMutation: () => createMutationMock(),
   useUpdateDashboardStaffUserMutation: () => updateMutationMock(),
-  useResetDashboardStaffUserPasswordMutation: () =>
-    resetPasswordMutationMock(),
+  useResetDashboardStaffUserPasswordMutation: () => resetPasswordMutationMock(),
 }));
 
 const staffUser: DashboardStaffUserDto = {
   id: "staff-1",
   email: "staff@example.com",
-  role: "admin",
+  role: "restaurant",
   isActive: true,
   lastLoginAt: null,
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -136,8 +135,9 @@ const fillCreateForm = async (
   const emailInput = document.querySelector<HTMLInputElement>(
     'input[type="email"]'
   )!;
-  const passwordInputs =
-    document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+  const passwordInputs = document.querySelectorAll<HTMLInputElement>(
+    'input[type="password"]'
+  );
 
   await user.clear(emailInput);
   await user.type(emailInput, email);
@@ -165,7 +165,8 @@ const getAddUserButton = () => {
 };
 
 const openStaffAction = async (index: number) => {
-  const actionButton = document.querySelector<HTMLButtonElement>("tbody button");
+  const actionButton =
+    document.querySelector<HTMLButtonElement>("tbody button");
   if (!actionButton) throw new Error("Staff action button not found");
   await userEvent.click(actionButton);
   const items = await screen.findAllByRole("menuitem");
@@ -182,7 +183,7 @@ beforeEach(() => {
       status: true,
       data: [staffUser],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-      assignableRoles: ["admin", "kitchen", "courier", "cashier"],
+      assignableRoles: ["superadmin", "restaurant", "courier"],
     },
     isLoading: false,
     isError: false,
@@ -218,6 +219,37 @@ describe("dashboard staff users workspace interactions", () => {
     expect(staffQueryMock).toHaveBeenCalledWith(expect.any(Object), true);
   });
 
+  it("renders every staff user returned by the backend, including legacy display roles", () => {
+    staffQueryMock.mockReturnValue({
+      data: {
+        status: true,
+        data: [
+          { ...staffUser, id: "staff-1", email: "test@user.example", role: "courier" },
+          { ...staffUser, id: "staff-2", email: "pickup@basicdiet.com", role: "cashier" },
+          { ...staffUser, id: "staff-3", email: "courier@basicdiet.com", role: "courier" },
+          { ...staffUser, id: "staff-4", email: "kitchen@basicdiet.com", role: "kitchen" },
+          { ...staffUser, id: "staff-5", email: "manager@basicdiet.com", role: "admin" },
+        ],
+        meta: { page: 1, limit: 20, total: 5, totalPages: 1 },
+        assignableRoles: ["admin", "kitchen", "courier", "cashier"],
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderWithQueryClient(<DashboardStaffUsersWorkspace />);
+
+    expect(screen.getByText("test@user.example")).toBeInTheDocument();
+    expect(screen.getByText("pickup@basicdiet.com")).toBeInTheDocument();
+    expect(screen.getByText("courier@basicdiet.com")).toBeInTheDocument();
+    expect(screen.getByText("kitchen@basicdiet.com")).toBeInTheDocument();
+    expect(screen.getByText("manager@basicdiet.com")).toBeInTheDocument();
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(5);
+  });
+
   it("create dialog rejects mismatched passwords", async () => {
     const mutateAsync = vi.fn();
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
@@ -225,14 +257,15 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
 
     const user = await fillCreateForm("StrongPass9!");
-    const passwordInputs =
-      document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+    const passwordInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="password"]'
+    );
     await user.clear(passwordInputs[1]);
     await user.type(passwordInputs[1], "Different9!");
     await user.click(getSubmitButton());
@@ -248,7 +281,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -256,18 +289,22 @@ describe("dashboard staff users workspace interactions", () => {
     const user = await fillCreateForm("Password@123");
     await user.click(getSubmitButton());
 
-    expect((await screen.findAllByText(/شائعة أو افتراضية/)).length).toBeGreaterThan(1);
+    expect(
+      (await screen.findAllByText(/شائعة أو افتراضية/)).length
+    ).toBeGreaterThan(1);
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
   it("create sends exactly email/password/role/isActive", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ status: true, data: staffUser });
+    const mutateAsync = vi
+      .fn()
+      .mockResolvedValue({ status: true, data: staffUser });
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -293,7 +330,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -307,12 +344,14 @@ describe("dashboard staff users workspace interactions", () => {
 
   it("create dialog cannot close while pending", async () => {
     const onOpenChange = vi.fn();
-    createMutationMock.mockReturnValue(makeMutation(vi.fn(), { isPending: true }));
+    createMutationMock.mockReturnValue(
+      makeMutation(vi.fn(), { isPending: true })
+    );
     render(
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={onOpenChange}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -324,16 +363,17 @@ describe("dashboard staff users workspace interactions", () => {
   it("create rapid double-submit produces one mutation request", async () => {
     let resolveRequest: (value: unknown) => void = () => undefined;
     const mutateAsync = vi.fn(
-      () => new Promise((resolve) => {
-        resolveRequest = resolve;
-      })
+      () =>
+        new Promise((resolve) => {
+          resolveRequest = resolve;
+        })
     );
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -348,13 +388,15 @@ describe("dashboard staff users workspace interactions", () => {
   });
 
   it("edit sends only changed fields", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ status: true, data: staffUser });
+    const mutateAsync = vi
+      .fn()
+      .mockResolvedValue({ status: true, data: staffUser });
     updateMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <EditDashboardStaffUserDialog
         user={staffUser}
         onOpenChange={vi.fn()}
-        assignableRoles={["admin", "cashier"]}
+        assignableRoles={["restaurant", "courier"]}
         onAccessLoss={() => false}
       />
     );
@@ -381,7 +423,7 @@ describe("dashboard staff users workspace interactions", () => {
       <EditDashboardStaffUserDialog
         user={staffUser}
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -402,7 +444,7 @@ describe("dashboard staff users workspace interactions", () => {
       <EditDashboardStaffUserDialog
         user={staffUser}
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -411,7 +453,9 @@ describe("dashboard staff users workspace interactions", () => {
     await userEvent.click(getSubmitButton());
     await clickButtonContaining("تعطيل");
 
-    expect((await screen.findAllByText(/لم يتم العثور/)).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText(/لم يتم العثور/)).length
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/تعطيل/).length).toBeGreaterThan(0);
   });
 
@@ -432,7 +476,9 @@ describe("dashboard staff users workspace interactions", () => {
 
   it("status confirmation cannot close while pending", async () => {
     const onOpenChange = vi.fn();
-    updateMutationMock.mockReturnValue(makeMutation(vi.fn(), { isPending: true }));
+    updateMutationMock.mockReturnValue(
+      makeMutation(vi.fn(), { isPending: true })
+    );
     render(
       <DashboardStaffUserStatusDialog
         user={staffUser}
@@ -446,7 +492,9 @@ describe("dashboard staff users workspace interactions", () => {
   });
 
   it("reset password uses only password in the mutation payload", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ status: true, data: staffUser });
+    const mutateAsync = vi
+      .fn()
+      .mockResolvedValue({ status: true, data: staffUser });
     resetPasswordMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <ResetDashboardStaffPasswordDialog
@@ -472,7 +520,9 @@ describe("dashboard staff users workspace interactions", () => {
   });
 
   it("reset password fields clear after success", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ status: true, data: staffUser });
+    const mutateAsync = vi
+      .fn()
+      .mockResolvedValue({ status: true, data: staffUser });
     resetPasswordMutationMock.mockReturnValue(makeMutation(mutateAsync));
     const onOpenChange = vi.fn();
     render(
@@ -516,7 +566,9 @@ describe("dashboard staff users workspace interactions", () => {
 
   it("reset dialog cannot close while pending", async () => {
     const onOpenChange = vi.fn();
-    resetPasswordMutationMock.mockReturnValue(makeMutation(vi.fn(), { isPending: true }));
+    resetPasswordMutationMock.mockReturnValue(
+      makeMutation(vi.fn(), { isPending: true })
+    );
     render(
       <ResetDashboardStaffPasswordDialog
         user={staffUser}
@@ -534,7 +586,9 @@ describe("dashboard staff users workspace interactions", () => {
       response: { status: 403, data: { code: "FORBIDDEN" } },
     });
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
-    const { queryClient } = renderWithQueryClient(<DashboardStaffUsersWorkspace />);
+    const { queryClient } = renderWithQueryClient(
+      <DashboardStaffUsersWorkspace />
+    );
     const removeSpy = vi.spyOn(queryClient, "removeQueries");
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
@@ -553,7 +607,9 @@ describe("dashboard staff users workspace interactions", () => {
   it("create mutation 403 closes management UI and blocks resubmission", async () => {
     const mutateAsync = vi.fn().mockRejectedValue(forbiddenError);
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
-    const { queryClient } = renderWithQueryClient(<DashboardStaffUsersWorkspace />);
+    const { queryClient } = renderWithQueryClient(
+      <DashboardStaffUsersWorkspace />
+    );
     const removeSpy = vi.spyOn(queryClient, "removeQueries");
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
@@ -570,12 +626,16 @@ describe("dashboard staff users workspace interactions", () => {
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["session"] });
     expect(toastMock).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('input[type="password"]')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('input[type="password"]')
+    ).not.toBeInTheDocument();
     expect(getAddUserButton()).toBeDisabled();
     expect(screen.queryByText("staff@example.com")).not.toBeInTheDocument();
 
     await user.click(getAddUserButton());
-    expect(document.querySelector('input[type="password"]')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('input[type="password"]')
+    ).not.toBeInTheDocument();
     expect(mutateAsync).toHaveBeenCalledTimes(1);
   });
 
@@ -595,7 +655,9 @@ describe("dashboard staff users workspace interactions", () => {
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(document.querySelector('input[type="email"]')).not.toBeInTheDocument()
+      expect(
+        document.querySelector('input[type="email"]')
+      ).not.toBeInTheDocument()
     );
     expect(getAddUserButton()).toBeDisabled();
     expect(screen.queryByText("staff@example.com")).not.toBeInTheDocument();
@@ -638,7 +700,9 @@ describe("dashboard staff users workspace interactions", () => {
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(document.querySelector('input[type="password"]')).not.toBeInTheDocument()
+      expect(
+        document.querySelector('input[type="password"]')
+      ).not.toBeInTheDocument()
     );
     expect(getAddUserButton()).toBeDisabled();
     expect(screen.queryByText("staff@example.com")).not.toBeInTheDocument();
@@ -680,7 +744,9 @@ describe("dashboard staff users workspace interactions", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     );
-    expect(document.querySelector('input[type="password"]')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('input[type="password"]')
+    ).not.toBeInTheDocument();
 
     rerender(
       <ResetDashboardStaffPasswordDialog
@@ -691,7 +757,9 @@ describe("dashboard staff users workspace interactions", () => {
       />
     );
 
-    inputs = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+    inputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="password"]'
+    );
     expect(inputs[0]).toHaveValue("");
     expect(inputs[1]).toHaveValue("");
     expect(mutateAsync).not.toHaveBeenCalled();
@@ -703,7 +771,7 @@ describe("dashboard staff users workspace interactions", () => {
         status: true,
         data: [staffUser],
         meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-        assignableRoles: ["admin"],
+        assignableRoles: ["restaurant"],
       },
       isLoading: false,
       isError: true,
@@ -726,7 +794,7 @@ describe("dashboard staff users workspace interactions", () => {
         status: true,
         data: [staffUser],
         meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-        assignableRoles: ["admin"],
+        assignableRoles: ["restaurant"],
       },
       isLoading: false,
       isError: true,
@@ -749,7 +817,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["restaurant"]}
         onAccessLoss={() => false}
       />
     );
@@ -761,50 +829,61 @@ describe("dashboard staff users workspace interactions", () => {
     expect(sessionStorage.getItem("password")).toBeNull();
   });
 
-  it("superadmin is absent from role controls and rejected at submit", async () => {
+  it("legacy admin, kitchen, and cashier roles are absent from controls and rejected at submit", async () => {
     const mutateAsync = vi.fn();
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin", "cashier"]}
+        assignableRoles={["superadmin", "restaurant", "courier"]}
         onAccessLoss={() => false}
       />
     );
 
-    expect(screen.queryByText("superadmin")).not.toBeInTheDocument();
-    assert.equal(
-      createDashboardStaffUserSchema.safeParse({
-        email: "manager@example.com",
-        password: "StrongPass9!",
-        confirmPassword: "StrongPass9!",
-        role: "superadmin",
-        isActive: true,
-      }).success,
-      false
-    );
+    expect(screen.queryByText("مدير")).not.toBeInTheDocument();
+    expect(screen.queryByText("المطبخ — قديم")).not.toBeInTheDocument();
+    expect(screen.queryByText("الكاشير — قديم")).not.toBeInTheDocument();
+
+    for (const role of ["admin", "kitchen", "cashier"]) {
+      assert.equal(
+        createDashboardStaffUserSchema.safeParse({
+          email: "manager@example.com",
+          password: "StrongPass9!",
+          confirmPassword: "StrongPass9!",
+          role,
+          isActive: true,
+        }).success,
+        false
+      );
+    }
   });
 
-  it("backend assignableRoles controls create role when only cashier is returned", async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ status: true, data: staffUser });
+  it("create role controls always expose the three backend-supported roles", async () => {
+    const mutateAsync = vi
+      .fn()
+      .mockResolvedValue({ status: true, data: staffUser });
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["cashier"]}
+        assignableRoles={getAssignableDashboardStaffRoles(["courier"])}
         onAccessLoss={() => false}
       />
     );
+
+    expect(screen.getAllByText("سوبر أدمن").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("المطعم").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("مندوب التوصيل").length).toBeGreaterThan(0);
 
     const user = await fillCreateForm();
     await user.click(getSubmitButton());
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
-    expect(mutateAsync.mock.calls[0][0].role).toBe("cashier");
+    expect(mutateAsync.mock.calls[0][0].role).toBe("restaurant");
     expect(
-      createDashboardStaffUserSchemaForRoles(["cashier"]).safeParse({
+      createDashboardStaffUserSchemaForRoles(["courier"]).safeParse({
         email: "manager@example.com",
         password: "StrongPass9!",
         confirmPassword: "StrongPass9!",
@@ -814,14 +893,15 @@ describe("dashboard staff users workspace interactions", () => {
     ).toBe(false);
   });
 
-  it("restaurant is the preferred operational staff role while legacy roles remain valid", () => {
-    assert.equal(getDefaultDashboardStaffRole(["admin", "restaurant", "cashier"]), "restaurant");
+  it("restaurant is the preferred operational staff role and unsupported legacy roles are filtered", () => {
+    assert.equal(
+      getDefaultDashboardStaffRole(["superadmin", "restaurant", "courier"]),
+      "restaurant"
+    );
     assert.equal(DASHBOARD_STAFF_ROLE_LABELS.restaurant, "المطعم");
     assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.restaurant, "Restaurant");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.kitchen, "المطبخ — قديم");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.cashier, "الكاشير — قديم");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.kitchen, "Kitchen — Legacy");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.cashier, "Cashier — Legacy");
+    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.superadmin, "سوبر أدمن");
+    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.courier, "مندوب التوصيل");
     assert.equal(
       createDashboardStaffUserSchemaForRoles(["restaurant"]).safeParse({
         email: "restaurant@example.com",
@@ -832,27 +912,36 @@ describe("dashboard staff users workspace interactions", () => {
       }).success,
       true
     );
-    assert.deepEqual(getAssignableDashboardStaffRoles(["restaurant", "kitchen", "cashier"]), [
-      "restaurant",
-      "kitchen",
-      "cashier",
-    ]);
+    assert.deepEqual(
+      getAssignableDashboardStaffRoles(["restaurant", "kitchen", "cashier"]),
+      ["superadmin", "restaurant", "courier"]
+    );
+    assert.deepEqual(
+      getAssignableDashboardStaffRoles(["admin", "kitchen", "cashier"]),
+      ["superadmin", "restaurant", "courier"]
+    );
   });
 });
 
 describe("dashboard staff users contract helpers", () => {
   it("keeps route and URL contract intact", () => {
-    assert.equal(canRoleAccessRoute(UserRoles.SUPERADMIN, "/dashboard-users"), true);
-    assert.equal(canRoleAccessRoute(UserRoles.ADMIN, "/dashboard-users"), false);
+    assert.equal(
+      canRoleAccessRoute(UserRoles.SUPERADMIN, "/dashboard-users"),
+      true
+    );
+    assert.equal(
+      canRoleAccessRoute(UserRoles.ADMIN, "/dashboard-users"),
+      false
+    );
     assert.equal(
       dashboardStaffUsersUrl({
         q: "manager",
-        role: "admin",
+        role: "restaurant",
         status: "active",
         page: 1,
         limit: 20,
       }),
-      "/api/dashboard/staff-users?q=manager&role=admin&status=active&page=1&limit=20"
+      "/api/dashboard/staff-users?q=manager&role=restaurant&status=active&page=1&limit=20"
     );
     assert.equal(
       dashboardStaffResetPasswordUrl("staff-1"),
@@ -865,7 +954,7 @@ describe("dashboard staff users contract helpers", () => {
       email: "manager@example.com",
       password: "Password@123",
       confirmPassword: "Password@123",
-      role: "admin",
+      role: "restaurant",
       isActive: true,
     });
     const weakReset = resetDashboardStaffPasswordSchema.safeParse({
@@ -887,7 +976,7 @@ describe("dashboard staff users contract helpers", () => {
       email: "manager@example.com",
       password: "StrongPass9!",
       confirmPassword: "StrongPass9!",
-      role: "admin",
+      role: "restaurant",
       isActive: true,
     });
 
@@ -897,13 +986,14 @@ describe("dashboard staff users contract helpers", () => {
       "password",
       "role",
     ]);
-    assert.deepEqual(getAssignableDashboardStaffRoles(["admin", "superadmin"]), [
-      "admin",
-    ]);
+    assert.deepEqual(
+      getAssignableDashboardStaffRoles(["admin", "superadmin"]),
+      ["superadmin", "restaurant", "courier"]
+    );
     assert.deepEqual(
       buildUpdateDashboardStaffUserPatch(staffUser, {
         email: "new@example.com",
-        role: "admin",
+        role: "restaurant",
         isActive: true,
       }),
       { email: "new@example.com" }
