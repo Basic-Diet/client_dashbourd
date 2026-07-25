@@ -84,14 +84,6 @@ function getPreparationItems(items: UnifiedQueueItem[] = []): UnifiedQueueItem[]
   return items.filter(isPreparationQueueItem);
 }
 
-function excludeItems(
-  items: UnifiedQueueItem[],
-  excludedItems: UnifiedQueueItem[]
-): UnifiedQueueItem[] {
-  const excludedIds = new Set(excludedItems.map((item) => item.id));
-  return items.filter((item) => !excludedIds.has(item.id));
-}
-
 function matchesGeneralOperationsSearch(
   item: UnifiedQueueItem,
   query?: string
@@ -151,11 +143,8 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
           )
         : normalizedItems;
       const kitchenItems = getPreparationItems(dateScopedItems);
-      const pickupItems = excludeItems(getPickupItems(dateScopedItems), kitchenItems);
-      const courierItems = excludeItems(
-        getAllDeliveryOperationItems(dateScopedItems),
-        kitchenItems
-      );
+      const pickupItems = getPickupItems(dateScopedItems);
+      const courierItems = getAllDeliveryOperationItems(dateScopedItems);
 
       return [
         { screen: "kitchen" as const, items: newestFirst(kitchenItems) },

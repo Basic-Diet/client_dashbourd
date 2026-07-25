@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OperationsQueueTable } from "../src/components/pages/operations-board/OperationsQueueTable";
@@ -204,7 +204,7 @@ function renderOperations(items = [representativePickup()], onAction = vi.fn()) 
 }
 
 describe("subscription pickup operations card", () => {
-  it("renders the representative pickup response as an Arabic-first operational card", () => {
+  it("renders the representative pickup response as an Arabic-first operational card", async () => {
     const item = representativePickup();
     const presentation = buildKitchenV2Presentation(item);
 
@@ -227,15 +227,43 @@ describe("subscription pickup operations card", () => {
     expect(screen.getByText("غير محدد")).toBeInTheDocument();
     expect(screen.getByText("لم يصدر بعد")).toBeInTheDocument();
     expect(screen.getByText("دجاج روزماري + رز أبيض")).toBeInTheDocument();
-    expect(screen.getByText(/100/)).toBeInTheDocument();
-    expect(screen.getByText(/150/)).toBeInTheDocument();
-    expect(screen.getByText(/بطاطا حلوة/)).toBeInTheDocument();
     expect(screen.queryByText("slot_1")).not.toBeInTheDocument();
     expect(text).not.toContain("subscription_pickup_request");
     expect(text).not.toContain("6a621da9183c4f40ca576081");
     expect(text).not.toContain("addon-juice");
     expect(screen.queryByText("prepare")).not.toBeInTheDocument();
     expect(screen.queryByText("fulfill")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /عرض التفاصيل الكاملة/ }));
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getAllByText(/100/).length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText(/150/).length).toBeGreaterThan(0);
+    expect(within(dialog).getByText(/بطاطا حلوة/)).toBeInTheDocument();
+  });
+
+  it("uses the backend pickup code as the card identifier when it is issued", () => {
+    const base = representativePickup();
+    const item = normalizeOperationsQueueItem({
+      ...(base.rawData as Record<string, unknown>),
+      reference: "PICK-22F979",
+      fulfillment: {
+        mode: "pickup",
+        pickup: {
+          branchId: "main",
+          branchName: "Main Branch",
+          pickupWindow: null,
+          pickupCode: "875614",
+          pickupCodeState: "issued",
+        },
+      },
+    });
+
+    renderOperations([item]);
+
+    const cardIdentifier = document.querySelector("article p[dir='ltr']");
+    expect(cardIdentifier?.textContent).toBe("875614");
+    expect(screen.getByText("PICK-22F979")).toBeInTheDocument();
   });
 
   it("renders only backend allowed actions and blocks duplicate pending clicks", async () => {

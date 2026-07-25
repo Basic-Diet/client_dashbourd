@@ -6,6 +6,7 @@ import {
   getCourierItems,
   getInvalidActionReason,
   getItemsByStatuses,
+  getOperationsDisplayReference,
   getPickupItems,
   getSafeOperationsTab,
   getScreensForRole,
@@ -81,6 +82,45 @@ test("operations screens and canonical queue helpers", () => {
     getCourierItems(items).map((item) => item.entityId),
     ["subscription-delivery"]
   );
+});
+
+test("operations display reference prefers returned pickup code before fallback reference", () => {
+  const [withPickupCode, withoutPickupCode] = extractOperationsQueueItems({
+    data: [
+      {
+        id: "pickup-request-with-code",
+        entityId: "pickup-request-with-code",
+        entityType: "subscription_pickup_request",
+        source: "subscription_pickup_request",
+        reference: "PICK-22F979",
+        mode: "pickup",
+        fulfillment: {
+          mode: "pickup",
+          pickup: {
+            pickupCode: "875614",
+            pickupCodeState: "issued",
+          },
+        },
+      },
+      {
+        id: "pickup-request-no-code",
+        entityId: "pickup-request-no-code",
+        entityType: "subscription_pickup_request",
+        source: "subscription_pickup_request",
+        reference: "PICK-NO-CODE",
+        mode: "pickup",
+        fulfillment: {
+          mode: "pickup",
+          pickup: {
+            pickupCode: "   ",
+          },
+        },
+      },
+    ],
+  });
+
+  assert.equal(getOperationsDisplayReference(withPickupCode), "875614");
+  assert.equal(getOperationsDisplayReference(withoutPickupCode), "PICK-NO-CODE");
 });
 
 test("canonical action payload omits legacy top-level action fields", () => {

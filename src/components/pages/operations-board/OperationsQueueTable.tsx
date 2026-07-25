@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import type { PendingOperationsActions } from "@/hooks/useOperationsBoard";
+import { getOperationsDisplayReference } from "@/lib/operationsBoard";
 import { buildKitchenV2Presentation } from "@/lib/operationsKitchenV2Presentation";
 import { buildOperationsOrderPresentation } from "@/lib/operationsOrderPresentation";
 import type { QueueAction, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
@@ -187,8 +188,10 @@ function searchableText(item: UnifiedQueueItem) {
   const order = buildOperationsOrderPresentation(item);
   const pickup = getPickupInfo(item);
   const delivery = getDeliveryInfo(item);
+  const displayReference = getOperationsDisplayReference(item);
 
   return [
+    displayReference,
     getCustomerName(item),
     item.customer?.phone,
     item.reference,
@@ -197,6 +200,8 @@ function searchableText(item: UnifiedQueueItem) {
     item.statusLabel,
     pickup.branch,
     pickup.window,
+    pickup.code,
+    pickup.codeState,
     delivery.address,
     delivery.window,
     kitchen.searchText,
@@ -339,6 +344,8 @@ function OperationsQueueCard({
   const kitchen = buildKitchenV2Presentation(item);
   const order = buildOperationsOrderPresentation(item);
   const customerName = getCustomerName(item);
+  const displayReference = getOperationsDisplayReference(item);
+  const showsPickupCode = displayReference !== item.reference;
 
   return (
     <article className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -346,13 +353,18 @@ function OperationsQueueCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="break-words text-lg font-black tracking-normal" dir="ltr">
-              {item.reference}
+              {displayReference}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground">
               <span>{getModeLabel(item.mode)}</span>
               <span aria-hidden="true">•</span>
               <span>{getSourceLabel(item)}</span>
             </div>
+            {showsPickupCode ? (
+              <Badge variant="outline" className="mt-2 rounded-lg px-2.5 py-1" dir="ltr">
+                {item.reference}
+              </Badge>
+            ) : null}
           </div>
           <Badge
             variant="outline"

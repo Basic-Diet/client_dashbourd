@@ -305,6 +305,28 @@ export function buildOperationsActionPayload(
   };
 }
 
+function itemText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export function getOperationsPickupCode(item: UnifiedQueueItem): string | null {
+  return (
+    itemText(item.fulfillment?.pickup?.pickupCode) ||
+    itemText(item.pickup?.pickupCode) ||
+    itemText(item.context.pickupCode)
+  );
+}
+
+export function getOperationsDisplayReference(item: UnifiedQueueItem): string {
+  return (
+    getOperationsPickupCode(item) ||
+    itemText(item.reference) ||
+    itemText(item.orderNumber) ||
+    itemText(item.entityId) ||
+    item.id
+  );
+}
+
 export function getItemsByStatuses(
   items: UnifiedQueueItem[],
   statuses: readonly string[]

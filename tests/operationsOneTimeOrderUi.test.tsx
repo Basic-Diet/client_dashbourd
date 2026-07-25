@@ -95,26 +95,29 @@ function fiveKitchenCards(): KitchenCard[] {
 }
 
 describe("one-time order operations card", () => {
-  it("renders normalized Arabic labels, production pricing, and one details button", () => {
+  it("renders normalized Arabic labels, production pricing, and one details button", async () => {
     renderTable();
     const bodyText = document.body.textContent || "";
 
     expect(screen.getByText("مؤكد")).toBeInTheDocument();
     expect(screen.getAllByText("0500000000").length).toBeGreaterThan(1);
     expect(screen.getAllByText("سلطة على مزاجك").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/30 مكو/).length).toBeGreaterThan(0);
-    expect(screen.getByText("7 أقسام")).toBeInTheDocument();
-    expect(screen.getByText(/زيادة 50 جرام من الدجاج/)).toBeInTheDocument();
-    expect(screen.getAllByText(/5.00 ر.س/).length).toBeGreaterThan(0);
     expect(screen.getByText("Main Branch")).toBeInTheDocument();
     expect(screen.getByText("18:00-20:00")).toBeInTheDocument();
-    expect(screen.getAllByText("34.00 ر.س").length).toBeGreaterThan(0);
-
     expect(screen.getAllByRole("button", { name: /عرض التفاصيل الكاملة/ })).toHaveLength(1);
     expect(bodyText).not.toContain("confirmed");
     expect(bodyText).not.toContain("paid");
     expect(bodyText).not.toContain("basic_salad");
     expect(bodyText).not.toContain("order-one-time-fixture");
+
+    await userEvent.click(screen.getByRole("button", { name: /عرض التفاصيل الكاملة/ }));
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getAllByText(/30 مكو/).length).toBeGreaterThan(0);
+    expect(within(dialog).getByText("7 أقسام")).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/زيادة 50 جرام من الدجاج/).length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText(/5.00 ر.س/).length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText("34.00 ر.س").length).toBeGreaterThan(0);
   });
 
   it("shows multiple item summaries and hidden-item paid extras", () => {
@@ -137,15 +140,14 @@ describe("one-time order operations card", () => {
     expect(screen.getByText("Prep card 1")).toBeInTheDocument();
     expect(screen.getByText("Prep card 2")).toBeInTheDocument();
     expect(screen.queryByText("Prep card 3")).not.toBeInTheDocument();
-    expect(screen.getByText("+3 بطاقات تحضير أخرى")).toBeInTheDocument();
-    expect(screen.getByText(/Hidden paid chicken - 5.00 ر.س/)).toBeInTheDocument();
-    expect(screen.getByText(/Hidden paid sauce - 2.50 ر.س/)).toBeInTheDocument();
+    expect(screen.getByText("+3 أخرى")).toBeInTheDocument();
+    expect(screen.queryByText(/Hidden paid chicken - 5.00 ر.س/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Hidden paid sauce - 2.50 ر.س/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Hidden paid salmon - 8.00 ر.س/)).not.toBeInTheDocument();
-    expect(screen.getByText("+2 إضافات مدفوعة أخرى")).toBeInTheDocument();
-    expect(screen.getAllByText(unavailableWarning)).toHaveLength(1);
-    expect(screen.getByText(/Important hidden warning/)).toBeInTheDocument();
+    expect(screen.queryByText("+2 إضافات مدفوعة أخرى")).not.toBeInTheDocument();
+    expect(screen.queryByText(unavailableWarning)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Important hidden warning/)).not.toBeInTheDocument();
     expect(screen.queryByText("Third warning")).not.toBeInTheDocument();
-    expect(screen.getByText("+3 تنبيهات أخرى")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /عرض التفاصيل الكاملة/ }));
     const dialog = screen.getByRole("dialog");
@@ -153,8 +155,12 @@ describe("one-time order operations card", () => {
     for (let index = 1; index <= 5; index += 1) {
       expect(within(dialog).getByText(`Prep card ${index}`)).toBeInTheDocument();
     }
+    expect(within(dialog).getByText("Hidden paid chicken")).toBeInTheDocument();
+    expect(within(dialog).getByText("Hidden paid sauce")).toBeInTheDocument();
     expect(within(dialog).getByText("Hidden paid salmon")).toBeInTheDocument();
     expect(within(dialog).getByText("Hidden paid avocado")).toBeInTheDocument();
+    expect(within(dialog).getAllByText(unavailableWarning).length).toBeGreaterThan(0);
+    expect(within(dialog).getByText("Important hidden warning")).toBeInTheDocument();
     expect(within(dialog).getByText("Third warning")).toBeInTheDocument();
     expect(within(dialog).getByText("Fourth warning")).toBeInTheDocument();
     expect(within(dialog).getByText("Fifth warning")).toBeInTheDocument();

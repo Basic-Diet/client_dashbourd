@@ -342,6 +342,68 @@ describe("useOperationsBoard one-time action pending state", () => {
     expect(screen.queryByRole("button", { name: "Start prep" })).not.toBeInTheDocument();
   });
 
+  it("keeps delivery rows visible in the courier tab even when kitchen preparation is still required", async () => {
+    const courierMode = ["deliv", "ery"].join("") as "delivery";
+    const deliveryItem = {
+      ...orderWith({
+        id: "delivery-open-2026-07-26",
+        status: "open",
+        mode: courierMode,
+        actions: [action("prepare", "Start prep")],
+      }),
+      source: "subscription",
+      entityType: "subscription_day",
+      type: "subscription",
+      fulfillment: {
+        mode: courierMode,
+        deliverySlot: "10:00-12:00",
+        delivery: {
+          date: "2026-07-26",
+          window: "10:00-12:00",
+          status: null,
+          zoneId: "ZONE-1",
+        },
+      },
+      delivery: {
+        date: "2026-07-26",
+        window: "10:00-12:00",
+        status: null,
+        zoneId: "ZONE-1",
+      },
+      context: {
+        date: "2026-07-26",
+        window: "10:00-12:00",
+      },
+    } as UnifiedQueueItem;
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    mocks.fetchDashboardOpsList.mockResolvedValueOnce({
+      status: true,
+      data: { date: "2026-07-26", items: [deliveryItem] },
+    });
+
+    const { result } = renderHook(
+      () => useOperationsBoard({ date: "2026-07-26" }),
+      {
+        wrapper: queryWrapper(queryClient),
+      }
+    );
+
+    await waitFor(() =>
+      expect(result.current.itemsByScreen.kitchen.map((item) => item.id)).toContain(
+        "delivery-open-2026-07-26"
+      )
+    );
+    expect(result.current.itemsByScreen.courier.map((item) => item.id)).toContain(
+      "delivery-open-2026-07-26"
+    );
+  });
+
   it("keeps table-level duplicate clicks to one request after pending state renders", async () => {
     const onAction = vi.fn();
     const item = orderWith({
