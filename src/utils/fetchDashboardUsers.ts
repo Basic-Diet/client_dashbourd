@@ -15,7 +15,15 @@ import {
   dashboardStaffUsersUrl,
 } from "@/utils/dashboardApiContract";
 
+/** Roles that may exist on legacy/current staff records and must remain readable. */
 export const SUPPORTED_DASHBOARD_STAFF_ROLES = [
+  "admin",
+  "restaurant",
+  "courier",
+] as const satisfies readonly DashboardStaffRole[];
+
+/** Current backend-owned assignment contract for Dashboard Users. */
+export const ASSIGNABLE_DASHBOARD_STAFF_ROLES = [
   "admin",
   "restaurant",
   "courier",

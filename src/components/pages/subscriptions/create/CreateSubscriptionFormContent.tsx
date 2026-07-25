@@ -5,10 +5,20 @@ import useCreateSubscriptionForm from "@/hooks/useCreateSubscriptionForm";
 import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { CreateSubscriptionSchemaType } from "@/lib/validations/createSubscriptionSchema";
 import { useCreateSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
-import { buildSubscriptionCreationPayload } from "@/utils/buildSubscriptionCreationPayload";
+import {
+  buildSubscriptionCreationPayload,
+  buildSubscriptionQuotePayload,
+} from "@/utils/buildSubscriptionCreationPayload";
 import { fetchSubscriptionQuote } from "@/utils/fetchSubscriptionsData";
 import { useNavigate } from "@tanstack/react-router";
-import { FileCheck2, Loader2, ReceiptText } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  CreditCard,
+  FileCheck2,
+  Loader2,
+  ReceiptText,
+} from "lucide-react";
 
 import { UserSelectionSection } from "./UserSelectionSection";
 import { PlanSelectionSection } from "./PlanSelectionSection";
@@ -27,6 +37,19 @@ type PricePart = {
   halala: number;
   currency?: string;
 };
+
+type PaymentMethod = "cash" | "visa";
+
+type PaymentMethodOption = {
+  method: PaymentMethod;
+  labelAr: string;
+  gatewayRequired: false;
+};
+
+const FALLBACK_PAYMENT_OPTIONS: PaymentMethodOption[] = [
+  { method: "cash", labelAr: "كاش", gatewayRequired: false },
+  { method: "visa", labelAr: "فيزا", gatewayRequired: false },
+];
 
 function asRecord(value: unknown): ApiRecord | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -52,6 +75,42 @@ function readSubscriptionLabel(response: unknown) {
   );
 }
 
+function readRecordedPaymentMethod(
+  response: unknown,
+  fallback: PaymentMethod
+): PaymentMethod {
+  const root = asRecord(response);
+  const data = asRecord(root?.data);
+  const payment = asRecord(data?.payment);
+  const meta = asRecord(root?.meta);
+  const candidate =
+    readString(data?.paymentMethod) ||
+    readString(payment?.method) ||
+    readString(meta?.paymentMethod);
+  return candidate === "visa" ? "visa" : candidate === "cash" ? "cash" : fallback;
+}
+
+function readPaymentMethodOptions(response: unknown): PaymentMethodOption[] {
+  const data = asRecord(asRecord(response)?.data);
+  const values = Array.isArray(data?.paymentMethodOptions)
+    ? data.paymentMethodOptions
+    : [];
+  const parsed: PaymentMethodOption[] = values.flatMap((value) => {
+    const option = asRecord(value);
+    const method = readString(option?.method);
+    if (method !== "cash" && method !== "visa") return [];
+    return [
+      {
+        method: method as PaymentMethod,
+        labelAr:
+          readString(option?.labelAr) || (method === "cash" ? "كاش" : "فيزا"),
+        gatewayRequired: false,
+      },
+    ];
+  });
+  return parsed.length ? parsed : FALLBACK_PAYMENT_OPTIONS;
+}
+
 function formatMoney(halala: number, currency: string) {
   try {
     return new Intl.NumberFormat("ar-SA", {
@@ -71,11 +130,13 @@ export function CreateSubscriptionFormContent({
   const form = useCreateSubscriptionForm(userId || "");
   const navigate = useNavigate();
   const [isValidatingPrice, setIsValidatingPrice] = useState(false);
+  const [paymentOptions, setPaymentOptions] = useState(FALLBACK_PAYMENT_OPTIONS);
   const [planPrice, setPlanPrice] = useState<PricePart>({ halala: 0 });
   const [premiumPrice, setPremiumPrice] = useState<PricePart>({ halala: 0 });
   const [addonsPrice, setAddonsPrice] = useState<PricePart>({ halala: 0 });
   const { mutateAsync, isPending } = useCreateSubscriptionMutation();
   const isSubmitting = isPending || isValidatingPrice;
+  const selectedPaymentMethod = form.watch("paymentMethod");
 
   const handlePlanPriceChange = useCallback((next: PricePart) => {
     setPlanPrice(next);
@@ -97,21 +158,28 @@ export function CreateSubscriptionFormContent({
     planPrice.halala > 0 || premiumPrice.halala > 0 || addonsPrice.halala > 0;
 
   const onSubmit = async (data: CreateSubscriptionSchemaType) => {
-    const payload = buildSubscriptionCreationPayload(data);
+    const quotePayload = buildSubscriptionQuotePayload(data);
+    const createPayload = buildSubscriptionCreationPayload(data);
 
     try {
       setIsValidatingPrice(true);
-      await fetchSubscriptionQuote(payload);
+      const quoteResponse = await fetchSubscriptionQuote(quotePayload);
+      setPaymentOptions(readPaymentMethodOptions(quoteResponse));
       setIsValidatingPrice(false);
 
-      const response = await mutateAsync(payload);
+      const response = await mutateAsync(createPayload);
       const subscriptionId = readSubscriptionId(response);
       const subscriptionLabel = readSubscriptionLabel(response);
+      const recordedMethod = readRecordedPaymentMethod(
+        response,
+        data.paymentMethod
+      );
+      const methodLabel = recordedMethod === "visa" ? "فيزا" : "كاش";
 
       ToastMessage(
         subscriptionLabel
-          ? `تم إنشاء الاشتراك بنجاح (${subscriptionLabel})`
-          : "تم إنشاء الاشتراك بنجاح",
+          ? `تم إنشاء الاشتراك وتسجيل الدفع ${methodLabel} بنجاح (${subscriptionLabel})`
+          : `تم إنشاء الاشتراك وتسجيل الدفع ${methodLabel} بنجاح`,
         "success"
       );
 
@@ -168,7 +236,7 @@ export function CreateSubscriptionFormContent({
             </div>
           </div>
 
-          <div className="space-y-4 p-4 sm:p-6">
+          <div className="space-y-5 p-4 sm:p-6">
             <div className="flex flex-col gap-2 rounded-xl bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm font-medium text-muted-foreground">
                 الإجمالي الحالي
@@ -204,10 +272,71 @@ export function CreateSubscriptionFormContent({
               </p>
             )}
 
-            <div className="flex justify-end">
+            <div className="border-t pt-5">
+              <div className="mb-3">
+                <h3 className="font-semibold">طريقة الدفع</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  يتم تسجيل كاش أو فيزا يدويًا بدون بوابة دفع أو إعادة توجيه.
+                </p>
+              </div>
+
+              <div
+                className="grid gap-3 sm:grid-cols-2"
+                role="radiogroup"
+                aria-label="طريقة الدفع"
+              >
+                {paymentOptions.map((option) => {
+                  const selected = selectedPaymentMethod === option.method;
+                  const Icon = option.method === "cash" ? Banknote : CreditCard;
+                  return (
+                    <button
+                      key={option.method}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`flex min-h-24 items-center gap-3 rounded-xl border p-4 text-right transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        selected
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "hover:border-primary/40 hover:bg-muted/30"
+                      }`}
+                      onClick={() => {
+                        form.setValue("paymentMethod", option.method, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: true,
+                        });
+                      }}
+                    >
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
+                        <Icon className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">{option.labelAr}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {option.method === "cash"
+                            ? "تسجيل دفع نقدي كامل"
+                            : "تسجيل دفع بطاقة / جهاز نقاط بيع"}
+                        </span>
+                      </span>
+                      {selected ? (
+                        <CheckCircle2 className="size-5 shrink-0 text-primary" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {form.formState.errors.paymentMethod?.message ? (
+                <p className="mt-2 text-sm font-medium text-destructive" role="alert">
+                  {form.formState.errors.paymentMethod.message}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex justify-end border-t pt-5">
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !selectedPaymentMethod}
                 size="lg"
                 className="w-full gap-2 sm:w-auto sm:min-w-52"
               >

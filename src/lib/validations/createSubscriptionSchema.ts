@@ -1,10 +1,7 @@
 import { z } from "zod";
 
 const premiumItemSchema = z.object({
-  premiumKey: z
-    .string()
-    .trim()
-    .min(1, "معرف الوجبة المميزة مطلوب"),
+  premiumKey: z.string().trim().min(1, "معرف الوجبة المميزة مطلوب"),
   qty: z
     .number()
     .int("الكمية يجب أن تكون رقماً صحيحاً")
@@ -33,6 +30,8 @@ const deliverySlotSchema = z.object({
   slotId: z.string(),
 });
 
+export const DELIVERY_SLOT_REQUIRED_MESSAGE = "فترة التوصيل مطلوبة";
+
 const deliverySchema = z.object({
   type: z.enum(["delivery", "pickup"]),
   zoneId: z.string(),
@@ -51,6 +50,9 @@ const createSubscriptionSchema = z
     premiumItems: z.array(premiumItemSchema),
     addons: z.array(addonSelectionSchema),
     delivery: deliverySchema,
+    paymentMethod: z.enum(["cash", "visa"], {
+      message: "يرجى اختيار طريقة الدفع",
+    }),
   })
   .superRefine((data, ctx) => {
     if (data.delivery.type === "delivery") {
@@ -59,6 +61,27 @@ const createSubscriptionSchema = z
           code: z.ZodIssueCode.custom,
           message: "منطقة التوصيل مطلوبة",
           path: ["delivery", "zoneId"],
+        });
+      }
+      if (!data.delivery.slot.slotId.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: DELIVERY_SLOT_REQUIRED_MESSAGE,
+          path: ["delivery", "slot", "slotId"],
+        });
+      }
+      if (!data.delivery.slot.window.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: DELIVERY_SLOT_REQUIRED_MESSAGE,
+          path: ["delivery", "slot", "window"],
+        });
+      }
+      if (data.delivery.slot.type !== "delivery") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: DELIVERY_SLOT_REQUIRED_MESSAGE,
+          path: ["delivery", "slot", "slotId"],
         });
       }
       if (!data.delivery.address.label) {

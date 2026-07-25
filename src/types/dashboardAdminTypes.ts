@@ -155,6 +155,50 @@ export interface AccountingDailyReportParams {
 export type AccountingDailyReportResponse =
   DashboardStatusResponse<JsonObject>;
 
+export type SubscriptionPaymentMethod = "cash" | "visa" | "unknown";
+
+export interface SubscriptionPaymentSummary {
+  totalPaymentsCount: number;
+  uniqueCustomersCount: number;
+  totalHalala: number;
+  cashCount: number;
+  cashCustomersCount: number;
+  cashTotalHalala: number;
+  visaCount: number;
+  visaCustomersCount: number;
+  visaTotalHalala: number;
+  unknownCount: number;
+  unknownTotalHalala: number;
+}
+
+export interface SubscriptionPaymentReportItem {
+  id?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  subscriptionId?: string | null;
+  paymentMethod?: SubscriptionPaymentMethod | string | null;
+  method?: SubscriptionPaymentMethod | string | null;
+  amountHalala?: number | null;
+  fulfillmentMethod?: "pickup" | "delivery" | string | null;
+  paidAt?: string | null;
+  recordedBy?: string | JsonObject | null;
+  payment?: JsonObject | null;
+  metadata?: JsonObject | null;
+  [key: string]: JsonValue | undefined;
+}
+
+export interface SubscriptionPaymentDailyReportData {
+  businessDate: string;
+  currency: string;
+  moneyUnit: "halala" | string;
+  summary: SubscriptionPaymentSummary;
+  byPaymentMethod: JsonObject[];
+  items: SubscriptionPaymentReportItem[];
+}
+
+export type SubscriptionPaymentDailyReportResponse =
+  DashboardStatusResponse<SubscriptionPaymentDailyReportData>;
+
 export interface DashboardLogFilters {
   page?: number;
   limit?: number;
