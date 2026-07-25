@@ -32,8 +32,8 @@ import {
   useFilteredUsersCatalogQuery,
   useUsersListQuery,
 } from "@/hooks/useUsersQuery";
+import { canCreateAppCustomer } from "@/lib/rolePermissions";
 import { cn } from "@/lib/utils";
-import { UserRoles } from "@/types/auth";
 import type { User } from "@/types/userTypes";
 import type { AuthFilterValue } from "./user-auth-utils";
 import { customerMatchesAuthFilter } from "./user-auth-utils";
@@ -49,9 +49,7 @@ export function UsersTable() {
   });
   const { user: sessionUser } = useAuth();
   const queryClient = useQueryClient();
-  const canManagePasswords =
-    sessionUser?.role === UserRoles.ADMIN ||
-    sessionUser?.role === UserRoles.SUPERADMIN;
+  const canCreateCustomer = canCreateAppCustomer(sessionUser?.role);
 
   React.useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -166,7 +164,7 @@ export function UsersTable() {
               </SelectContent>
             </Select>
 
-            {canManagePasswords ? (
+            {canCreateCustomer ? (
               <Link
                 to="/users/create"
                 className={cn(

@@ -28,7 +28,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { userDetailsQueryOptions } from "@/hooks/useUsersQuery";
-import { UserRoles } from "@/types/auth";
+import {
+  canCreateCustomerSubscription,
+  canManageCustomerPasswords,
+} from "@/lib/rolePermissions";
 
 export const Route = createFileRoute("/_protected/users/$userId/")({
   loader: ({ context, params }) => {
@@ -45,11 +48,10 @@ function UserDetailsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const user = response.data;
   const canResetPassword =
-    (sessionUser?.role === UserRoles.ADMIN ||
-      sessionUser?.role === UserRoles.SUPERADMIN) &&
+    canManageCustomerPasswords(sessionUser?.role) &&
     user.isActive &&
     user.canResetPassword !== false;
-  const canCreateSubscription = sessionUser?.role !== UserRoles.RESTAURANT;
+  const canCreateSubscription = canCreateCustomerSubscription(sessionUser?.role);
 
   return (
     <div className="flex-1 space-y-6 px-4 pt-4 lg:px-6" dir="rtl">

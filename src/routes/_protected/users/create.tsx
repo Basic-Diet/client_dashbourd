@@ -4,7 +4,7 @@ import { CreateUserForm } from "@/components/pages/users/create-user-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { UserRoles } from "@/types/auth";
+import { canCreateAppCustomer } from "@/lib/rolePermissions";
 
 export const Route = createFileRoute("/_protected/users/create")({
   component: RouteComponent,
@@ -12,8 +12,7 @@ export const Route = createFileRoute("/_protected/users/create")({
 
 function RouteComponent() {
   const { user } = useAuth();
-  const canCreate =
-    user?.role === UserRoles.ADMIN || user?.role === UserRoles.SUPERADMIN;
+  const canCreate = canCreateAppCustomer(user?.role);
 
   if (!canCreate) {
     return (

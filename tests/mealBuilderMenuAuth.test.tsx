@@ -111,6 +111,18 @@ describe("menu Meal Builder auth gate", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
+  it("keeps restaurant hard refresh on Meal Builder after auth resolves", async () => {
+    useAuthMock.mockReturnValue({
+      user: { role: UserRoles.RESTAURANT },
+      isLoading: false,
+    });
+
+    render(<MenuPage />);
+
+    expect(await screen.findByTestId("meal-builder-page")).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
   it("redirects unauthorized users after auth resolves without mounting Meal Builder", async () => {
     useAuthMock.mockReturnValue({
       user: { role: UserRoles.CASHIER },

@@ -415,8 +415,8 @@
     "semantic_hash": ""
   },
   "src/components/pages/operations-board/OperationsQueueTable.tsx": {
-    "mtime": 1784860503.458768,
-    "ast_hash": "5967ebfac34fd99dfa92c928d1d51249",
+    "mtime": 1784990158.7235825,
+    "ast_hash": "ecb42fc90e1e0ab704a3de0d297f1f7e",
     "semantic_hash": ""
   },
   "src/components/pages/operations-board/OpsCourierCard.tsx": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": ""
   },
   "src/hooks/useOperationsBoard.ts": {
-    "mtime": 1784860503.4652965,
-    "ast_hash": "0b54c5b69959f7425cd488c63e193b36",
+    "mtime": 1784990167.433075,
+    "ast_hash": "d33476e6ddab51f36e77504690fc5605",
     "semantic_hash": ""
   },
   "src/hooks/useOperationsBoardDialog.ts": {
@@ -1140,8 +1140,8 @@
     "semantic_hash": "5a7ae423c943b11640311ebee9a78657"
   },
   "src/lib/operationsBoard.ts": {
-    "mtime": 1784860503.467297,
-    "ast_hash": "e86c46b8fc9f034f5c64aee5814df7d8",
+    "mtime": 1784990144.110737,
+    "ast_hash": "deee6f1b01d2418d7b32652e824eab9a",
     "semantic_hash": ""
   },
   "src/lib/queryClient.ts": {
@@ -1900,8 +1900,8 @@
     "semantic_hash": ""
   },
   "tests/operationsBoard.test.ts": {
-    "mtime": 1784860503.480049,
-    "ast_hash": "6417b090cff600db6696190b00914654",
+    "mtime": 1784990182.2558856,
+    "ast_hash": "25f75d975f02987cc8ed96d4b2b5412c",
     "semantic_hash": ""
   },
   "tests/publicMenuAdapter.test.ts": {
@@ -2535,8 +2535,8 @@
     "semantic_hash": ""
   },
   "tests/operationsOneTimeOrderActions.test.tsx": {
-    "mtime": 1784860503.481049,
-    "ast_hash": "3829adbcafce362b8ec2673566a40b1e",
+    "mtime": 1784990214.458929,
+    "ast_hash": "c3716ffc2debc95a3d065229f7ed1862",
     "semantic_hash": ""
   },
   "tests/operationsOneTimeOrderFixtures.ts": {
@@ -2545,8 +2545,8 @@
     "semantic_hash": ""
   },
   "tests/operationsOneTimeOrderUi.test.tsx": {
-    "mtime": 1784773610.997642,
-    "ast_hash": "cf345c7909a2bb0b42f2062307b34e23",
+    "mtime": 1784990422.2555683,
+    "ast_hash": "890ef67ea22270248ebbe33912870c11",
     "semantic_hash": ""
   },
   "tests/operationsOrderPresentation.test.ts": {
@@ -2585,8 +2585,8 @@
     "semantic_hash": ""
   },
   "tests/operationsSubscriptionPickupUi.test.tsx": {
-    "mtime": 1784860503.481049,
-    "ast_hash": "d24cc87eb1f8dbd11cbaecac96255611",
+    "mtime": 1784990284.8787894,
+    "ast_hash": "e8c3c2b6c71d19f961c748612df31223",
     "semantic_hash": ""
   },
   "src/utils/subscriptionFulfillmentState.ts": {

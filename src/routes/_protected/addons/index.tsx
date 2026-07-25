@@ -89,7 +89,7 @@ import { createAddonPlan, updateAddonPlan } from "@/utils/fetchAddons";
 import { fetchDeleteAddon } from "@/utils/fetchDeleteAddon";
 import { toggleAddonItem } from "@/utils/fetchUpdateAddon";
 import { useAuth } from "@/hooks/useAuth";
-import { UserRoles } from "@/types/auth";
+import { canManageAddonPlans } from "@/lib/rolePermissions";
 
 const chartConfig = {
   active: {
@@ -203,8 +203,7 @@ function RouteComponent() {
     searchTerm.trim() !== "" ||
     statusFilter !== "all" ||
     categoryFilter !== "all";
-  const canWrite =
-    user?.role === UserRoles.ADMIN || user?.role === UserRoles.SUPERADMIN;
+  const canWrite = canManageAddonPlans(user?.role);
 
   const invalidateAddons = async () => {
     await queryClient.invalidateQueries({ queryKey: ["addons"] });

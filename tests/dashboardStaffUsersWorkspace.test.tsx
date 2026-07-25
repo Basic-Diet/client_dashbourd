@@ -74,7 +74,7 @@ vi.mock("@/hooks/useDashboardAdminQuery", () => ({
 const staffUser: DashboardStaffUserDto = {
   id: "staff-1",
   email: "staff@example.com",
-  role: "admin",
+  role: "superadmin",
   isActive: true,
   lastLoginAt: null,
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -182,7 +182,7 @@ beforeEach(() => {
       status: true,
       data: [staffUser],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-      assignableRoles: ["admin", "restaurant", "courier"],
+      assignableRoles: ["superadmin", "restaurant", "courier"],
     },
     isLoading: false,
     isError: false,
@@ -225,7 +225,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -248,7 +248,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -267,7 +267,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -293,7 +293,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -312,7 +312,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={onOpenChange}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -333,7 +333,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -354,7 +354,7 @@ describe("dashboard staff users workspace interactions", () => {
       <EditDashboardStaffUserDialog
         user={staffUser}
         onOpenChange={vi.fn()}
-        assignableRoles={["admin", "courier"]}
+        assignableRoles={["superadmin", "courier"]}
         onAccessLoss={() => false}
       />
     );
@@ -381,7 +381,7 @@ describe("dashboard staff users workspace interactions", () => {
       <EditDashboardStaffUserDialog
         user={staffUser}
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -402,7 +402,7 @@ describe("dashboard staff users workspace interactions", () => {
       <EditDashboardStaffUserDialog
         user={staffUser}
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -703,7 +703,7 @@ describe("dashboard staff users workspace interactions", () => {
         status: true,
         data: [staffUser],
         meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-        assignableRoles: ["admin"],
+        assignableRoles: ["superadmin"],
       },
       isLoading: false,
       isError: true,
@@ -726,7 +726,7 @@ describe("dashboard staff users workspace interactions", () => {
         status: true,
         data: [staffUser],
         meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-        assignableRoles: ["admin"],
+        assignableRoles: ["superadmin"],
       },
       isLoading: false,
       isError: true,
@@ -749,7 +749,7 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin"]}
+        assignableRoles={["superadmin"]}
         onAccessLoss={() => false}
       />
     );
@@ -768,16 +768,16 @@ describe("dashboard staff users workspace interactions", () => {
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin", "restaurant", "courier"]}
+        assignableRoles={["superadmin", "restaurant", "courier"]}
         onAccessLoss={() => false}
       />
     );
 
-    expect(screen.queryByText("superadmin")).not.toBeInTheDocument();
+    expect(screen.queryByText("admin")).not.toBeInTheDocument();
     expect(screen.queryByText("المطبخ — قديم")).not.toBeInTheDocument();
     expect(screen.queryByText("الكاشير — قديم")).not.toBeInTheDocument();
 
-    for (const role of ["superadmin", "kitchen", "cashier"]) {
+    for (const role of ["admin", "kitchen", "cashier"]) {
       assert.equal(
         createDashboardStaffUserSchema.safeParse({
           email: "manager@example.com",
@@ -791,7 +791,7 @@ describe("dashboard staff users workspace interactions", () => {
     }
   });
 
-  it("create role controls always expose only admin, restaurant, and courier", async () => {
+  it("create role controls always expose only superadmin, restaurant, and courier", async () => {
     const mutateAsync = vi.fn().mockResolvedValue({ status: true, data: staffUser });
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
@@ -803,9 +803,9 @@ describe("dashboard staff users workspace interactions", () => {
       />
     );
 
-    expect(screen.getAllByText("مدير").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("المطعم").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("مندوب التوصيل").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(DASHBOARD_STAFF_ROLE_LABELS.superadmin).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(DASHBOARD_STAFF_ROLE_LABELS.restaurant).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(DASHBOARD_STAFF_ROLE_LABELS.courier).length).toBeGreaterThan(0);
     expect(screen.queryByText("الكاشير — قديم")).not.toBeInTheDocument();
 
     const user = await fillCreateForm();
@@ -818,18 +818,17 @@ describe("dashboard staff users workspace interactions", () => {
         email: "manager@example.com",
         password: "StrongPass9!",
         confirmPassword: "StrongPass9!",
-        role: "admin",
+        role: "superadmin",
         isActive: true,
       }).success
     ).toBe(false);
   });
 
   it("restaurant is the preferred operational staff role and legacy roles are filtered", () => {
-    assert.equal(getDefaultDashboardStaffRole(["admin", "restaurant", "courier"]), "restaurant");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.restaurant, "المطعم");
+    assert.equal(getDefaultDashboardStaffRole(["superadmin", "restaurant", "courier"]), "restaurant");
     assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.restaurant, "Restaurant");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.admin, "مدير");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.courier, "مندوب التوصيل");
+    assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.superadmin, "Superadmin");
+    assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.courier, "Courier");
     assert.equal(
       createDashboardStaffUserSchemaForRoles(["restaurant"]).safeParse({
         email: "restaurant@example.com",
@@ -841,7 +840,7 @@ describe("dashboard staff users workspace interactions", () => {
       true
     );
     assert.deepEqual(getAssignableDashboardStaffRoles(["restaurant", "kitchen", "cashier"]), [
-      "admin",
+      "superadmin",
       "restaurant",
       "courier",
     ]);
@@ -855,12 +854,12 @@ describe("dashboard staff users contract helpers", () => {
     assert.equal(
       dashboardStaffUsersUrl({
         q: "manager",
-        role: "admin",
+        role: "superadmin",
         status: "active",
         page: 1,
         limit: 20,
       }),
-      "/api/dashboard/staff-users?q=manager&role=admin&status=active&page=1&limit=20"
+      "/api/dashboard/staff-users?q=manager&role=superadmin&status=active&page=1&limit=20"
     );
     assert.equal(
       dashboardStaffResetPasswordUrl("staff-1"),
@@ -873,7 +872,7 @@ describe("dashboard staff users contract helpers", () => {
       email: "manager@example.com",
       password: "Password@123",
       confirmPassword: "Password@123",
-      role: "admin",
+      role: "superadmin",
       isActive: true,
     });
     const weakReset = resetDashboardStaffPasswordSchema.safeParse({
@@ -895,7 +894,7 @@ describe("dashboard staff users contract helpers", () => {
       email: "manager@example.com",
       password: "StrongPass9!",
       confirmPassword: "StrongPass9!",
-      role: "admin",
+      role: "superadmin",
       isActive: true,
     });
 
@@ -906,14 +905,14 @@ describe("dashboard staff users contract helpers", () => {
       "role",
     ]);
     assert.deepEqual(getAssignableDashboardStaffRoles(["admin", "superadmin"]), [
-      "admin",
+      "superadmin",
       "restaurant",
       "courier",
     ]);
     assert.deepEqual(
       buildUpdateDashboardStaffUserPatch(staffUser, {
         email: "new@example.com",
-        role: "admin",
+        role: "superadmin",
         isActive: true,
       }),
       { email: "new@example.com" }

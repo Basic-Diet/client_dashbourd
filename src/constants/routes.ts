@@ -70,28 +70,17 @@ const CASHIER_ROUTES = [
 const RESTAURANT_ROUTES = [
   "/operations",
   "/one-time-orders",
+  "/subscriptions",
   "/manual-deduction",
   "/users",
   "/addons",
+  "/delivery",
   "/menu",
   "/premium-meals",
   "/profile",
 ];
 
-const RESTAURANT_DENIED_ROUTES = [
-  "/addons/create",
-  "/addons/$addonId/update",
-  "/menu/categories/create",
-  "/menu/categories/$categoryId/update",
-  "/menu/products/create",
-  "/menu/products/$productId/update",
-  "/menu/option-groups/create",
-  "/menu/option-groups/$groupId/update",
-  "/menu/options/create",
-  "/menu/options/$optionId/update",
-  "/users/create",
-  "/users/$userId/create-subscription",
-];
+const RESTAURANT_DENIED_ROUTES: string[] = [];
 
 const AUTH_ROUTES = ["/"];
 

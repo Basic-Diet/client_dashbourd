@@ -20,7 +20,10 @@ import { useUpdateUserMutation } from "@/hooks/useUsersQuery";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { UserRoles } from "@/types/auth";
+import {
+  canCreateCustomerSubscription,
+  canManageCustomerPasswords,
+} from "@/lib/rolePermissions";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 
 interface UserActionsCellProps {
@@ -32,13 +35,11 @@ export function UserActionsCell({ user }: UserActionsCellProps) {
   const [resetOpen, setResetOpen] = useState(false);
   const { mutate: updateUser, isPending } = useUpdateUserMutation();
   const { user: sessionUser } = useAuth();
-  const canManagePasswords =
-    sessionUser?.role === UserRoles.ADMIN ||
-    sessionUser?.role === UserRoles.SUPERADMIN;
+  const canManagePasswords = canManageCustomerPasswords(sessionUser?.role);
   const canUpdateAccount = canManagePasswords;
   const canResetPassword =
     canManagePasswords && user.isActive && user.canResetPassword !== false;
-  const canCreateSubscription = sessionUser?.role !== UserRoles.RESTAURANT;
+  const canCreateSubscription = canCreateCustomerSubscription(sessionUser?.role);
 
   const handleToggleActive = () => {
     updateUser(

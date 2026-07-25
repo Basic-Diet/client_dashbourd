@@ -23,6 +23,7 @@ const createUserSchema = z.object({
     .email("عنوان البريد الإلكتروني غير صالح")
     .optional()
     .or(z.literal("")),
+  temporaryPassword: z.string().trim().optional().or(z.literal("")),
   isActive: z.boolean(),
 });
 

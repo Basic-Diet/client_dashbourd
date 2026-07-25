@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { canManageMealBuilder } from "@/lib/rolePermissions";
 import type {
   MealPlannerCardActionResponseV2,
   MealPlannerCatalogV2,
@@ -115,7 +116,7 @@ export function MealPlannerWorkspaceV2({
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const canWrite = user?.role === "admin" || user?.role === "superadmin";
+  const canWrite = canManageMealBuilder(user?.role);
   const [workspace, setWorkspace] = useState<LocalWorkspace | null>(null);
   const [editor, setEditor] = useState<MealPlannerSectionV2 | "create" | null>(null);
   const [manageTarget, setManageTarget] = useState<MealPlannerSectionV2 | null>(null);

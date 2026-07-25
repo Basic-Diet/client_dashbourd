@@ -12,7 +12,7 @@ import type {
 
 type ApiRecord = Record<string, unknown>;
 
-const ADMIN_USERS_ROUTE = "/api/admin/users";
+const DASHBOARD_USERS_ROUTE = "/api/dashboard/users";
 const FULL_LIST_PAGE_SIZE = 100;
 const MAX_FULL_LIST_PAGES = 1000;
 
@@ -140,7 +140,7 @@ function normalizeTemporaryCredentials(raw: unknown): TemporaryCredentials {
 function normalizeCreateResponse(response: unknown): CreateAdminCustomerResult {
   const root = isRecord(response) ? response : {};
   const data = isRecord(root.data) ? root.data : {};
-  const userNode = isRecord(data.user) ? data.user : data;
+  const userNode = isRecord(data.user) ? { ...data, ...data.user } : data;
   const temporaryCredentials = normalizeTemporaryCredentials(
     data.temporaryCredentials
   );
@@ -173,7 +173,7 @@ export const fetchAdminCustomers = async ({
   limit?: number;
   signal?: AbortSignal;
 } = {}): Promise<PaginatedUsersResponse> => {
-  const response = await api.get(ADMIN_USERS_ROUTE, {
+  const response = await api.get(DASHBOARD_USERS_ROUTE, {
     params: { page, limit },
     signal,
   });
@@ -228,7 +228,7 @@ export const fetchAllAdminCustomers = async ({
 };
 
 export const fetchAdminCustomer = async (userId: string) => {
-  const response = await api.get(`${ADMIN_USERS_ROUTE}/${userId}`);
+  const response = await api.get(`${DASHBOARD_USERS_ROUTE}/${userId}`);
   return normalizeUserDetailsResponse(response.data);
 };
 
@@ -244,7 +244,7 @@ export const fetchUserSubscriptions = async (userId: string) => {
 export const createAdminCustomer = async (
   payload: CreateAdminCustomerPayload
 ) => {
-  const response = await api.post(ADMIN_USERS_ROUTE, payload, {
+  const response = await api.post(DASHBOARD_USERS_ROUTE, payload, {
     suppressGlobalForbiddenToast: true,
   });
   return normalizeCreateResponse(response.data);
@@ -260,7 +260,7 @@ export const resetAdminCustomerPassword = async ({
   payload: ResetAdminCustomerPasswordPayload;
 }) => {
   const response = await api.post(
-    `${ADMIN_USERS_ROUTE}/${userId}/reset-password`,
+    `${DASHBOARD_USERS_ROUTE}/${userId}/reset-password`,
     payload,
     { suppressGlobalForbiddenToast: true }
   );
@@ -278,7 +278,7 @@ export const updateUser = async ({
     isActive: boolean;
   };
 }) => {
-  const response = await api.put(`${ADMIN_USERS_ROUTE}/${userId}`, data);
+  const response = await api.put(`${DASHBOARD_USERS_ROUTE}/${userId}`, data);
   return response.data;
 };
 

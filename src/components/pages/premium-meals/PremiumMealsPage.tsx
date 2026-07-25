@@ -22,12 +22,11 @@ import { EditPremiumUpgradeDialog } from "./EditPremiumUpgradeDialog";
 import { ArchivePremiumUpgradeDialog } from "./ArchivePremiumUpgradeDialog";
 import { PremiumUpgradeDetailDrawer } from "./PremiumUpgradeDetailDrawer";
 import { useAuth } from "@/hooks/useAuth";
-import { UserRoles } from "@/types/auth";
+import { canManagePremiumUpgrades } from "@/lib/rolePermissions";
 
 export function PremiumMealsPage() {
   const { user } = useAuth();
-  const canWrite =
-    user?.role === UserRoles.ADMIN || user?.role === UserRoles.SUPERADMIN;
+  const canWrite = canManagePremiumUpgrades(user?.role);
   const [filters, setFilters] = useState<PremiumUpgradeListFilters>(
     defaultPremiumUpgradeListFilters
   );

@@ -102,8 +102,9 @@ export function CreateUserForm() {
     createCustomer.mutate(
       {
         fullName: data.fullName.trim(),
-        phoneE164: data.phoneE164,
+        phone: data.phoneE164,
         email: data.email?.trim() || undefined,
+        temporaryPassword: data.temporaryPassword?.trim() || undefined,
         isActive: data.isActive,
       },
       {
@@ -220,6 +221,31 @@ export function CreateUserForm() {
                     {errors.email.message}
                   </p>
                 ) : null}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="temporaryPassword">
+                  كلمة مرور مؤقتة (اختياري)
+                </FieldLabel>
+                <Input
+                  id="temporaryPassword"
+                  type="password"
+                  dir="ltr"
+                  placeholder="Customer@12345"
+                  disabled={createCustomer.isPending}
+                  {...register("temporaryPassword")}
+                  aria-invalid={errors.temporaryPassword ? "true" : "false"}
+                  className="text-left"
+                />
+                {errors.temporaryPassword ? (
+                  <p className="mt-1 text-sm text-destructive">
+                    {errors.temporaryPassword.message}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    اتركه فارغاً ليولّد الخادم كلمة مرور مؤقتة.
+                  </p>
+                )}
               </Field>
 
               <Field>

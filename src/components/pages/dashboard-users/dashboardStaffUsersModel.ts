@@ -16,7 +16,7 @@ export const DASHBOARD_STAFF_ROLE_LABELS: Record<
   DashboardStaffRole,
   string
 > = {
-  admin: getDashboardStaffRoleLabel("admin"),
+  superadmin: getDashboardStaffRoleLabel("superadmin"),
   restaurant: getDashboardStaffRoleLabel("restaurant"),
   courier: getDashboardStaffRoleLabel("courier"),
 };
@@ -25,7 +25,7 @@ export const DASHBOARD_STAFF_ROLE_LABELS_EN: Record<
   DashboardStaffRole,
   string
 > = {
-  admin: getDashboardStaffRoleLabel("admin", "en"),
+  superadmin: getDashboardStaffRoleLabel("superadmin", "en"),
   restaurant: getDashboardStaffRoleLabel("restaurant", "en"),
   courier: getDashboardStaffRoleLabel("courier", "en"),
 };

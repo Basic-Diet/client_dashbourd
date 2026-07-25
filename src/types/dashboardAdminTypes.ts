@@ -18,7 +18,7 @@ export interface DashboardStatusResponse<T> {
 }
 
 export type DashboardStaffRole =
-  | "admin"
+  | "superadmin"
   | "restaurant"
   | "courier";
 

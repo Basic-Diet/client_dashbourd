@@ -41,8 +41,9 @@ export type TemporaryCredentials = {
 
 export type CreateAdminCustomerPayload = {
   fullName: string;
-  phoneE164: string;
+  phone: string;
   email?: string;
+  temporaryPassword?: string;
   isActive: boolean;
 };
 

@@ -76,27 +76,16 @@ test("roleRoutes.test", () => {
   assert.deepEqual(RESTAURANT_ROUTES, [
     "/operations",
     "/one-time-orders",
+    "/subscriptions",
     "/manual-deduction",
     "/users",
     "/addons",
+    "/delivery",
     "/menu",
     "/premium-meals",
     "/profile",
   ]);
-  assert.deepEqual(RESTAURANT_DENIED_ROUTES, [
-    "/addons/create",
-    "/addons/$addonId/update",
-    "/menu/categories/create",
-    "/menu/categories/$categoryId/update",
-    "/menu/products/create",
-    "/menu/products/$productId/update",
-    "/menu/option-groups/create",
-    "/menu/option-groups/$groupId/update",
-    "/menu/options/create",
-    "/menu/options/$optionId/update",
-    "/users/create",
-    "/users/$userId/create-subscription",
-  ]);
+  assert.deepEqual(RESTAURANT_DENIED_ROUTES, []);
 
   assert.deepEqual(ROLE_DEFAULTS, {
     [UserRoles.SUPERADMIN]: "/dashboard",
@@ -131,10 +120,26 @@ test("roleRoutes.test", () => {
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/one-time-orders"), true);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/manual-deduction"), true);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/users"), true);
+  assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/users/create"), true);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/users/user-1"), true);
+  assert.equal(
+    canRoleAccessRoute(UserRoles.RESTAURANT, "/users/user-1/create-subscription"),
+    true
+  );
+  assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/subscriptions"), true);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/addons"), true);
+  assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/addons/create"), true);
+  assert.equal(
+    canRoleAccessRoute(UserRoles.RESTAURANT, "/addons/addon-1/update"),
+    true
+  );
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/menu"), true);
+  assert.equal(
+    canRoleAccessRoute(UserRoles.RESTAURANT, "/menu/products/product-1/update"),
+    true
+  );
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/premium-meals"), true);
+  assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/delivery"), true);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/profile"), true);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/dashboard"), false);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/dashboard-users"), false);
@@ -142,20 +147,6 @@ test("roleRoutes.test", () => {
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/payments"), false);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/settings"), false);
   assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/pickup-branches"), false);
-  assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/delivery"), false);
-  assert.equal(canRoleAccessRoute(UserRoles.RESTAURANT, "/addons/create"), false);
-  assert.equal(
-    canRoleAccessRoute(UserRoles.RESTAURANT, "/addons/addon-1/update"),
-    false
-  );
-  assert.equal(
-    canRoleAccessRoute(UserRoles.RESTAURANT, "/menu/products/product-1/update"),
-    false
-  );
-  assert.equal(
-    canRoleAccessRoute(UserRoles.RESTAURANT, "/users/user-1/create-subscription"),
-    false
-  );
   assert.equal(canRoleAccessRoute("unknown" as UserRole, "/dashboard"), false);
   assert.equal(canRoleAccessRoute(undefined, "/dashboard"), false);
 });

@@ -76,7 +76,7 @@ const normalizeCourierActions = (
   }, []);
 };
 
-const fallbackCourierActionsFor = (
+export const fallbackCourierActionsFor = (
   item: CourierDto,
   source: "subscription" | "one_time_order"
 ): UnifiedQueueItem["allowedActions"] => {
@@ -152,10 +152,7 @@ const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
   const mealCount = asNumber(record.mealCount) ?? 0;
   const addonCount = asNumber(record.addonCount) ?? 0;
   const premiumUpgradeCount = asNumber(record.premiumUpgradeCount) ?? 0;
-  const structuredActions = normalizeCourierActions(record.allowedActions);
-  const allowedActions = structuredActions.length
-    ? structuredActions
-    : fallbackCourierActionsFor(record, source);
+  const allowedActions = normalizeCourierActions(record.allowedActions);
   const addressSummary = formatAddress(address);
 
   const normalized = normalizeOperationsQueueItem(

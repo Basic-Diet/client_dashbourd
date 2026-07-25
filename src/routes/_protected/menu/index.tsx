@@ -33,7 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { legacyMenuTabMap, workflowSteps } from "@/constants/menuData";
 import { useAuth } from "@/hooks/useAuth";
-import { UserRoles } from "@/types/auth";
+import { canManageMealBuilder, canManageMenuData } from "@/lib/rolePermissions";
 
 const menuTabValues = new Set(workflowSteps.map((step) => step.value));
 
@@ -246,11 +246,11 @@ export function MenuPage() {
 }
 
 function canAccessMealBuilderRole(role: unknown) {
-  return role === UserRoles.ADMIN || role === UserRoles.SUPERADMIN;
+  return canManageMealBuilder(role);
 }
 
 function canManageMenuRole(role: unknown) {
-  return role === UserRoles.ADMIN || role === UserRoles.SUPERADMIN;
+  return canManageMenuData(role);
 }
 
 function MealBuilderAuthLoadingState() {

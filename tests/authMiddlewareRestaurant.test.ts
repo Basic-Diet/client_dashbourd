@@ -22,23 +22,33 @@ const restaurantSession = {
   },
 };
 
-test("restaurant auth middleware allows read routes and blocks nested admin routes", () => {
+test("restaurant auth middleware allows restaurant contract routes and blocks unrelated admin routes", () => {
   assert.doesNotThrow(() => authMiddleware(restaurantSession, "/operations"));
+  assert.doesNotThrow(() => authMiddleware(restaurantSession, "/delivery"));
+  assert.doesNotThrow(() => authMiddleware(restaurantSession, "/subscriptions"));
+  assert.doesNotThrow(() => authMiddleware(restaurantSession, "/users/create"));
   assert.doesNotThrow(() => authMiddleware(restaurantSession, "/users/user-1"));
+  assert.doesNotThrow(() =>
+    authMiddleware(restaurantSession, "/users/user-1/create-subscription")
+  );
+  assert.doesNotThrow(() => authMiddleware(restaurantSession, "/addons/create"));
+  assert.doesNotThrow(() =>
+    authMiddleware(restaurantSession, "/menu/products/product-1/update")
+  );
 
-  assert.throws(
-    () => authMiddleware(restaurantSession, "/addons/create"),
-    (error) => {
-      assert.deepEqual(error, { redirect: { to: "/operations" } });
-      return true;
-    }
-  );
-  assert.throws(
-    () => authMiddleware(restaurantSession, "/users/user-1/create-subscription"),
-    (error) => {
-      assert.deepEqual(error, { redirect: { to: "/operations" } });
-      return true;
-    }
-  );
+  for (const blockedPath of [
+    "/dashboard-users",
+    "/accounting",
+    "/payments",
+    "/settings",
+  ]) {
+    assert.throws(
+      () => authMiddleware(restaurantSession, blockedPath),
+      (error) => {
+        assert.deepEqual(error, { redirect: { to: "/operations" } });
+        return true;
+      }
+    );
+  }
 });
 

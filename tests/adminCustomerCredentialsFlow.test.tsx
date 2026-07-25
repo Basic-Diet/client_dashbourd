@@ -267,10 +267,31 @@ describe("customer create credentials flow", () => {
     const [payload] = mutation.mutate.mock.calls[0];
     assert.deepEqual(payload, {
       fullName: "عميل تجربة",
-      phoneE164: "+966512345678",
+      phone: "+966512345678",
       email: undefined,
+      temporaryPassword: undefined,
       isActive: true,
     });
+  });
+
+  it("sends an optional temporary password only when provided", async () => {
+    const mutation = makeCreateMutation();
+    createMutationMock.mockReturnValue(mutation);
+    renderWithQueryClient(<CreateUserForm />);
+
+    const user = await fillCustomerForm();
+    await user.type(
+      document.querySelector<HTMLInputElement>("#temporaryPassword")!,
+      "Customer@12345"
+    );
+    await user.click(getSubmitButton());
+
+    await waitFor(() => expect(mutation.mutate).toHaveBeenCalledTimes(1));
+    expect(mutation.mutate.mock.calls[0][0]).toMatchObject({
+      phone: "+966512345678",
+      temporaryPassword: "Customer@12345",
+    });
+    expect(mutation.mutate.mock.calls[0][0]).not.toHaveProperty("phoneE164");
   });
 
   it("rapid double-submit produces one create mutation", async () => {

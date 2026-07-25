@@ -125,7 +125,7 @@ const formatUserInitial = (email: string) =>
   email.trim().charAt(0).toUpperCase() || "U";
 
 const roleBadgeClassName = (role: string) => {
-  if (role === "admin") {
+  if (role === "superadmin") {
     return "border-emerald-500/25 bg-emerald-500/10 text-emerald-300";
   }
   if (role === "restaurant") {

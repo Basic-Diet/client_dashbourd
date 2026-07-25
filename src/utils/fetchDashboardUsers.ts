@@ -15,16 +15,9 @@ import {
   dashboardStaffUsersUrl,
 } from "@/utils/dashboardApiContract";
 
-/** Roles that may exist on legacy/current staff records and must remain readable. */
-export const SUPPORTED_DASHBOARD_STAFF_ROLES = [
-  "admin",
-  "restaurant",
-  "courier",
-] as const satisfies readonly DashboardStaffRole[];
-
 /** Current backend-owned assignment contract for Dashboard Users. */
 export const ASSIGNABLE_DASHBOARD_STAFF_ROLES = [
-  "admin",
+  "superadmin",
   "restaurant",
   "courier",
 ] as const satisfies readonly DashboardStaffRole[];
@@ -50,11 +43,11 @@ const dashboardStaffErrorMessages: Record<string, string> = {
 export const isDashboardStaffRole = (
   role: unknown
 ): role is DashboardStaffRole =>
-  SUPPORTED_DASHBOARD_STAFF_ROLES.includes(role as DashboardStaffRole);
+  ASSIGNABLE_DASHBOARD_STAFF_ROLES.includes(role as DashboardStaffRole);
 
 export const normalizeDashboardStaffRoles = (
   _roles: unknown
-): DashboardStaffRole[] => [...SUPPORTED_DASHBOARD_STAFF_ROLES];
+): DashboardStaffRole[] => [...ASSIGNABLE_DASHBOARD_STAFF_ROLES];
 
 const normalizeStaffUsersListResponse = (
   response: DashboardStaffUsersListResponse

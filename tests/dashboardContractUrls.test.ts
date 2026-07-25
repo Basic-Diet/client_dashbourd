@@ -50,10 +50,10 @@ test("dashboardContractUrls.test", () => {
       page: 2,
       limit: 10,
       q: "manager",
-      role: "admin",
+      role: "superadmin",
       status: "active",
     }),
-    "/api/dashboard/staff-users?page=2&limit=10&q=manager&role=admin&status=active"
+    "/api/dashboard/staff-users?page=2&limit=10&q=manager&role=superadmin&status=active"
   );
   assert.equal(
     dashboardStaffUserUrl("staff-1"),
