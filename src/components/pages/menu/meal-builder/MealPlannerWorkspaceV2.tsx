@@ -188,9 +188,9 @@ export function MealPlannerWorkspaceV2({
   const catalog = state?.catalog ?? EMPTY_CATALOG;
   const sections = useMemo(
     () =>
-      [...(workingConfig?.sections ?? [])]
-        .filter((section) => normalizeCardType(section) !== "system_premium")
-        .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0)),
+      [...(workingConfig?.sections ?? [])].sort(
+        (a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0)
+      ),
     [workingConfig?.sections]
   );
   const filteredSections = useMemo(() => {
