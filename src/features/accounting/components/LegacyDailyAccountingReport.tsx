@@ -25,6 +25,7 @@ import {
 } from "@/features/accounting/accountingFormatters";
 
 const sectionOrder = ["summary", "money", "reconciliation"] as const;
+const PANEL_CLASS = "rounded-2xl bg-card/95 shadow-sm ring-1 ring-foreground/10";
 
 interface LegacyDailyAccountingReportProps {
   report: ReportRecord;
@@ -69,15 +70,18 @@ export function LegacyDailyAccountingReport({
   const subscriptions = asRecord(report.subscriptions);
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <section className="space-y-5 text-right" dir="rtl">
+      <Card className={PANEL_CLASS}>
+        <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">التقرير التشغيلي اليومي</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-xl font-semibold tracking-normal">
+            التقرير التشغيلي اليومي
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
             تاريخ العمل: {formatDisplayValue(report.businessDate)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-start gap-2 md:justify-end">
           <Badge variant="outline">{warnings.length} تحذير</Badge>
           <Button variant="outline" onClick={onRetry} disabled={isFetching}>
             <RefreshCwIcon className={isFetching ? "size-4 animate-spin" : "size-4"} />
@@ -88,7 +92,8 @@ export function LegacyDailyAccountingReport({
             تصدير CSV
           </Button>
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {warnings.length > 0 ? (
         <Alert>
@@ -143,8 +148,8 @@ function LegacyMetricCard({
     .slice(0, 8);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className={PANEL_CLASS}>
+      <CardHeader className="border-b">
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
@@ -155,7 +160,7 @@ function LegacyMetricCard({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             {entries.map(([label, value]) => (
-              <div key={label || ""} className="rounded-lg border bg-muted/20 p-3">
+              <div key={label || ""} className="rounded-xl border bg-muted/15 p-3">
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="mt-1 font-semibold">{formatDisplayValue(value)}</p>
               </div>
@@ -187,16 +192,16 @@ function LegacyRowsTable({
   ).slice(0, 8);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className={PANEL_CLASS}>
+      <CardHeader className="border-b">
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         {records.length === 0 || columns.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto" dir="rtl">
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   {columns.map((column) => (

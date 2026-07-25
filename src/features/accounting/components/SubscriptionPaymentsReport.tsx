@@ -69,6 +69,8 @@ import {
 } from "@/features/accounting/accountingFormatters";
 
 const PAGE_SIZES = ["10", "20", "50"] as const;
+const PANEL_CLASS = "rounded-2xl bg-card/95 shadow-sm ring-1 ring-foreground/10";
+const SOFT_PANEL_CLASS = "rounded-xl border bg-muted/15";
 
 interface SubscriptionPaymentsReportProps {
   report?: SubscriptionPaymentReportData;
@@ -167,10 +169,15 @@ export function SubscriptionPaymentsReport({
   }
 
   return (
-    <section className="space-y-5" aria-labelledby="subscription-payments-title">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <section
+      className="space-y-5 text-right"
+      aria-labelledby="subscription-payments-title"
+      dir="rtl"
+    >
+      <Card className={PANEL_CLASS}>
+        <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 id="subscription-payments-title" className="text-xl font-semibold">
+          <h2 id="subscription-payments-title" className="text-xl font-semibold tracking-normal">
             {report.titleAr || "تحصيل الاشتراكات"}
           </h2>
           <p className="text-sm leading-6 text-muted-foreground">
@@ -180,7 +187,7 @@ export function SubscriptionPaymentsReport({
             {report.generatedAtLabelAr ? ` · ${report.generatedAtLabelAr}` : ""}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-start gap-2 md:justify-end">
           <Button variant="outline" onClick={onRetry} disabled={isFetching}>
             <RefreshCwIcon className={isFetching ? "size-4 animate-spin" : "size-4"} />
             تحديث التقرير
@@ -189,7 +196,8 @@ export function SubscriptionPaymentsReport({
             تصدير CSV
           </Button>
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <DashboardCards report={report} />
       <SummaryBreakdown report={report} />
@@ -197,9 +205,14 @@ export function SubscriptionPaymentsReport({
       {report.reportType === "monthly" ? <MonthlySection report={report} /> : null}
       <AccountingPolicyCard report={report} />
 
-      <Card>
-        <CardHeader className="gap-3">
-          <CardTitle>جدول مدفوعات الاشتراكات</CardTitle>
+      <Card className={PANEL_CLASS}>
+        <CardHeader className="gap-4 border-b">
+          <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+            <CardTitle className="text-lg">جدول مدفوعات الاشتراكات</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              ابحث وراجع الدفعات بدون تغيير الفلاتر القادمة من التقرير.
+            </p>
+          </div>
           <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px_120px]">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -209,7 +222,7 @@ export function SubscriptionPaymentsReport({
                   setSearch(event.target.value);
                   setPage(1);
                 }}
-                className="pr-9"
+                className="h-11 pr-9 text-right"
                 placeholder="ابحث بالعميل أو الهاتف أو رقم الدفعة أو الاشتراك"
               />
             </div>
@@ -217,7 +230,7 @@ export function SubscriptionPaymentsReport({
               setMethodFilter(value);
               setPage(1);
             }}>
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -231,7 +244,7 @@ export function SubscriptionPaymentsReport({
               setReviewFilter(value);
               setPage(1);
             }}>
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -244,7 +257,7 @@ export function SubscriptionPaymentsReport({
               setPageSize(value);
               setPage(1);
             }}>
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -259,7 +272,7 @@ export function SubscriptionPaymentsReport({
         </CardHeader>
         <CardContent className="p-0">
           <SubscriptionPaymentsTable items={visibleItems} currency={currency} />
-          <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               الصفحة {formatInteger(safePage)} من {formatInteger(totalPages)} · النتائج{" "}
               {formatInteger(filteredItems.length)}
@@ -295,7 +308,7 @@ function DashboardCards({ report }: { report: SubscriptionPaymentReportData }) {
     : fallbackCards(report);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
       {cards.map((card, index) => (
         <DashboardCard
           key={card.key || `${card.titleAr || card.labelAr || "card"}-${index}`}
@@ -315,12 +328,12 @@ function DashboardCard({
   currency: string;
 }) {
   return (
-    <Card>
-      <CardContent className="space-y-3 p-4">
-        <p className="text-sm text-muted-foreground">
+    <Card className="rounded-2xl border-r-4 border-r-primary/50 bg-card/95 shadow-sm">
+      <CardContent className="flex min-h-36 flex-col justify-between gap-3 p-4">
+        <p className="text-sm leading-6 text-muted-foreground">
           {card.titleAr || card.labelAr || "مؤشر مالي"}
         </p>
-        <p className="text-2xl font-semibold tracking-normal">
+        <p className="text-2xl font-semibold leading-tight tracking-normal">
           {textOrDash(
             card.valueAr,
             card.amountFormattedAr,
@@ -383,8 +396,8 @@ function SummaryBreakdown({ report }: { report: SubscriptionPaymentReportData })
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1.4fr]">
-      <Card>
-        <CardHeader>
+      <Card className={PANEL_CLASS}>
+        <CardHeader className="border-b">
           <CardTitle>الضريبة وصافي التحصيل</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -401,8 +414,8 @@ function SummaryBreakdown({ report }: { report: SubscriptionPaymentReportData })
           ) : null}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
+      <Card className={PANEL_CLASS}>
+        <CardHeader className="border-b">
           <CardTitle>تفصيل التحصيل</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -418,7 +431,7 @@ function SummaryBreakdown({ report }: { report: SubscriptionPaymentReportData })
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-muted/20 p-3">
+    <div className={`${SOFT_PANEL_CLASS} p-3`}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 font-semibold">{value}</p>
     </div>
@@ -444,7 +457,7 @@ function BucketList({
         </p>
       ) : (
         rows.map((bucket, index) => (
-          <div key={bucket.key || index} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+          <div key={bucket.key || index} className="flex items-center justify-between gap-3 rounded-xl border bg-background/40 p-3">
             <div>
               <p className="font-medium">{bucket.labelAr || "غير مصنف"}</p>
               <p className="text-xs text-muted-foreground">
@@ -468,8 +481,8 @@ function WarningsAndReconciliation({ report }: { report: SubscriptionPaymentRepo
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
-      <Card>
-        <CardHeader>
+      <Card className={PANEL_CLASS}>
+        <CardHeader className="border-b">
           <CardTitle>التسوية المحاسبية</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -506,8 +519,8 @@ function WarningsAndReconciliation({ report }: { report: SubscriptionPaymentRepo
           ) : null}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
+      <Card className={PANEL_CLASS}>
+        <CardHeader className="border-b">
           <CardTitle>تحذيرات التقرير</CardTitle>
         </CardHeader>
         <CardContent>
@@ -546,8 +559,8 @@ function MonthlySection({
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1.4fr]">
-      <Card>
-        <CardHeader>
+      <Card className={PANEL_CLASS}>
+        <CardHeader className="border-b">
           <CardTitle>إحصائيات الشهر</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -565,8 +578,8 @@ function MonthlySection({
           />
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
+      <Card className={PANEL_CLASS}>
+        <CardHeader className="border-b">
           <CardTitle>الرسم الشهري للتحصيل اليومي</CardTitle>
         </CardHeader>
         <CardContent>
@@ -575,7 +588,7 @@ function MonthlySection({
               لا توجد بيانات يومية للرسم.
             </p>
           ) : (
-            <div className="h-72">
+            <div className="h-72" dir="ltr">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartRows}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -598,8 +611,8 @@ function AccountingPolicyCard({ report }: { report: SubscriptionPaymentReportDat
   if (!policy) return null;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className={PANEL_CLASS}>
+      <CardHeader className="border-b">
         <CardTitle>السياسة المحاسبية المستخدمة</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2">
@@ -629,8 +642,8 @@ function SubscriptionPaymentsTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
+    <div className="overflow-x-auto" dir="rtl">
+      <Table className="min-w-[980px]">
         <TableHeader>
           <TableRow>
             <TableHead className="text-right">العميل</TableHead>
@@ -647,38 +660,38 @@ function SubscriptionPaymentsTable({
         <TableBody>
           {items.map((item, index) => (
             <TableRow key={item.paymentId || item.paymentReference || item.subscriptionId || index}>
-              <TableCell>
+              <TableCell className="min-w-44 align-middle">
                 <div className="font-medium">{textOrDash(item.customerName)}</div>
                 <div className="text-xs text-muted-foreground" dir="ltr">
                   {textOrDash(item.customerPhone)}
                 </div>
               </TableCell>
-              <TableCell className="font-mono text-xs">
+              <TableCell className="font-mono text-xs align-middle">
                 {textOrDash(item.subscriptionId)}
               </TableCell>
-              <TableCell>
+              <TableCell className="align-middle">
                 <Badge variant="secondary">
                   {paymentMethodLabel(item.paymentMethod, item.paymentMethodLabelAr)}
                 </Badge>
               </TableCell>
-              <TableCell className="font-semibold">
+              <TableCell className="align-middle font-semibold">
                 {formatMoney(item.amountFormattedAr, item.amountHalala, currency)}
               </TableCell>
-              <TableCell>
+              <TableCell className="align-middle">
                 {formatMoney(item.vatFormattedAr, item.vatHalala, currency)}
               </TableCell>
-              <TableCell>
+              <TableCell className="align-middle">
                 {fulfillmentMethodLabel(item.fulfillmentMethod, item.fulfillmentMethodLabelAr)}
               </TableCell>
-              <TableCell>{textOrDash(item.statusLabelAr, item.status)}</TableCell>
-              <TableCell>
+              <TableCell className="align-middle">{textOrDash(item.statusLabelAr, item.status)}</TableCell>
+              <TableCell className="align-middle">
                 {item.needsReview ? (
                   <Badge variant="destructive">تحتاج مراجعة</Badge>
                 ) : (
                   <Badge variant="outline">لا تحتاج مراجعة</Badge>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell className="align-middle">
                 <SubscriptionPaymentDetails item={item} currency={currency} />
               </TableCell>
             </TableRow>
@@ -704,8 +717,8 @@ function SubscriptionPaymentDetails({
           عرض
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl" dir="rtl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-4xl" dir="rtl">
+        <DialogHeader className="text-right">
           <DialogTitle>تفاصيل دفعة الاشتراك</DialogTitle>
           <DialogDescription>
             {textOrDash(item.paymentReference, item.paymentId, item.subscriptionId)}
@@ -805,14 +818,14 @@ function DetailsSection({
   rows: DetailsRow[];
 }) {
   return (
-    <div className="space-y-2 rounded-lg border p-3">
+    <div className="space-y-3 rounded-2xl border bg-card/95 p-4 text-right">
       <p className="font-semibold">{title}</p>
       <div className="space-y-2">
         {rows.map(([label, value, copyable]) => (
-          <div key={label} className="flex items-start justify-between gap-3 rounded-md bg-muted/20 p-2">
+          <div key={label} className="grid grid-cols-[minmax(92px,0.55fr)_minmax(0,1fr)] items-start gap-3 rounded-xl bg-muted/20 p-3">
             <span className="text-xs text-muted-foreground">{label}</span>
-            <span className="flex items-center gap-2 text-left text-sm font-medium" dir="auto">
-              {formatDisplayValue(value)}
+            <span className="flex min-w-0 items-center justify-end gap-2 text-right text-sm font-medium" dir="auto">
+              <span className="min-w-0 break-words">{formatDisplayValue(value)}</span>
               {copyable && typeof value === "string" && value.trim() ? (
                 <Button
                   type="button"

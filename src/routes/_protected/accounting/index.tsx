@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { CalendarDaysIcon, ReceiptTextIcon } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/_protected/accounting/")({
 });
 
 type AccountingTab = "subscription-payments" | "legacy-daily";
+const PANEL_CLASS = "rounded-2xl bg-card/95 shadow-sm ring-1 ring-foreground/10";
 
 const initialDailyParams = resolveSubscriptionPaymentDailyParams({
   fulfillmentMethod: "all",
@@ -128,19 +130,22 @@ function AccountingPage() {
   };
 
   return (
-    <div className="space-y-5 px-4 py-5 lg:px-6" dir="rtl">
+    <div className="space-y-5 px-4 py-5 text-right lg:px-6" dir="rtl">
       <AccountingHeader />
 
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as AccountingTab)}
         className="space-y-5"
+        dir="rtl"
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 lg:w-fit">
-          <TabsTrigger value="subscription-payments">
+        <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-muted/60 p-1 lg:w-fit lg:min-w-[430px]">
+          <TabsTrigger value="subscription-payments" className="gap-2">
+            <ReceiptTextIcon className="size-4" />
             تحصيل الاشتراكات
           </TabsTrigger>
-          <TabsTrigger value="legacy-daily">
+          <TabsTrigger value="legacy-daily" className="gap-2">
+            <CalendarDaysIcon className="size-4" />
             التقرير التشغيلي اليومي
           </TabsTrigger>
         </TabsList>
@@ -193,16 +198,23 @@ function AccountingPage() {
 
 function AccountingHeader() {
   return (
-    <Card>
-      <CardContent className="p-5 lg:p-6">
-        <div className="max-w-3xl">
-          <h1 className="text-2xl font-semibold tracking-normal lg:text-3xl">
+    <Card className={PANEL_CLASS}>
+      <CardContent className="grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-center lg:p-6">
+        <div className="max-w-4xl">
+          <p className="mb-2 text-xs font-medium text-primary">
+            لوحة المحاسبة
+          </p>
+          <h1 className="text-2xl font-semibold leading-tight tracking-normal lg:text-3xl">
             المحاسبة والتقارير المالية
           </h1>
           <p className="mt-2 text-sm leading-7 text-muted-foreground">
             متابعة تحصيل الاشتراكات، ضريبة القيمة المضافة، طرق الدفع،
             التسويات والحالات التي تحتاج مراجعة.
           </p>
+        </div>
+        <div className="hidden rounded-2xl border bg-muted/20 px-5 py-4 text-sm text-muted-foreground lg:block">
+          <p className="font-medium text-foreground">تقارير يومية وشهرية</p>
+          <p className="mt-1">مرتبطة مباشرة بعقود الـ Backend الحالية.</p>
         </div>
       </CardContent>
     </Card>
@@ -233,30 +245,31 @@ function SubscriptionPaymentFilters({
   onIncludeDetailsChange: (value: boolean) => void;
 }) {
   return (
-    <Card>
-      <CardContent className="grid gap-4 p-4 lg:grid-cols-[220px_1fr_220px_220px] lg:items-end">
+    <Card className={PANEL_CLASS}>
+      <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-[220px_minmax(220px,1fr)_220px_220px] xl:items-end">
         <div className="space-y-2">
-          <Label>نمط التقرير</Label>
+          <Label className="text-xs font-medium">نمط التقرير</Label>
           <Tabs
             value={reportMode}
             onValueChange={(value) =>
               onReportModeChange(value as SubscriptionPaymentReportMode)
             }
           >
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-muted/60 p-1">
               <TabsTrigger value="daily">يومي</TabsTrigger>
               <TabsTrigger value="monthly">شهري</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="subscription-payment-period">
+          <Label htmlFor="subscription-payment-period" className="text-xs font-medium">
             {reportMode === "daily" ? "التاريخ" : "الشهر"}
           </Label>
           <Input
             id="subscription-payment-period"
             type={reportMode === "daily" ? "date" : "month"}
             value={reportMode === "daily" ? date : month}
+            className="h-11 text-right"
             onChange={(event) =>
               reportMode === "daily"
                 ? onDateChange(event.target.value)
@@ -265,7 +278,7 @@ function SubscriptionPaymentFilters({
           />
         </div>
         <div className="space-y-2">
-          <Label>طريقة التنفيذ</Label>
+          <Label className="text-xs font-medium">طريقة التنفيذ</Label>
           <Select
             value={fulfillmentMethod}
             onValueChange={(value) =>
@@ -274,7 +287,7 @@ function SubscriptionPaymentFilters({
               )
             }
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -285,12 +298,12 @@ function SubscriptionPaymentFilters({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>عرض التفاصيل</Label>
+          <Label className="text-xs font-medium">عرض التفاصيل</Label>
           <Select
             value={includeDetails ? "true" : "false"}
             onValueChange={(value) => onIncludeDetailsChange(value === "true")}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -316,24 +329,27 @@ function LegacyReportFilters({
   onFulfillmentMethodChange: (value: string) => void;
 }) {
   return (
-    <Card>
+    <Card className={PANEL_CLASS}>
       <CardContent className="grid gap-4 p-4 md:grid-cols-2 lg:max-w-2xl">
         <div className="space-y-2">
-          <Label htmlFor="legacy-accounting-date">التاريخ</Label>
+          <Label htmlFor="legacy-accounting-date" className="text-xs font-medium">
+            التاريخ
+          </Label>
           <Input
             id="legacy-accounting-date"
             type="date"
             value={date}
+            className="h-11 text-right"
             onChange={(event) => onDateChange(event.target.value)}
           />
         </div>
         <div className="space-y-2">
-          <Label>طريقة التنفيذ</Label>
+          <Label className="text-xs font-medium">طريقة التنفيذ</Label>
           <Select
             value={fulfillmentMethod}
             onValueChange={onFulfillmentMethodChange}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
