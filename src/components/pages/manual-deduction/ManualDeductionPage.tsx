@@ -315,7 +315,7 @@ export default function ManualDeductionPage() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" dir="rtl">
+    <div className="mx-auto max-w-full space-y-6 p-4 md:p-6" dir="rtl">
       <div className="rounded-2xl border bg-card p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-foreground">
           خصم يدوي من الاشتراك

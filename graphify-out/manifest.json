@@ -985,8 +985,8 @@
     "semantic_hash": ""
   },
   "src/hooks/useDashboardAdminQuery.ts": {
-    "mtime": 1784984426.5779388,
-    "ast_hash": "fd74b685b234f83e762770885150a073",
+    "mtime": 1785008249.451861,
+    "ast_hash": "25ad6d3269ffba440d4afc56d7b0deae",
     "semantic_hash": ""
   },
   "src/hooks/useDashboardOpsQuery.ts": {
@@ -1140,8 +1140,8 @@
     "semantic_hash": "5a7ae423c943b11640311ebee9a78657"
   },
   "src/lib/operationsBoard.ts": {
-    "mtime": 1784990144.110737,
-    "ast_hash": "deee6f1b01d2418d7b32652e824eab9a",
+    "mtime": 1784999057.9829948,
+    "ast_hash": "c1db562a793c6e1f737a4eb347ad2836",
     "semantic_hash": ""
   },
   "src/lib/queryClient.ts": {
@@ -1245,8 +1245,8 @@
     "semantic_hash": "9e434d4b24d2ca4141e73b464cc12120"
   },
   "src/routes/_protected/accounting/index.tsx": {
-    "mtime": 1784984426.5835588,
-    "ast_hash": "6c37305fb7e5c56c4955c7a05a15b8f6",
+    "mtime": 1785008493.4597173,
+    "ast_hash": "37b4d4d19fb9f23338ee7d590c105e93",
     "semantic_hash": ""
   },
   "src/routes/_protected/addons/$addonId/update.tsx": {
@@ -1275,8 +1275,8 @@
     "semantic_hash": ""
   },
   "src/routes/_protected/delivery/index.tsx": {
-    "mtime": 1784773610.9608793,
-    "ast_hash": "e4d4f4ce452e5482f12ff02c99187782",
+    "mtime": 1784999388.6285808,
+    "ast_hash": "613bb60444b0d27c73d69f8aa4c75caf",
     "semantic_hash": ""
   },
   "src/routes/_protected/manual-deduction/index.tsx": {
@@ -1460,8 +1460,8 @@
     "semantic_hash": "d9fad7116883b667d1890af21ce435ce"
   },
   "src/types/dashboardAdminTypes.ts": {
-    "mtime": 1784997288.5004656,
-    "ast_hash": "b26272992220e1bcfa0eb3eb685f7c81",
+    "mtime": 1785008249.4540012,
+    "ast_hash": "3e70b02e420e18dcfb833eee4263cc90",
     "semantic_hash": ""
   },
   "src/types/dashboardOpsTypes.ts": {
@@ -1565,8 +1565,8 @@
     "semantic_hash": "4cd29eaa0bad81108ff7b7e46fab7855"
   },
   "src/utils/dashboardApiContract.ts": {
-    "mtime": 1784214342.365027,
-    "ast_hash": "5e2e23bb973ac6fb2fafef5eb0c2b508",
+    "mtime": 1785008249.4550114,
+    "ast_hash": "368c9a96892d43069fbf8c796d520234",
     "semantic_hash": ""
   },
   "src/utils/deliveryZoneApiContract.ts": {
@@ -1600,8 +1600,8 @@
     "semantic_hash": ""
   },
   "src/utils/fetchDashboardSupportData.ts": {
-    "mtime": 1784984426.5835588,
-    "ast_hash": "e6b9be2093eba7fb1b0acd8b7cd9858d",
+    "mtime": 1785008249.455977,
+    "ast_hash": "321fcd5a6b7709ca50af96570a98c395",
     "semantic_hash": ""
   },
   "src/utils/fetchDashboardUsers.ts": {
@@ -1755,9 +1755,9 @@
     "semantic_hash": ""
   },
   "src/utils/ksaDate.ts": {
-    "mtime": 1780681298.374571,
-    "ast_hash": "3cfce2b5d0c9d26ffed895c73a1a0801",
-    "semantic_hash": "3cfce2b5d0c9d26ffed895c73a1a0801"
+    "mtime": 1785008249.4570003,
+    "ast_hash": "f3263d8009046cd8b1e0797423b47845",
+    "semantic_hash": ""
   },
   "src/utils/mealPlannerMenuAdapter.ts": {
     "mtime": 1784773610.9724393,
@@ -1840,8 +1840,8 @@
     "semantic_hash": ""
   },
   "tests/dashboardContractUrls.test.ts": {
-    "mtime": 1784997624.8629353,
-    "ast_hash": "d5d9bc0482765f895190276eaed1ddb7",
+    "mtime": 1785008249.4589348,
+    "ast_hash": "31573677c24a32ee26702375b5da8fc0",
     "semantic_hash": ""
   },
   "tests/dashboardStats.test.ts": {
@@ -1855,8 +1855,8 @@
     "semantic_hash": ""
   },
   "tests/ksaDate.test.ts": {
-    "mtime": 1784214342.3807187,
-    "ast_hash": "9260190bbac981e38c1b6c282986bc49",
+    "mtime": 1785008249.4589348,
+    "ast_hash": "27a643ef0f93be864163ad8f83abba9f",
     "semantic_hash": ""
   },
   "tests/menuApiContract.test.ts": {
@@ -1900,8 +1900,8 @@
     "semantic_hash": ""
   },
   "tests/operationsBoard.test.ts": {
-    "mtime": 1784990182.2558856,
-    "ast_hash": "25f75d975f02987cc8ed96d4b2b5412c",
+    "mtime": 1784999064.5840614,
+    "ast_hash": "6ed43036a24687a51392835b778f8365",
     "semantic_hash": ""
   },
   "tests/publicMenuAdapter.test.ts": {
@@ -2602,6 +2602,36 @@
   "tests/fetchCourierDeliveries.test.ts": {
     "mtime": 1784997521.7494047,
     "ast_hash": "b0f286a8be9fc2216ff34bd0646514a5",
+    "semantic_hash": ""
+  },
+  "src/features/accounting/accountingCsv.ts": {
+    "mtime": 1785008249.445156,
+    "ast_hash": "16d244fa4b03e1cffdf619493fce2f8f",
+    "semantic_hash": ""
+  },
+  "src/features/accounting/accountingFormatters.ts": {
+    "mtime": 1785008249.445156,
+    "ast_hash": "edad7d84a8dd44148854199335b26129",
+    "semantic_hash": ""
+  },
+  "src/features/accounting/accountingTypes.ts": {
+    "mtime": 1785008249.445156,
+    "ast_hash": "c8bf32151edf4ebaf55ef62d85ffcef9",
+    "semantic_hash": ""
+  },
+  "src/features/accounting/components/LegacyDailyAccountingReport.tsx": {
+    "mtime": 1785008506.0173852,
+    "ast_hash": "f9cb2331a11d2b03d1da89390219d04f",
+    "semantic_hash": ""
+  },
+  "src/features/accounting/components/SubscriptionPaymentsReport.tsx": {
+    "mtime": 1785008463.629631,
+    "ast_hash": "14fa6484fb478b41ce5615e4548bbdc6",
+    "semantic_hash": ""
+  },
+  "tests/accountingReports.test.ts": {
+    "mtime": 1785008249.4570003,
+    "ast_hash": "ecabd228350f8d41daf572d3f6877cc1",
     "semantic_hash": ""
   }
 }
