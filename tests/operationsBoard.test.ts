@@ -45,10 +45,11 @@ test("operations screens and canonical queue helpers", () => {
   assert.deepEqual(getScreensForRole("restaurant").screens, [
     "kitchen",
     "pickup",
+    "courier",
   ]);
-  assert.equal(getScreensForRole("restaurant").screens.includes("courier"), false);
-  assert.equal(getSafeOperationsTab("pickup", ["kitchen", "pickup"]), "pickup");
-  assert.equal(getSafeOperationsTab("courier", ["kitchen", "pickup"]), "kitchen");
+  assert.equal(getScreensForRole("restaurant").screens.includes("courier"), true);
+  assert.equal(getSafeOperationsTab("pickup", ["kitchen", "pickup", "courier"]), "pickup");
+  assert.equal(getSafeOperationsTab("courier", ["kitchen", "pickup", "courier"]), "courier");
 
   const courierMode = ["deliv", "ery"].join("") as "delivery";
   const items = [

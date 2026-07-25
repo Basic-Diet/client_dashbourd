@@ -268,6 +268,12 @@ function normalizeOrderItems(raw: unknown): UnifiedQueueItem["items"] {
 
 export function getScreensForRole(role: string | null | undefined): OperationsScreenConfig {
   if (!role) return { label: "", screens: [] };
+  if (role === "restaurant") {
+    return {
+      label: ROLE_SCREEN_MAP.restaurant.label,
+      screens: ALL_OPERATIONS_SCREENS,
+    };
+  }
   return ROLE_SCREEN_MAP[role] || { label: "", screens: [] };
 }
 

@@ -265,7 +265,9 @@ function DeliveryDashboard() {
         </div>
       ) : (
         <>
-          <DeliveryDashboardCards data={baseData} isLoading={isLoading} />
+          <div className="hidden md:block">
+            <DeliveryDashboardCards data={baseData} isLoading={isLoading} />
+          </div>
 
           <DeliveryFilters
             searchStr={searchStr}
