@@ -11,6 +11,8 @@ import {
   dashboardStaffUserUrl,
   dashboardStaffUsersUrl,
   notificationLogsUrl,
+  subscriptionPaymentDailyReportUrl,
+  subscriptionPaymentMonthlyReportUrl,
   subscriptionTermsUrl,
 } from "../src/utils/dashboardApiContract";
 import {
@@ -39,6 +41,22 @@ test("dashboardContractUrls.test", () => {
   assert.equal(
     accountingDailyReportExportUrl({ date: "2026-05-25" }),
     "/api/dashboard/accounting/daily-report/export?format=csv&date=2026-05-25"
+  );
+  assert.equal(
+    subscriptionPaymentDailyReportUrl({
+      date: "2026-07-25",
+      fulfillmentMethod: "delivery",
+      includeDetails: true,
+    }),
+    "/api/dashboard/accounting/subscription-payments/daily?date=2026-07-25&fulfillmentMethod=delivery&includeDetails=true"
+  );
+  assert.equal(
+    subscriptionPaymentMonthlyReportUrl({
+      month: "2026-07",
+      fulfillmentMethod: "pickup",
+      includeDetails: false,
+    }),
+    "/api/dashboard/accounting/subscription-payments/monthly?month=2026-07&fulfillmentMethod=pickup&includeDetails=false"
   );
   assert.equal(
     settingEndpointUrl("custom-meal-base-price"),
