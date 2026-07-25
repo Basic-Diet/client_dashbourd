@@ -530,13 +530,13 @@
     "semantic_hash": ""
   },
   "src/components/pages/subscriptions/create/CreateSubscriptionFormContent.tsx": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "8052ad39ca22bc230e3e67619d632383",
+    "mtime": 1784984426.5779388,
+    "ast_hash": "d5eb59de525127ca2ca6f7fb45ef9bd2",
     "semantic_hash": ""
   },
   "src/components/pages/subscriptions/create/DeliverySection.tsx": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "da3ad0ea04a2ddcee69af1fad27a9e0c",
+    "mtime": 1784984426.5779388,
+    "ast_hash": "57ade703fa37db8f955dc8f7cb7c03a8",
     "semantic_hash": ""
   },
   "src/components/pages/subscriptions/create/PlanSelectionSection.tsx": {
@@ -720,9 +720,9 @@
     "semantic_hash": "08e186fd4a0955ef026bd0530fd1948d"
   },
   "src/components/ui/dialog.tsx": {
-    "mtime": 1780681298.3110735,
-    "ast_hash": "cc9daca16e610fb8c7f273115bad3c31",
-    "semantic_hash": "cc9daca16e610fb8c7f273115bad3c31"
+    "mtime": 1784984426.5779388,
+    "ast_hash": "146e0bb61d42109edeca6e102d7cbf48",
+    "semantic_hash": ""
   },
   "src/components/ui/drawer.tsx": {
     "mtime": 1780681298.3110735,
@@ -985,8 +985,8 @@
     "semantic_hash": ""
   },
   "src/hooks/useDashboardAdminQuery.ts": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "0a7f79e10bf9fa8da99c8f34f7f52840",
+    "mtime": 1784984426.5779388,
+    "ast_hash": "fd74b685b234f83e762770885150a073",
     "semantic_hash": ""
   },
   "src/hooks/useDashboardOpsQuery.ts": {
@@ -1165,8 +1165,8 @@
     "semantic_hash": "808406ed06f1411facc291cc0f74e982"
   },
   "src/lib/validations/createSubscriptionSchema.ts": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "e5ea28d0e978ae6c5abb29ff82f0c3c0",
+    "mtime": 1784984426.5835588,
+    "ast_hash": "1026258655b65db743171c855bc847c0",
     "semantic_hash": ""
   },
   "src/lib/validations/createUserSchema.ts": {
@@ -1245,8 +1245,8 @@
     "semantic_hash": "9e434d4b24d2ca4141e73b464cc12120"
   },
   "src/routes/_protected/accounting/index.tsx": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "e0d4178ff81d5e5215843c56ce30f5d3",
+    "mtime": 1784984426.5835588,
+    "ast_hash": "6c37305fb7e5c56c4955c7a05a15b8f6",
     "semantic_hash": ""
   },
   "src/routes/_protected/addons/$addonId/update.tsx": {
@@ -1460,8 +1460,8 @@
     "semantic_hash": "d9fad7116883b667d1890af21ce435ce"
   },
   "src/types/dashboardAdminTypes.ts": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "d5aed782ad6e028127777c1c1929f32d",
+    "mtime": 1784984426.5835588,
+    "ast_hash": "2cd7652f45f1e3027374a5e2ddff44e4",
     "semantic_hash": ""
   },
   "src/types/dashboardOpsTypes.ts": {
@@ -1600,13 +1600,13 @@
     "semantic_hash": ""
   },
   "src/utils/fetchDashboardSupportData.ts": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "bae21891e0c160c5b560db404050dd53",
-    "semantic_hash": "bae21891e0c160c5b560db404050dd53"
+    "mtime": 1784984426.5835588,
+    "ast_hash": "e6b9be2093eba7fb1b0acd8b7cd9858d",
+    "semantic_hash": ""
   },
   "src/utils/fetchDashboardUsers.ts": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "c03c5e4ea93d5132bc7a13431f5856a4",
+    "mtime": 1784984488.9352932,
+    "ast_hash": "b9bdc3371a1b4ddcb259aa8108ada906",
     "semantic_hash": ""
   },
   "src/utils/fetchDeleteAddon.ts": {
@@ -2150,13 +2150,13 @@
     "semantic_hash": ""
   },
   "src/components/pages/dashboard-users/DashboardStaffUsersWorkspace.tsx": {
-    "mtime": 1784982195.677146,
-    "ast_hash": "ebf716447cb47db2b863ad2883761ec9",
+    "mtime": 1784984883.1381202,
+    "ast_hash": "190eb751ba620ffb1ea2ffc55cd000ac",
     "semantic_hash": ""
   },
   "src/components/pages/dashboard-users/dashboardStaffUsersModel.ts": {
-    "mtime": 1784982195.677146,
-    "ast_hash": "6052ca7c2528f5fc5dc95311d86ec503",
+    "mtime": 1784984426.575935,
+    "ast_hash": "5c0249f6daea54c39800e76b7d1ac6e4",
     "semantic_hash": ""
   },
   "src/components/pages/menu/meal-builder/MealBuilderSimpleCard.tsx": {
@@ -2220,8 +2220,8 @@
     "semantic_hash": ""
   },
   "tests/dashboardStaffUsersWorkspace.test.tsx": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "c5fc180186089981ff3baf567ce7e5fe",
+    "mtime": 1784983965.5869498,
+    "ast_hash": "8b17de2ebda951a5154654a53776f6c2",
     "semantic_hash": ""
   },
   "tests/mealBuilderFrontendUtils.test.ts": {
@@ -2270,8 +2270,8 @@
     "semantic_hash": ""
   },
   "src/components/pages/menu/meal-builder/MealPlannerCardGridV2.tsx": {
-    "mtime": 1784982195.677146,
-    "ast_hash": "7df371bc4ed9a0de6cb6b58e6fe5e8db",
+    "mtime": 1784984426.5779388,
+    "ast_hash": "ca5f4802bfa88ba8990f072d08205dde",
     "semantic_hash": ""
   },
   "src/components/pages/menu/meal-builder/MealPlannerItemsDialogV2.tsx": {
@@ -2290,8 +2290,8 @@
     "semantic_hash": ""
   },
   "src/components/pages/menu/meal-builder/MealPlannerWorkspaceV2.tsx": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "67246399505ef7be5ed5aed56eae6bb9",
+    "mtime": 1784984426.5779388,
+    "ast_hash": "e3c6439cc818c4b952440a4b2c470cf7",
     "semantic_hash": ""
   },
   "src/components/pages/menu/meal-builder/mealBuilderDirectCardUtils.ts": {
@@ -2385,8 +2385,8 @@
     "semantic_hash": ""
   },
   "src/utils/buildSubscriptionCreationPayload.ts": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "757a93a901429a49ad5086bcedca17e0",
+    "mtime": 1784984426.5835588,
+    "ast_hash": "ffaab7a83064cde082aa59d4e2a11697",
     "semantic_hash": ""
   },
   "src/utils/fetchMealPlannerDashboard.ts": {
@@ -2445,8 +2445,8 @@
     "semantic_hash": ""
   },
   "tests/mealPlannerCardDataVisibility.test.tsx": {
-    "mtime": 1784982195.6872592,
-    "ast_hash": "82e1bfdf2bd55ac3a51495434ba8ea0e",
+    "mtime": 1784984426.5835588,
+    "ast_hash": "e7729ccad2867483ec71139a9fea8c2b",
     "semantic_hash": ""
   },
   "tests/mealPlannerMenuOptionSelectionFallback.test.ts": {
@@ -2560,8 +2560,8 @@
     "semantic_hash": ""
   },
   "tests/subscriptionCreationContract.test.ts": {
-    "mtime": 1784982195.697158,
-    "ast_hash": "2ae98ebd8511419fa995c7efaae2cbe0",
+    "mtime": 1784984426.5835588,
+    "ast_hash": "c80cba54d424c368b3d28f15694ed781",
     "semantic_hash": ""
   },
   "src/utils/packageAdapter.ts": {
@@ -2587,6 +2587,11 @@
   "tests/operationsSubscriptionPickupUi.test.tsx": {
     "mtime": 1784860503.481049,
     "ast_hash": "d24cc87eb1f8dbd11cbaecac96255611",
+    "semantic_hash": ""
+  },
+  "src/utils/subscriptionFulfillmentState.ts": {
+    "mtime": 1784984426.5835588,
+    "ast_hash": "2e9143e39a86097ad6a5993cc6285864",
     "semantic_hash": ""
   }
 }

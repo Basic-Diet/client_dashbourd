@@ -3,10 +3,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  CalendarClock,
   Edit3,
   Eye,
   EyeOff,
   KeyRound,
+  Mail,
   MoreHorizontal,
   Plus,
   RotateCcw,
@@ -118,6 +120,22 @@ const formatDate = (value: string | null) =>
         timeStyle: "short",
       }).format(new Date(value))
     : "لم يسجل الدخول بعد";
+
+const formatUserInitial = (email: string) =>
+  email.trim().charAt(0).toUpperCase() || "U";
+
+const roleBadgeClassName = (role: string) => {
+  if (role === "admin") {
+    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-300";
+  }
+  if (role === "restaurant") {
+    return "border-sky-500/25 bg-sky-500/10 text-sky-300";
+  }
+  if (role === "courier") {
+    return "border-amber-500/25 bg-amber-500/10 text-amber-300";
+  }
+  return "border-border bg-muted/40 text-muted-foreground";
+};
 
 const hasFilters = (
   q: string,
@@ -310,7 +328,7 @@ export function DashboardStaffUsersWorkspace() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>قائمة المستخدمين</CardTitle>
@@ -339,21 +357,28 @@ export function DashboardStaffUsersWorkspace() {
             </Select>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-0 pb-0">
           {accessLost ? (
+            <div className="px-6 pb-6">
             <ErrorState
               message="ليس لديك صلاحية لتنفيذ هذا الإجراء."
               showRetry={false}
             />
+            </div>
           ) : staffQuery.isLoading ? (
+            <div className="px-6 pb-6">
             <DashboardStaffUsersSkeleton />
+            </div>
           ) : staffQuery.isError ? (
+            <div className="px-6 pb-6">
             <ErrorState
               message={getDashboardStaffUserErrorMessage(staffQuery.error)}
               onRetry={() => staffQuery.refetch()}
               showRetry={!isDashboardStaffForbiddenError(staffQuery.error)}
             />
+            </div>
           ) : users.length === 0 ? (
+            <div className="px-6 pb-6">
             <EmptyState
               message={
                 filterActive
@@ -361,6 +386,7 @@ export function DashboardStaffUsersWorkspace() {
                   : "لا يوجد مستخدمون في لوحة التحكم بعد."
               }
             />
+            </div>
           ) : (
             <DashboardStaffUsersTable
               users={users}
@@ -370,7 +396,7 @@ export function DashboardStaffUsersWorkspace() {
             />
           )}
 
-          <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t bg-muted/15 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               الصفحة {currentPage} من {Math.max(totalPages, 1)} - حجم الصفحة{" "}
               {currentLimit}
@@ -447,48 +473,92 @@ export function DashboardStaffUsersTable({
   onStatusChange: (user: DashboardStaffUserDto) => void;
 }) {
   return (
-    <div className="w-full overflow-x-auto rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="text-right">البريد الإلكتروني</TableHead>
-            <TableHead className="text-right">الصلاحية</TableHead>
-            <TableHead className="text-right">الحالة</TableHead>
-            <TableHead className="text-right">آخر تسجيل دخول</TableHead>
-            <TableHead className="text-right">تاريخ الإنشاء</TableHead>
-            <TableHead className="w-16 text-right">الإجراءات</TableHead>
+    <div className="w-full overflow-x-auto">
+      <Table className="min-w-[920px]">
+        <TableHeader className="bg-muted/25">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="h-11 px-6 text-right text-xs font-semibold text-muted-foreground">
+              المستخدم
+            </TableHead>
+            <TableHead className="h-11 text-right text-xs font-semibold text-muted-foreground">
+              الصلاحية
+            </TableHead>
+            <TableHead className="h-11 text-right text-xs font-semibold text-muted-foreground">
+              الحالة
+            </TableHead>
+            <TableHead className="h-11 text-right text-xs font-semibold text-muted-foreground">
+              آخر دخول
+            </TableHead>
+            <TableHead className="h-11 text-right text-xs font-semibold text-muted-foreground">
+              تاريخ الإنشاء
+            </TableHead>
+            <TableHead className="h-11 w-24 px-6 text-left text-xs font-semibold text-muted-foreground">
+              الإجراءات
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {users.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell className="min-w-60 font-medium" dir="ltr">
-                {user.email}
+            <TableRow key={user.id} className="group hover:bg-muted/20">
+              <TableCell className="min-w-72 px-6 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full border bg-background text-sm font-semibold text-primary shadow-sm">
+                    {formatUserInitial(user.email)}
+                  </span>
+                  <div className="min-w-0">
+                    <p
+                      className="truncate text-sm font-semibold text-foreground"
+                      dir="ltr"
+                    >
+                      {user.email}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="size-3.5" />
+                      حساب لوحة تحكم
+                    </p>
+                  </div>
+                </div>
               </TableCell>
-              <TableCell>
-                {getDashboardStaffUserRoleLabel(user.role)}
+              <TableCell className="py-3">
+                <Badge
+                  variant="outline"
+                  className={roleBadgeClassName(user.role)}
+                >
+                  {getDashboardStaffUserRoleLabel(user.role)}
+                </Badge>
               </TableCell>
-              <TableCell>
-                <Badge variant={user.isActive ? "default" : "destructive"}>
+              <TableCell className="py-3">
+                <Badge
+                  variant={user.isActive ? "default" : "destructive"}
+                  className={
+                    user.isActive
+                      ? "bg-primary/15 text-primary hover:bg-primary/20"
+                      : "bg-destructive/15 text-destructive"
+                  }
+                >
                   {user.isActive
                     ? DASHBOARD_STAFF_STATUS_LABELS.active
                     : DASHBOARD_STAFF_STATUS_LABELS.inactive}
                 </Badge>
               </TableCell>
-              <TableCell className="min-w-48">
-                {formatDate(user.lastLoginAt)}
+              <TableCell className="min-w-48 py-3 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarClock className="size-4 text-muted-foreground/70" />
+                  {formatDate(user.lastLoginAt)}
+                </span>
               </TableCell>
-              <TableCell className="min-w-40">
+              <TableCell className="min-w-44 py-3 text-sm text-muted-foreground">
                 {formatDate(user.createdAt)}
               </TableCell>
-              <TableCell>
+              <TableCell className="px-6 py-3 text-left">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="icon-sm"
                       aria-label="إجراءات المستخدم"
+                      className="rounded-full opacity-80 transition group-hover:opacity-100"
                     >
                       <MoreHorizontal className="size-4" />
                     </Button>
