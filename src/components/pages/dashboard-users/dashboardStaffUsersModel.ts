@@ -5,7 +5,7 @@ import type {
   DashboardStaffUserDto,
   UpdateDashboardStaffUserPayload,
 } from "@/types/dashboardAdminTypes";
-import { getDashboardStaffRoleLabel } from "@/lib/roleLabels";
+import { getDashboardStaffRoleLabel, getRoleLabel } from "@/lib/roleLabels";
 import {
   SUPPORTED_DASHBOARD_STAFF_ROLES,
   isDashboardStaffRole,
@@ -18,9 +18,7 @@ export const DASHBOARD_STAFF_ROLE_LABELS: Record<
 > = {
   admin: getDashboardStaffRoleLabel("admin"),
   restaurant: getDashboardStaffRoleLabel("restaurant"),
-  kitchen: getDashboardStaffRoleLabel("kitchen"),
   courier: getDashboardStaffRoleLabel("courier"),
-  cashier: getDashboardStaffRoleLabel("cashier"),
 };
 
 export const DASHBOARD_STAFF_ROLE_LABELS_EN: Record<
@@ -29,10 +27,11 @@ export const DASHBOARD_STAFF_ROLE_LABELS_EN: Record<
 > = {
   admin: getDashboardStaffRoleLabel("admin", "en"),
   restaurant: getDashboardStaffRoleLabel("restaurant", "en"),
-  kitchen: getDashboardStaffRoleLabel("kitchen", "en"),
   courier: getDashboardStaffRoleLabel("courier", "en"),
-  cashier: getDashboardStaffRoleLabel("cashier", "en"),
 };
+
+export const getDashboardStaffUserRoleLabel = (role: string) =>
+  getRoleLabel(role) || role;
 
 export const DASHBOARD_STAFF_STATUS_LABELS = {
   active: "نشط",

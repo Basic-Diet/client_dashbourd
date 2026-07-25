@@ -182,7 +182,7 @@ beforeEach(() => {
       status: true,
       data: [staffUser],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-      assignableRoles: ["admin", "kitchen", "courier", "cashier"],
+      assignableRoles: ["admin", "restaurant", "courier"],
     },
     isLoading: false,
     isError: false,
@@ -354,7 +354,7 @@ describe("dashboard staff users workspace interactions", () => {
       <EditDashboardStaffUserDialog
         user={staffUser}
         onOpenChange={vi.fn()}
-        assignableRoles={["admin", "cashier"]}
+        assignableRoles={["admin", "courier"]}
         onAccessLoss={() => false}
       />
     );
@@ -761,50 +761,60 @@ describe("dashboard staff users workspace interactions", () => {
     expect(sessionStorage.getItem("password")).toBeNull();
   });
 
-  it("superadmin is absent from role controls and rejected at submit", async () => {
+  it("unsupported roles are absent from role controls and rejected at submit", async () => {
     const mutateAsync = vi.fn();
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["admin", "cashier"]}
+        assignableRoles={["admin", "restaurant", "courier"]}
         onAccessLoss={() => false}
       />
     );
 
     expect(screen.queryByText("superadmin")).not.toBeInTheDocument();
-    assert.equal(
-      createDashboardStaffUserSchema.safeParse({
-        email: "manager@example.com",
-        password: "StrongPass9!",
-        confirmPassword: "StrongPass9!",
-        role: "superadmin",
-        isActive: true,
-      }).success,
-      false
-    );
+    expect(screen.queryByText("المطبخ — قديم")).not.toBeInTheDocument();
+    expect(screen.queryByText("الكاشير — قديم")).not.toBeInTheDocument();
+
+    for (const role of ["superadmin", "kitchen", "cashier"]) {
+      assert.equal(
+        createDashboardStaffUserSchema.safeParse({
+          email: "manager@example.com",
+          password: "StrongPass9!",
+          confirmPassword: "StrongPass9!",
+          role,
+          isActive: true,
+        }).success,
+        false
+      );
+    }
   });
 
-  it("backend assignableRoles controls create role when only cashier is returned", async () => {
+  it("create role controls always expose only admin, restaurant, and courier", async () => {
     const mutateAsync = vi.fn().mockResolvedValue({ status: true, data: staffUser });
     createMutationMock.mockReturnValue(makeMutation(mutateAsync));
     render(
       <CreateDashboardStaffUserDialog
         open
         onOpenChange={vi.fn()}
-        assignableRoles={["cashier"]}
+        assignableRoles={getAssignableDashboardStaffRoles(["cashier"])}
         onAccessLoss={() => false}
       />
     );
+
+    expect(screen.getAllByText("مدير").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("المطعم").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("مندوب التوصيل").length).toBeGreaterThan(0);
+    expect(screen.queryByText("الكاشير — قديم")).not.toBeInTheDocument();
 
     const user = await fillCreateForm();
     await user.click(getSubmitButton());
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
-    expect(mutateAsync.mock.calls[0][0].role).toBe("cashier");
+    expect(mutateAsync.mock.calls[0][0].role).toBe("restaurant");
     expect(
-      createDashboardStaffUserSchemaForRoles(["cashier"]).safeParse({
+      createDashboardStaffUserSchemaForRoles(["courier"]).safeParse({
         email: "manager@example.com",
         password: "StrongPass9!",
         confirmPassword: "StrongPass9!",
@@ -814,14 +824,12 @@ describe("dashboard staff users workspace interactions", () => {
     ).toBe(false);
   });
 
-  it("restaurant is the preferred operational staff role while legacy roles remain valid", () => {
-    assert.equal(getDefaultDashboardStaffRole(["admin", "restaurant", "cashier"]), "restaurant");
+  it("restaurant is the preferred operational staff role and legacy roles are filtered", () => {
+    assert.equal(getDefaultDashboardStaffRole(["admin", "restaurant", "courier"]), "restaurant");
     assert.equal(DASHBOARD_STAFF_ROLE_LABELS.restaurant, "المطعم");
     assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.restaurant, "Restaurant");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.kitchen, "المطبخ — قديم");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.cashier, "الكاشير — قديم");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.kitchen, "Kitchen — Legacy");
-    assert.equal(DASHBOARD_STAFF_ROLE_LABELS_EN.cashier, "Cashier — Legacy");
+    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.admin, "مدير");
+    assert.equal(DASHBOARD_STAFF_ROLE_LABELS.courier, "مندوب التوصيل");
     assert.equal(
       createDashboardStaffUserSchemaForRoles(["restaurant"]).safeParse({
         email: "restaurant@example.com",
@@ -833,9 +841,9 @@ describe("dashboard staff users workspace interactions", () => {
       true
     );
     assert.deepEqual(getAssignableDashboardStaffRoles(["restaurant", "kitchen", "cashier"]), [
+      "admin",
       "restaurant",
-      "kitchen",
-      "cashier",
+      "courier",
     ]);
   });
 });
@@ -899,6 +907,8 @@ describe("dashboard staff users contract helpers", () => {
     ]);
     assert.deepEqual(getAssignableDashboardStaffRoles(["admin", "superadmin"]), [
       "admin",
+      "restaurant",
+      "courier",
     ]);
     assert.deepEqual(
       buildUpdateDashboardStaffUserPatch(staffUser, {

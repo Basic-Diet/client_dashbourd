@@ -18,9 +18,7 @@ import {
 export const SUPPORTED_DASHBOARD_STAFF_ROLES = [
   "admin",
   "restaurant",
-  "kitchen",
   "courier",
-  "cashier",
 ] as const satisfies readonly DashboardStaffRole[];
 
 const dashboardStaffErrorMessages: Record<string, string> = {
@@ -47,20 +45,15 @@ export const isDashboardStaffRole = (
   SUPPORTED_DASHBOARD_STAFF_ROLES.includes(role as DashboardStaffRole);
 
 export const normalizeDashboardStaffRoles = (
-  roles: unknown
-): DashboardStaffRole[] => {
-  if (!Array.isArray(roles)) return [...SUPPORTED_DASHBOARD_STAFF_ROLES];
-
-  const normalized = roles.filter(isDashboardStaffRole);
-  return normalized.length ? normalized : [...SUPPORTED_DASHBOARD_STAFF_ROLES];
-};
+  _roles: unknown
+): DashboardStaffRole[] => [...SUPPORTED_DASHBOARD_STAFF_ROLES];
 
 const normalizeStaffUsersListResponse = (
   response: DashboardStaffUsersListResponse
 ): DashboardStaffUsersListResponse => ({
   ...response,
   assignableRoles: normalizeDashboardStaffRoles(response.assignableRoles),
-  data: response.data.filter((user) => isDashboardStaffRole(user.role)),
+  data: response.data,
 });
 
 export const fetchDashboardStaffUsers = async (

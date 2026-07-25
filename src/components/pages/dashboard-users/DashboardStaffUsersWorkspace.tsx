@@ -98,6 +98,7 @@ import {
   editDashboardStaffUserSchemaForRoles,
   getDefaultDashboardStaffRole,
   getAssignableDashboardStaffRoles,
+  getDashboardStaffUserRoleLabel,
   hasUpdatePatchChanges,
   resetDashboardStaffPasswordSchema,
   type CreateDashboardStaffUserFormValues,
@@ -465,7 +466,7 @@ export function DashboardStaffUsersTable({
                 {user.email}
               </TableCell>
               <TableCell>
-                {DASHBOARD_STAFF_ROLE_LABELS[user.role]}
+                {getDashboardStaffUserRoleLabel(user.role)}
               </TableCell>
               <TableCell>
                 <Badge variant={user.isActive ? "default" : "destructive"}>
@@ -729,11 +730,15 @@ export function EditDashboardStaffUserDialog({
   const [pendingPatch, setPendingPatch] =
     React.useState<UpdateDashboardStaffUserPayload | null>(null);
   const submittingRef = React.useRef(false);
+  const editableRole =
+    user && safeRoles.includes(user.role as DashboardStaffRole)
+      ? (user.role as DashboardStaffRole)
+      : getDefaultDashboardStaffRole(safeRoles);
   const form = useForm<EditDashboardStaffUserFormValues>({
     resolver: zodResolver(editDashboardStaffUserSchema),
     values: {
       email: user?.email ?? "",
-      role: user?.role ?? "admin",
+      role: editableRole,
       isActive: user?.isActive ?? true,
     },
     shouldFocusError: true,

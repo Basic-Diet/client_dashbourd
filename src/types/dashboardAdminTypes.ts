@@ -20,16 +20,14 @@ export interface DashboardStatusResponse<T> {
 export type DashboardStaffRole =
   | "admin"
   | "restaurant"
-  | "kitchen"
-  | "courier"
-  | "cashier";
+  | "courier";
 
 export type DashboardStaffStatusFilter = "active" | "inactive";
 
 export interface DashboardStaffUserDto {
   id: string;
   email: string;
-  role: DashboardStaffRole;
+  role: DashboardStaffRole | string;
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
