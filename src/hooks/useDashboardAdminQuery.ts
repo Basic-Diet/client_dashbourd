@@ -12,6 +12,8 @@ import type {
   DashboardLogFilters,
   DashboardNotificationLogFilters,
   DashboardStaffUsersListParams,
+  SubscriptionPaymentDailyParams,
+  SubscriptionPaymentMonthlyParams,
   SubscriptionTermsPayload,
 } from "@/types/dashboardAdminTypes";
 import type { DashboardHealthKey } from "@/utils/dashboardApiContract";
@@ -30,6 +32,9 @@ import {
   fetchDashboardReportsToday,
   fetchNotificationLogs,
   fetchSubscriptionPaymentDailyReport,
+  fetchSubscriptionPaymentMonthlyReport,
+  resolveSubscriptionPaymentDailyParams,
+  resolveSubscriptionPaymentMonthlyParams,
   fetchSubscriptionTerms,
   updateSubscriptionTerms,
 } from "@/utils/fetchDashboardSupportData";
@@ -91,15 +96,32 @@ export const accountingDailyReportQueryOptions = (
   });
 
 export const subscriptionPaymentDailyReportQueryOptions = (
-  params: AccountingDailyReportParams = {}
-) =>
-  queryOptions({
-    queryKey: ["subscription-payment-daily-report", params],
-    queryFn: () => fetchSubscriptionPaymentDailyReport(params),
+  params: SubscriptionPaymentDailyParams = {}
+) => {
+  const resolvedParams = resolveSubscriptionPaymentDailyParams(params);
+
+  return queryOptions({
+    queryKey: ["subscription-payment-report", "daily", resolvedParams],
+    queryFn: () => fetchSubscriptionPaymentDailyReport(resolvedParams),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60,
     retry: false,
   });
+};
+
+export const subscriptionPaymentMonthlyReportQueryOptions = (
+  params: SubscriptionPaymentMonthlyParams = {}
+) => {
+  const resolvedParams = resolveSubscriptionPaymentMonthlyParams(params);
+
+  return queryOptions({
+    queryKey: ["subscription-payment-report", "monthly", resolvedParams],
+    queryFn: () => fetchSubscriptionPaymentMonthlyReport(resolvedParams),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60,
+    retry: false,
+  });
+};
 
 export const dashboardLogsQueryOptions = (params: DashboardLogFilters = {}) =>
   queryOptions({
@@ -143,12 +165,31 @@ export const useDashboardStaffUsersQuery = (
   });
 
 export const useAccountingDailyReportQuery = (
-  params: AccountingDailyReportParams = {}
-) => useQuery(accountingDailyReportQueryOptions(params));
+  params: AccountingDailyReportParams = {},
+  enabled = true
+) =>
+  useQuery({
+    ...accountingDailyReportQueryOptions(params),
+    enabled,
+  });
 
 export const useSubscriptionPaymentDailyReportQuery = (
-  params: AccountingDailyReportParams = {}
-) => useQuery(subscriptionPaymentDailyReportQueryOptions(params));
+  params: SubscriptionPaymentDailyParams = {},
+  enabled = true
+) =>
+  useQuery({
+    ...subscriptionPaymentDailyReportQueryOptions(params),
+    enabled,
+  });
+
+export const useSubscriptionPaymentMonthlyReportQuery = (
+  params: SubscriptionPaymentMonthlyParams = {},
+  enabled = true
+) =>
+  useQuery({
+    ...subscriptionPaymentMonthlyReportQueryOptions(params),
+    enabled,
+  });
 
 export const useCreateDashboardStaffUserMutation = () => {
   const queryClient = useQueryClient();

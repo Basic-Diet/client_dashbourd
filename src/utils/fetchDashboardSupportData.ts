@@ -9,11 +9,14 @@ import type {
   DashboardNotificationLogsResponse,
   DashboardNotificationSummaryResponse,
   DashboardTodayReportResponse,
+  SubscriptionPaymentDailyParams,
   SubscriptionPaymentDailyReportResponse,
+  SubscriptionPaymentMonthlyParams,
+  SubscriptionPaymentMonthlyReportResponse,
   SubscriptionTermsPayload,
   SubscriptionTermsResponse,
 } from "@/types/dashboardAdminTypes";
-import { getTodayKSADate } from "@/utils/ksaDate";
+import { getCurrentKSAMonth, getTodayKSADate } from "@/utils/ksaDate";
 import {
   accountingDailyReportExportUrl,
   accountingDailyReportUrl,
@@ -23,6 +26,8 @@ import {
   dashboardReportsTodayUrl,
   dashboardSearchUrl,
   notificationLogsUrl,
+  subscriptionPaymentDailyReportUrl,
+  subscriptionPaymentMonthlyReportUrl,
   subscriptionTermsUrl,
   type DashboardHealthKey,
 } from "@/utils/dashboardApiContract";
@@ -42,6 +47,22 @@ export const resolveAccountingDailyReportParams = (
 ): AccountingDailyReportParams => ({
   ...params,
   date: params.date ?? getTodayKSADate(),
+});
+
+export const resolveSubscriptionPaymentDailyParams = (
+  params: SubscriptionPaymentDailyParams = {}
+): Required<SubscriptionPaymentDailyParams> => ({
+  date: params.date ?? getTodayKSADate(),
+  fulfillmentMethod: params.fulfillmentMethod ?? "all",
+  includeDetails: params.includeDetails ?? true,
+});
+
+export const resolveSubscriptionPaymentMonthlyParams = (
+  params: SubscriptionPaymentMonthlyParams = {}
+): Required<SubscriptionPaymentMonthlyParams> => ({
+  month: params.month ?? getCurrentKSAMonth(),
+  fulfillmentMethod: params.fulfillmentMethod ?? "all",
+  includeDetails: params.includeDetails ?? true,
 });
 
 export const fetchDashboardSearch = async (q: string): Promise<unknown> => {
@@ -81,12 +102,21 @@ export const fetchAccountingDailyReport = async (
 };
 
 export const fetchSubscriptionPaymentDailyReport = async (
-  params: AccountingDailyReportParams = {}
+  params: SubscriptionPaymentDailyParams = {}
 ): Promise<SubscriptionPaymentDailyReportResponse> => {
-  const resolved = resolveAccountingDailyReportParams(params);
+  const resolved = resolveSubscriptionPaymentDailyParams(params);
   const response = await api.get<SubscriptionPaymentDailyReportResponse>(
-    "/api/dashboard/accounting/subscription-payments/daily",
-    { params: toQueryParams(resolved) }
+    subscriptionPaymentDailyReportUrl(toQueryParams(resolved))
+  );
+  return response.data;
+};
+
+export const fetchSubscriptionPaymentMonthlyReport = async (
+  params: SubscriptionPaymentMonthlyParams = {}
+): Promise<SubscriptionPaymentMonthlyReportResponse> => {
+  const resolved = resolveSubscriptionPaymentMonthlyParams(params);
+  const response = await api.get<SubscriptionPaymentMonthlyReportResponse>(
+    subscriptionPaymentMonthlyReportUrl(toQueryParams(resolved))
   );
   return response.data;
 };

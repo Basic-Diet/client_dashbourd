@@ -10,3 +10,8 @@ export function getTodayKSADate(now = new Date()): string {
     day: "2-digit",
   }).format(now);
 }
+
+/** Current calendar month in KSA as `YYYY-MM` (required by monthly accounting APIs). */
+export function getCurrentKSAMonth(now = new Date()): string {
+  return getTodayKSADate(now).slice(0, 7);
+}

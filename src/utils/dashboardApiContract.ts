@@ -19,6 +19,12 @@ export const accountingDailyReportExportUrl = (params: QueryParams = {}) =>
     ...params,
   })}`;
 
+export const subscriptionPaymentDailyReportUrl = (params: QueryParams = {}) =>
+  `/api/dashboard/accounting/subscription-payments/daily${buildListQuery(params)}`;
+
+export const subscriptionPaymentMonthlyReportUrl = (params: QueryParams = {}) =>
+  `/api/dashboard/accounting/subscription-payments/monthly${buildListQuery(params)}`;
+
 export const dashboardStaffUsersUrl = (params: QueryParams = {}) =>
   `/api/dashboard/staff-users${buildListQuery(params)}`;
 
