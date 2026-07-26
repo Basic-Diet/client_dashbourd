@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ToastMessage } from "@/components/global/ToastMessage";
 import { Button } from "@/components/ui/button";
 import useCreateSubscriptionForm from "@/hooks/useCreateSubscriptionForm";
@@ -8,8 +8,14 @@ import { useCreateSubscriptionMutation } from "@/hooks/useSubscriptionsQuery";
 import {
   buildSubscriptionCreationPayload,
   buildSubscriptionQuotePayload,
+  normalizePromoCode,
 } from "@/utils/buildSubscriptionCreationPayload";
 import { fetchSubscriptionQuote } from "@/utils/fetchSubscriptionsData";
+import {
+  readAppliedPromoQuote,
+  shouldClearAppliedPromo,
+  type AppliedPromoQuote,
+} from "@/utils/subscriptionPromoQuote";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Banknote,
@@ -25,6 +31,7 @@ import { PlanSelectionSection } from "./PlanSelectionSection";
 import { PremiumMealsSection } from "./PremiumMealsSection";
 import { AddonsSection } from "./AddonsSection";
 import { DeliverySection } from "./DeliverySection";
+import { PromoCodeSection } from "./PromoCodeSection";
 
 interface CreateSubscriptionFormContentProps {
   /** Pre-set userId (when creating from user page). If provided, user selection is hidden. */
@@ -87,7 +94,11 @@ function readRecordedPaymentMethod(
     readString(data?.paymentMethod) ||
     readString(payment?.method) ||
     readString(meta?.paymentMethod);
-  return candidate === "visa" ? "visa" : candidate === "cash" ? "cash" : fallback;
+  return candidate === "visa"
+    ? "visa"
+    : candidate === "cash"
+      ? "cash"
+      : fallback;
 }
 
 function readPaymentMethodOptions(response: unknown): PaymentMethodOption[] {
@@ -130,13 +141,30 @@ export function CreateSubscriptionFormContent({
   const form = useCreateSubscriptionForm(userId || "");
   const navigate = useNavigate();
   const [isValidatingPrice, setIsValidatingPrice] = useState(false);
-  const [paymentOptions, setPaymentOptions] = useState(FALLBACK_PAYMENT_OPTIONS);
+  const [paymentOptions, setPaymentOptions] = useState(
+    FALLBACK_PAYMENT_OPTIONS
+  );
   const [planPrice, setPlanPrice] = useState<PricePart>({ halala: 0 });
   const [premiumPrice, setPremiumPrice] = useState<PricePart>({ halala: 0 });
   const [addonsPrice, setAddonsPrice] = useState<PricePart>({ halala: 0 });
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromoQuote | null>(
+    null
+  );
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const { mutateAsync, isPending } = useCreateSubscriptionMutation();
   const isSubmitting = isPending || isValidatingPrice;
   const selectedPaymentMethod = form.watch("paymentMethod");
+
+  useEffect(() => {
+    const subscription = form.watch((_value, { name }) => {
+      if (shouldClearAppliedPromo(name)) {
+        setAppliedPromo(null);
+        setPromoError(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const handlePlanPriceChange = useCallback((next: PricePart) => {
     setPlanPrice(next);
@@ -149,13 +177,58 @@ export function CreateSubscriptionFormContent({
   }, []);
 
   const currency =
-    planPrice.currency || premiumPrice.currency || addonsPrice.currency || "SAR";
+    planPrice.currency ||
+    premiumPrice.currency ||
+    addonsPrice.currency ||
+    "SAR";
   const totalHalala = useMemo(
     () => planPrice.halala + premiumPrice.halala + addonsPrice.halala,
     [planPrice.halala, premiumPrice.halala, addonsPrice.halala]
   );
   const hasSelectedPrice =
     planPrice.halala > 0 || premiumPrice.halala > 0 || addonsPrice.halala > 0;
+
+  const handleApplyPromo = async () => {
+    const promoCode = normalizePromoCode(form.getValues("promoCode"));
+    if (!promoCode) return;
+
+    const fields: Array<keyof CreateSubscriptionSchemaType> = [
+      "userId",
+      "planId",
+      "grams",
+      "mealsPerDay",
+      "startDate",
+      "premiumItems",
+      "addons",
+      "delivery",
+    ];
+    if (!(await form.trigger(fields))) return;
+
+    try {
+      setIsApplyingPromo(true);
+      setPromoError(null);
+      const quotePayload = buildSubscriptionQuotePayload({
+        ...form.getValues(),
+        promoCode,
+      });
+      const response = await fetchSubscriptionQuote(quotePayload);
+      const parsed = readAppliedPromoQuote(response, promoCode);
+      if (!parsed) {
+        setAppliedPromo(null);
+        setPromoError("لم يُرجع الخادم تفاصيل الخصم المطبّق.");
+        return;
+      }
+      setAppliedPromo(parsed);
+      setPaymentOptions(readPaymentMethodOptions(response));
+    } catch (error: unknown) {
+      setAppliedPromo(null);
+      setPromoError(
+        getApiErrorMessage(error) || "تعذر تطبيق كود الخصم. حاول مرة أخرى."
+      );
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  };
 
   const onSubmit = async (data: CreateSubscriptionSchemaType) => {
     const quotePayload = buildSubscriptionQuotePayload(data);
@@ -217,13 +290,22 @@ export function CreateSubscriptionFormContent({
           form={form}
           onPriceChange={handlePremiumPriceChange}
         />
-        <AddonsSection
-          form={form}
-          onPriceChange={handleAddonsPriceChange}
-        />
+        <AddonsSection form={form} onPriceChange={handleAddonsPriceChange} />
         <DeliverySection form={form} />
 
-        <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <PromoCodeSection
+          form={form}
+          appliedPromo={appliedPromo}
+          error={promoError}
+          isApplying={isApplyingPromo}
+          formatMoney={formatMoney}
+          onApply={handleApplyPromo}
+        />
+
+        <section
+          className="overflow-hidden rounded-2xl border bg-card shadow-sm"
+          data-testid="subscription-total-section"
+        >
           <div className="flex items-start gap-3 border-b px-4 py-4 sm:px-6">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <ReceiptText className="size-5" />
@@ -237,14 +319,44 @@ export function CreateSubscriptionFormContent({
           </div>
 
           <div className="space-y-5 p-4 sm:p-6">
-            <div className="flex flex-col gap-2 rounded-xl bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm font-medium text-muted-foreground">
-                الإجمالي الحالي
-              </span>
-              <strong className="text-2xl font-bold text-primary" aria-live="polite">
-                {formatMoney(totalHalala, currency)}
-              </strong>
-            </div>
+            {appliedPromo ? (
+              <div className="space-y-3 rounded-xl bg-primary/5 p-4">
+                <PriceSummaryRow
+                  label="السعر قبل الخصم"
+                  value={formatMoney(
+                    appliedPromo.grossTotalHalala,
+                    appliedPromo.currency
+                  )}
+                />
+                <PriceSummaryRow
+                  label={`قيمة الخصم — ${appliedPromo.code}`}
+                  value={`-${formatMoney(
+                    appliedPromo.discountHalala,
+                    appliedPromo.currency
+                  )}`}
+                />
+                <PriceSummaryRow
+                  label="السعر بعد الخصم"
+                  value={formatMoney(
+                    appliedPromo.totalHalala,
+                    appliedPromo.currency
+                  )}
+                  highlighted
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 rounded-xl bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  الإجمالي الحالي
+                </span>
+                <strong
+                  className="text-2xl font-bold text-primary"
+                  aria-live="polite"
+                >
+                  {formatMoney(totalHalala, currency)}
+                </strong>
+              </div>
+            )}
 
             <div className="grid gap-2 text-sm sm:grid-cols-3">
               <PriceLine
@@ -294,7 +406,7 @@ export function CreateSubscriptionFormContent({
                       type="button"
                       role="radio"
                       aria-checked={selected}
-                      className={`flex min-h-24 items-center gap-3 rounded-xl border p-4 text-right transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      className={`flex min-h-24 items-center gap-3 rounded-xl border p-4 text-right transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         selected
                           ? "border-primary bg-primary/5 shadow-sm"
                           : "hover:border-primary/40 hover:bg-muted/30"
@@ -311,7 +423,9 @@ export function CreateSubscriptionFormContent({
                         <Icon className="size-5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold">{option.labelAr}</span>
+                        <span className="block font-semibold">
+                          {option.labelAr}
+                        </span>
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {option.method === "cash"
                             ? "تسجيل دفع نقدي كامل"
@@ -327,7 +441,10 @@ export function CreateSubscriptionFormContent({
               </div>
 
               {form.formState.errors.paymentMethod?.message ? (
-                <p className="mt-2 text-sm font-medium text-destructive" role="alert">
+                <p
+                  className="mt-2 text-sm font-medium text-destructive"
+                  role="alert"
+                >
                   {form.formState.errors.paymentMethod.message}
                 </p>
               ) : null}
@@ -369,6 +486,32 @@ function PriceLine({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function PriceSummaryRow({
+  label,
+  value,
+  highlighted = false,
+}: {
+  label: string;
+  value: string;
+  highlighted?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className={highlighted ? "font-semibold" : "text-muted-foreground"}>
+        {label}
+      </span>
+      <strong
+        className={
+          highlighted ? "text-2xl font-bold text-primary" : "font-semibold"
+        }
+        aria-live={highlighted ? "polite" : undefined}
+      >
+        {value}
+      </strong>
     </div>
   );
 }

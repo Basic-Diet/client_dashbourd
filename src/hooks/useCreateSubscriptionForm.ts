@@ -12,6 +12,7 @@ const useCreateSubscriptionForm = (userId: string) => {
       grams: 0,
       mealsPerDay: 0,
       startDate: "",
+      promoCode: "",
       premiumItems: [],
       addons: [],
       delivery: {

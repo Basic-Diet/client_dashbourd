@@ -6,6 +6,7 @@ export interface SubscriptionCreationPayload extends Record<string, unknown> {
   grams: number;
   mealsPerDay: number;
   startDate: string;
+  promoCode?: string;
   premiumItems: Array<{
     premiumKey: string;
     qty: number;
@@ -40,7 +41,15 @@ export interface SubscriptionCreationPayload extends Record<string, unknown> {
   };
 }
 
-export type SubscriptionQuotePayload = Omit<SubscriptionCreationPayload, "payment">;
+export type SubscriptionQuotePayload = Omit<
+  SubscriptionCreationPayload,
+  "payment"
+>;
+
+export function normalizePromoCode(value: string | undefined) {
+  const normalized = value?.trim().toUpperCase() || "";
+  return normalized || undefined;
+}
 
 export function buildSubscriptionCreationPayload(
   data: CreateSubscriptionSchemaType
@@ -66,12 +75,15 @@ export function buildSubscriptionCreationPayload(
           slot,
         };
 
+  const promoCode = normalizePromoCode(data.promoCode);
+
   return {
     userId: data.userId,
     planId: data.planId,
     grams: data.grams,
     mealsPerDay: data.mealsPerDay,
     startDate: data.startDate,
+    ...(promoCode ? { promoCode } : {}),
     premiumItems: data.premiumItems.map((item) => ({
       premiumKey: item.premiumKey.trim(),
       qty: item.qty,
