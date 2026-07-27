@@ -1,41 +1,45 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isCompleteSaudiMobile,
-  normalizeSaudiPhoneInput,
+  isCompleteSaudiPhone,
+  normalizeSaudiPhoneForSubmit,
+  sanitizeSaudiPhoneInput,
 } from "../src/utils/saudiPhoneInput";
 
 describe("Saudi customer phone input", () => {
-  it("keeps the +966 prefix when the field is cleared or partially deleted", () => {
-    expect(normalizeSaudiPhoneInput("")).toBe("+966");
-    expect(normalizeSaudiPhoneInput("+96")).toBe("+966");
-    expect(normalizeSaudiPhoneInput("+9")).toBe("+966");
+  it("allows the default +966 value to be edited or deleted", () => {
+    expect(sanitizeSaudiPhoneInput("+966")).toBe("+966");
+    expect(sanitizeSaudiPhoneInput("+96")).toBe("+96");
+    expect(sanitizeSaudiPhoneInput("")).toBe("");
   });
 
-  it("accepts the required full E.164 example", () => {
-    expect(normalizeSaudiPhoneInput("+966566796659")).toBe(
+  it("lets the operator continue typing normally after +966", () => {
+    expect(sanitizeSaudiPhoneInput("+9662")).toBe("+9662");
+    expect(sanitizeSaudiPhoneInput("+966231867987")).toBe("+966231867987");
+    expect(sanitizeSaudiPhoneInput("+966566796659")).toBe("+966566796659");
+  });
+
+  it("accepts any subscriber prefix when at least 9 digits follow +966", () => {
+    expect(isCompleteSaudiPhone("+966231867987")).toBe(true);
+    expect(isCompleteSaudiPhone("+966566796659")).toBe(true);
+    expect(isCompleteSaudiPhone("+96612345678")).toBe(false);
+  });
+
+  it("normalizes common international and local submit formats", () => {
+    expect(normalizeSaudiPhoneForSubmit("00966566796659")).toBe(
       "+966566796659"
     );
-    expect(isCompleteSaudiMobile("+966566796659")).toBe(true);
-  });
-
-  it("normalizes local and international paste formats", () => {
-    expect(normalizeSaudiPhoneInput("566796659")).toBe("+966566796659");
-    expect(normalizeSaudiPhoneInput("0566796659")).toBe("+966566796659");
-    expect(normalizeSaudiPhoneInput("00966566796659")).toBe(
+    expect(normalizeSaudiPhoneForSubmit("966566796659")).toBe(
+      "+966566796659"
+    );
+    expect(normalizeSaudiPhoneForSubmit("0566796659")).toBe(
       "+966566796659"
     );
   });
 
-  it("removes duplicated prefixes and limits the subscriber part to 9 digits", () => {
-    expect(normalizeSaudiPhoneInput("+966+96656679665999")).toBe(
-      "+966566796659"
+  it("removes non-phone characters while keeping a single leading plus", () => {
+    expect(sanitizeSaudiPhoneInput("+966 231-867-987")).toBe(
+      "+966231867987"
     );
-  });
-
-  it("rejects incomplete numbers and numbers that do not start with 5", () => {
-    expect(isCompleteSaudiMobile("+966")).toBe(false);
-    expect(isCompleteSaudiMobile("+966111111111")).toBe(false);
-    expect(isCompleteSaudiMobile("+96656679665")).toBe(false);
   });
 });
