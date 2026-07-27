@@ -1,36 +1,27 @@
 const SAUDI_COUNTRY_CODE = "+966";
-const SAUDI_SUBSCRIBER_DIGITS = 9;
+const MIN_SUBSCRIBER_DIGITS = 9;
+const MAX_E164_DIGITS = 15;
 
-export function normalizeSaudiPhoneInput(value: string): string {
+export function sanitizeSaudiPhoneInput(value: string): string {
   const raw = String(value ?? "");
-  let digits = raw.replace(/\D/g, "");
+  const startsWithPlus = raw.trimStart().startsWith("+");
+  const digits = raw.replace(/\D/g, "").slice(0, MAX_E164_DIGITS);
 
-  if (digits.startsWith("00966")) {
-    digits = digits.slice(5);
-  } else if (digits.startsWith("966")) {
-    digits = digits.slice(3);
-  } else if (digits.length <= 3 && "966".startsWith(digits)) {
-    digits = "";
-  } else if (digits.startsWith("0")) {
-    digits = digits.slice(1);
-  }
-
-  if (digits.startsWith("966")) {
-    digits = digits.slice(3);
-  }
-  if (digits.startsWith("0")) {
-    digits = digits.slice(1);
-  }
-
-  if (digits && !digits.startsWith("5")) {
-    return SAUDI_COUNTRY_CODE;
-  }
-
-  return `${SAUDI_COUNTRY_CODE}${digits.slice(0, SAUDI_SUBSCRIBER_DIGITS)}`;
+  if (!digits) return startsWithPlus ? "+" : "";
+  return `${startsWithPlus ? "+" : ""}${digits}`;
 }
 
-export function isCompleteSaudiMobile(value: string): boolean {
-  return /^\+9665\d{8}$/.test(normalizeSaudiPhoneInput(value));
+export function normalizeSaudiPhoneForSubmit(value: string): string {
+  const compact = String(value ?? "").replace(/[\s()-]/g, "");
+  if (/^00966\d+$/.test(compact)) return `+${compact.slice(2)}`;
+  if (/^966\d+$/.test(compact)) return `+${compact}`;
+  if (/^0\d{9,12}$/.test(compact)) return `${SAUDI_COUNTRY_CODE}${compact.slice(1)}`;
+  return compact;
 }
 
-export { SAUDI_COUNTRY_CODE };
+export function isCompleteSaudiPhone(value: string): boolean {
+  const normalized = normalizeSaudiPhoneForSubmit(value);
+  return /^\+966\d{9,12}$/.test(normalized);
+}
+
+export { SAUDI_COUNTRY_CODE, MIN_SUBSCRIBER_DIGITS };
