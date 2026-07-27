@@ -22,6 +22,10 @@ export function normalizeSaudiPhoneInput(value: string): string {
     digits = digits.slice(1);
   }
 
+  if (digits && !digits.startsWith("5")) {
+    return SAUDI_COUNTRY_CODE;
+  }
+
   return `${SAUDI_COUNTRY_CODE}${digits.slice(0, SAUDI_SUBSCRIBER_DIGITS)}`;
 }
 
