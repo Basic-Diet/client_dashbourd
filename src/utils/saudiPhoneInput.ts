@@ -11,6 +11,8 @@ export function sanitizeSaudiPhoneInput(value: string): string {
   return `${startsWithPlus ? "+" : ""}${digits}`;
 }
 
+export const normalizeSaudiPhoneInput = sanitizeSaudiPhoneInput;
+
 export function normalizeSaudiPhoneForSubmit(value: string): string {
   const compact = String(value ?? "").replace(/[\s()-]/g, "");
   if (/^00966\d+$/.test(compact)) return `+${compact.slice(2)}`;
@@ -23,5 +25,7 @@ export function isCompleteSaudiPhone(value: string): boolean {
   const normalized = normalizeSaudiPhoneForSubmit(value);
   return /^\+966\d{9,12}$/.test(normalized);
 }
+
+export const isCompleteSaudiMobile = isCompleteSaudiPhone;
 
 export { SAUDI_COUNTRY_CODE, MIN_SUBSCRIBER_DIGITS };
