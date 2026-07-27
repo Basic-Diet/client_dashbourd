@@ -26,7 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import useCreateUserForm from "@/hooks/useCreateUserForm";
 import { useCreateAdminCustomerMutation } from "@/hooks/useUsersQuery";
 import type { CreateUserSchemaType } from "@/lib/validations/createUserSchema";
-import { getAdminCustomerErrorMessage } from "@/utils/fetchUsersData";
+import { getCreateCustomerErrorMessage } from "@/utils/getCreateCustomerErrorMessage";
 import type { CredentialsDialogData } from "./temporary-credentials-dialog";
 import { TemporaryCredentialsDialog } from "./temporary-credentials-dialog";
 
@@ -48,6 +48,7 @@ export function CreateUserForm() {
     null
   );
   const [malformedSuccessOpen, setMalformedSuccessOpen] = useState(false);
+  const [isSubmitLocked, setIsSubmitLocked] = useState(false);
   const allowNavigationRef = useRef(false);
   const requestInFlightRef = useRef(false);
   const {
@@ -65,8 +66,9 @@ export function CreateUserForm() {
   const isActive = watch("isActive");
   const phoneSubscriberNumber = watch("phoneE164");
   const phoneRegistration = register("phoneE164");
+  const isCreating = createCustomer.isPending || isSubmitLocked;
   const protectedState =
-    createCustomer.isPending || Boolean(credentials) || malformedSuccessOpen;
+    isCreating || Boolean(credentials) || malformedSuccessOpen;
 
   useBlocker({
     disabled: !protectedState,
@@ -139,17 +141,18 @@ export function CreateUserForm() {
           resetCreateCustomerMutation();
         },
         onError: (error) => {
-          ToastMessage(getAdminCustomerErrorMessage(error), "error");
+          ToastMessage(getCreateCustomerErrorMessage(error), "error");
         },
         onSettled: () => {
           requestInFlightRef.current = false;
+          setIsSubmitLocked(false);
         },
       }
     );
   }
 
   function handleGuardedSubmit(event: FormEvent<HTMLFormElement>) {
-    if (requestInFlightRef.current || createCustomer.isPending) {
+    if (requestInFlightRef.current || isCreating) {
       event.preventDefault();
       return;
     }
@@ -157,6 +160,7 @@ export function CreateUserForm() {
     const submit = handleSubmit((data) => {
       if (requestInFlightRef.current) return;
       requestInFlightRef.current = true;
+      setIsSubmitLocked(true);
       submitCreate(data);
     });
     void submit(event);
@@ -173,7 +177,7 @@ export function CreateUserForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleGuardedSubmit}>
+          <form onSubmit={handleGuardedSubmit} aria-busy={isCreating}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="fullName">الاسم الكامل</FieldLabel>
@@ -181,7 +185,7 @@ export function CreateUserForm() {
                   id="fullName"
                   type="text"
                   placeholder="أدخل الاسم الكامل"
-                  disabled={createCustomer.isPending}
+                  disabled={isCreating}
                   {...register("fullName")}
                   aria-invalid={errors.fullName ? "true" : "false"}
                 />
@@ -211,7 +215,7 @@ export function CreateUserForm() {
                     autoComplete="tel-national"
                     placeholder="5XXXXXXXX"
                     maxLength={9}
-                    disabled={createCustomer.isPending}
+                    disabled={isCreating}
                     name={phoneRegistration.name}
                     ref={phoneRegistration.ref}
                     onBlur={phoneRegistration.onBlur}
@@ -253,7 +257,7 @@ export function CreateUserForm() {
                   type="email"
                   dir="ltr"
                   placeholder="user@example.com"
-                  disabled={createCustomer.isPending}
+                  disabled={isCreating}
                   {...register("email")}
                   aria-invalid={errors.email ? "true" : "false"}
                   className="text-left"
@@ -273,19 +277,24 @@ export function CreateUserForm() {
                   id="temporaryPassword"
                   type="password"
                   dir="ltr"
-                  placeholder="Customer@12345"
-                  disabled={createCustomer.isPending}
+                  placeholder="Customer12345"
+                  disabled={isCreating}
                   {...register("temporaryPassword")}
                   aria-invalid={errors.temporaryPassword ? "true" : "false"}
+                  aria-describedby="temporaryPassword-help"
                   className="text-left"
                 />
                 {errors.temporaryPassword ? (
-                  <p className="mt-1 text-sm text-destructive">
+                  <p className="mt-1 text-sm text-destructive" role="alert">
                     {errors.temporaryPassword.message}
                   </p>
                 ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    اتركه فارغاً ليولّد الخادم كلمة مرور مؤقتة.
+                  <p
+                    id="temporaryPassword-help"
+                    className="mt-1 text-xs text-muted-foreground"
+                  >
+                    اتركها فارغة ليولّد الخادم كلمة مرور، أو استخدم حرفًا كبيرًا
+                    وحرفًا صغيرًا ورقمًا على الأقل.
                   </p>
                 )}
               </Field>
@@ -300,7 +309,7 @@ export function CreateUserForm() {
                     <Switch
                       id="isActive"
                       checked={isActive}
-                      disabled={createCustomer.isPending}
+                      disabled={isCreating}
                       onCheckedChange={(checked) =>
                         setValue("isActive", checked, { shouldDirty: true })
                       }
@@ -312,10 +321,11 @@ export function CreateUserForm() {
               <Field>
                 <Button
                   type="submit"
-                  disabled={createCustomer.isPending}
+                  disabled={isCreating}
+                  aria-disabled={isCreating}
                   className="w-full"
                 >
-                  {createCustomer.isPending ? (
+                  {isCreating ? (
                     <>
                       <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                       جاري إنشاء المستخدم...
@@ -324,6 +334,16 @@ export function CreateUserForm() {
                     "إنشاء المستخدم"
                   )}
                 </Button>
+                {isCreating ? (
+                  <p
+                    className="mt-2 text-center text-xs text-muted-foreground"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    يتم الآن التحقق من البيانات وإنشاء بيانات الدخول الآمنة. لا
+                    تغلق الصفحة.
+                  </p>
+                ) : null}
               </Field>
             </FieldGroup>
           </form>
