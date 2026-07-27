@@ -8,7 +8,7 @@ const useCreateUserForm = () => {
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       fullName: "",
-      phoneE164: "+966",
+      phoneE164: "",
       email: "",
       temporaryPassword: "",
       isActive: true,
