@@ -33,6 +33,12 @@ describe("Saudi customer phone input", () => {
     );
   });
 
+  it("ignores an invalid first subscriber digit instead of leaving a permanently invalid value", () => {
+    expect(normalizeSaudiPhoneInput("+9662")).toBe("+966");
+    expect(normalizeSaudiPhoneInput("231867987")).toBe("+966");
+    expect(normalizeSaudiPhoneInput("+966231867987")).toBe("+966");
+  });
+
   it("rejects incomplete numbers and numbers that do not start with 5", () => {
     expect(isCompleteSaudiMobile("+966")).toBe(false);
     expect(isCompleteSaudiMobile("+966111111111")).toBe(false);
