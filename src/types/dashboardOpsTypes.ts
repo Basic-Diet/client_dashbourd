@@ -347,6 +347,7 @@ export type DashboardOpsStatusFilter =
 const DELIVERED_STATUSES = ["delivered", "fulfilled"];
 const CANCELED_STATUSES = ["canceled", "cancelled", "delivery_canceled"];
 const PREPARING_STATUSES = ["preparing", "in_preparation"];
+const OUT_FOR_DELIVERY_STATUSES = ["out_for_delivery", "arriving_soon"];
 
 export function matchesStatusFilter(
   itemStatus: string,
@@ -358,7 +359,7 @@ export function matchesStatusFilter(
     case "preparing":
       return PREPARING_STATUSES.includes(itemStatus);
     case "out_for_delivery":
-      return itemStatus === "out_for_delivery";
+      return OUT_FOR_DELIVERY_STATUSES.includes(itemStatus);
     case "delivered":
       return DELIVERED_STATUSES.includes(itemStatus);
     case "canceled":

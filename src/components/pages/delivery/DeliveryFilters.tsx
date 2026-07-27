@@ -3,9 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { DashboardOpsStatusFilter, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
 import { countByFilter } from "@/types/dashboardOpsTypes";
-
-type DeliverySourceFilter = "all" | "subscription" | "one_time_order";
-type DeliveryActionFilter = "all" | "needs_action" | "ready_to_collect" | "out_for_delivery" | "no_actions";
+import {
+  getDeliveryOperationWindow,
+  getDeliveryOperationZone,
+  type DeliveryActionFilter,
+  type DeliverySourceFilter,
+} from "@/lib/deliveryOperations";
 
 const FILTER_TABS: { label: string; value: DashboardOpsStatusFilter }[] = [
   { label: "الكل", value: "all" },
@@ -36,14 +39,6 @@ function uniqueValues(values: string[]) {
   return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ar"));
 }
 
-function getWindow(item: UnifiedQueueItem) {
-  return item.context.window || item.delivery?.window || item.delivery?.deliveryWindow || "";
-}
-
-function getZone(item: UnifiedQueueItem) {
-  return item.delivery?.zone?.name || item.delivery?.zone?.id || item.delivery?.zoneId || "";
-}
-
 function SelectFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ label: string; value: string }> }) {
   return (
     <label className="space-y-1.5">
@@ -71,8 +66,8 @@ export function DeliveryFilters({
   onReset,
   baseData,
 }: DeliveryFiltersProps) {
-  const windows = uniqueValues(baseData.map(getWindow));
-  const zones = uniqueValues(baseData.map(getZone));
+  const windows = uniqueValues(baseData.map(getDeliveryOperationWindow));
+  const zones = uniqueValues(baseData.map(getDeliveryOperationZone));
 
   return (
     <div className="space-y-3 rounded-2xl border bg-card p-3 shadow-sm md:p-4">

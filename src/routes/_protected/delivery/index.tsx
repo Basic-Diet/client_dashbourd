@@ -18,13 +18,18 @@ import {
   buildOperationsActionPayload,
   safeText,
 } from "@/lib/operationsBoard";
+import {
+  filterDeliveryOperations,
+  getAllDeliveryOperationItems,
+  type DeliveryActionFilter,
+  type DeliverySourceFilter,
+} from "@/lib/deliveryOperations";
 import type {
   DashboardOpsActionRequest,
   DashboardOpsStatusFilter,
   QueueAction,
   UnifiedQueueItem,
 } from "@/types/dashboardOpsTypes";
-import { matchesStatusFilter } from "@/types/dashboardOpsTypes";
 
 export const Route = createFileRoute("/_protected/delivery/")({
   component: DeliveryDashboard,
@@ -37,39 +42,6 @@ const EMPTY_REASON_DIALOG: ReasonDialogState = {
   actionLabel: "",
   isDangerous: false,
 };
-
-type DeliverySourceFilter = "all" | "subscription" | "one_time_order";
-type DeliveryActionFilter =
-  | "all"
-  | "needs_action"
-  | "ready_to_collect"
-  | "out_for_delivery"
-  | "no_actions";
-
-function getDeliveryWindow(item: UnifiedQueueItem) {
-  return item.context.window || item.delivery?.window || item.delivery?.deliveryWindow || "";
-}
-
-function getDeliveryZone(item: UnifiedQueueItem) {
-  return item.delivery?.zone?.name || item.delivery?.zone?.id || item.delivery?.zoneId || "";
-}
-
-function hasAction(item: UnifiedQueueItem, actionId: string) {
-  return item.allowedActions?.some((action) => action.id === actionId);
-}
-
-function matchesActionFilter(item: UnifiedQueueItem, filter: DeliveryActionFilter) {
-  if (filter === "all") return true;
-  if (filter === "needs_action") return Boolean(item.allowedActions?.length);
-  if (filter === "ready_to_collect") {
-    return hasAction(item, "dispatch") || hasAction(item, "pickup");
-  }
-  if (filter === "out_for_delivery") {
-    return item.status === "out_for_delivery" || item.status === "arriving_soon";
-  }
-  if (filter === "no_actions") return !item.allowedActions?.length;
-  return true;
-}
 
 function DeliveryDashboard() {
   const [statusFilter, setStatusFilter] = useState<DashboardOpsStatusFilter>("all");
@@ -92,48 +64,19 @@ function DeliveryDashboard() {
   const actionMutation = useCourierDeliveryActionMutation();
 
   const baseData = useMemo(
-    () => (listRes?.data?.items ?? []).filter((item) => item.mode === "delivery"),
+    () => getAllDeliveryOperationItems(listRes?.data?.items ?? []),
     [listRes]
   );
 
   const displayData = useMemo(
     () =>
-      baseData.filter((item) => {
-        const search = searchStr.trim().toLowerCase();
-        const raw = item.rawData as Record<string, unknown> | undefined;
-        const address = raw?.deliveryAddress as Record<string, unknown> | undefined;
-        const matchesStatus =
-          statusFilter === "all" || matchesStatusFilter(item.status, statusFilter);
-        const matchesSource = sourceFilter === "all" || item.source === sourceFilter;
-        const matchesWindow =
-          windowFilter === "all" || getDeliveryWindow(item) === windowFilter;
-        const matchesZone = zoneFilter === "all" || getDeliveryZone(item) === zoneFilter;
-        const matchesAction = matchesActionFilter(item, actionFilter);
-        const matchesSearch =
-          !search ||
-          [
-            item.customer.name,
-            item.customer.phone,
-            item.reference,
-            item.orderNumber,
-            item.context.addressSummary,
-            address?.district,
-            address?.street,
-            getDeliveryWindow(item),
-            getDeliveryZone(item),
-            item.status,
-          ]
-            .map((value) => safeText(value, "").toLowerCase())
-            .some((value) => value.includes(search));
-
-        return (
-          matchesStatus &&
-          matchesSource &&
-          matchesWindow &&
-          matchesZone &&
-          matchesAction &&
-          matchesSearch
-        );
+      filterDeliveryOperations(baseData, {
+        search: searchStr,
+        statusFilter,
+        sourceFilter,
+        windowFilter,
+        zoneFilter,
+        actionFilter,
       }),
     [
       actionFilter,
