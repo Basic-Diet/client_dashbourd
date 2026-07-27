@@ -46,6 +46,7 @@ export function CreateUserForm() {
     register,
     handleSubmit,
     setValue,
+    clearErrors,
     watch,
     formState: { errors },
   } = useCreateUserForm();
@@ -207,15 +208,13 @@ export function CreateUserForm() {
                     event.currentTarget.setSelectionRange(end, end);
                   }}
                   onChange={(event) => {
-                    setValue(
-                      "phoneE164",
-                      normalizeSaudiPhoneInput(event.target.value),
-                      {
-                        shouldDirty: true,
-                        shouldTouch: true,
-                        shouldValidate: Boolean(errors.phoneE164),
-                      }
-                    );
+                    const nextValue = normalizeSaudiPhoneInput(event.target.value);
+                    clearErrors("phoneE164");
+                    setValue("phoneE164", nextValue, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: false,
+                    });
                   }}
                   aria-invalid={errors.phoneE164 ? "true" : "false"}
                   aria-describedby="phoneE164-help"
@@ -230,8 +229,8 @@ export function CreateUserForm() {
                     id="phoneE164-help"
                     className="mt-1 text-xs text-muted-foreground"
                   >
-                    اكتب رقم الجوال كاملًا بهذا الشكل: +966566796659. رمز الدولة
-                    +966 محفوظ تلقائيًا ولا يمكن حذفه.
+                    اكتب رقم الجوال كاملًا بهذا الشكل: +966566796659. بعد +966
+                    يجب أن يبدأ الرقم بـ 5 ويتكون من 9 أرقام.
                   </p>
                 )}
               </Field>
