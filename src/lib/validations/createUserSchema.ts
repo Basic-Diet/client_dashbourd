@@ -15,7 +15,7 @@ const createUserSchema = z.object({
     .transform((value) => normalizePhoneE164(value))
     .refine((value) => /^\+9665\d{8}$/.test(value), {
       message:
-        "رقم الجوال غير صحيح. استخدم الصيغة الدولية مثل +9665XXXXXXXX",
+        "رقم الجوال غير صحيح. بعد رمز الدولة +966 أدخل رقمًا يبدأ بـ 5 ويتكون من 9 أرقام.",
     }),
   email: z
     .string()
