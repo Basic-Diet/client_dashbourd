@@ -2,6 +2,21 @@ import { z } from "zod";
 
 import { normalizePhoneE164 } from "@/utils/fetchUsersData";
 
+const optionalTemporaryPassword = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .refine(
+    (value) =>
+      !value ||
+      (/[A-Z]/.test(value) && /[a-z]/.test(value) && /\d/.test(value)),
+    {
+      message:
+        "كلمة المرور المؤقتة يجب أن تحتوي على حرف إنجليزي كبير وحرف إنجليزي صغير ورقم.",
+    }
+  );
+
 const createUserSchema = z.object({
   fullName: z
     .string()
@@ -23,7 +38,7 @@ const createUserSchema = z.object({
     .email("عنوان البريد الإلكتروني غير صالح")
     .optional()
     .or(z.literal("")),
-  temporaryPassword: z.string().trim().optional().or(z.literal("")),
+  temporaryPassword: optionalTemporaryPassword,
   isActive: z.boolean(),
 });
 
