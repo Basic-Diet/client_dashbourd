@@ -27,7 +27,7 @@ import useCreateUserForm from "@/hooks/useCreateUserForm";
 import { useCreateAdminCustomerMutation } from "@/hooks/useUsersQuery";
 import type { CreateUserSchemaType } from "@/lib/validations/createUserSchema";
 import { getCreateCustomerErrorMessage } from "@/utils/getCreateCustomerErrorMessage";
-import { normalizeSaudiPhoneInput } from "@/utils/saudiPhoneInput";
+import { sanitizeSaudiPhoneInput } from "@/utils/saudiPhoneInput";
 import type { CredentialsDialogData } from "./temporary-credentials-dialog";
 import { TemporaryCredentialsDialog } from "./temporary-credentials-dialog";
 
@@ -194,21 +194,17 @@ export function CreateUserForm() {
                   id="phoneE164"
                   type="tel"
                   dir="ltr"
-                  inputMode="numeric"
+                  inputMode="tel"
                   autoComplete="tel"
                   placeholder="+966566796659"
-                  maxLength={13}
+                  maxLength={16}
                   disabled={isCreating}
                   name={phoneRegistration.name}
                   ref={phoneRegistration.ref}
                   onBlur={phoneRegistration.onBlur}
                   value={phoneValue}
-                  onFocus={(event) => {
-                    const end = event.currentTarget.value.length;
-                    event.currentTarget.setSelectionRange(end, end);
-                  }}
                   onChange={(event) => {
-                    const nextValue = normalizeSaudiPhoneInput(event.target.value);
+                    const nextValue = sanitizeSaudiPhoneInput(event.target.value);
                     clearErrors("phoneE164");
                     setValue("phoneE164", nextValue, {
                       shouldDirty: true,
@@ -229,8 +225,8 @@ export function CreateUserForm() {
                     id="phoneE164-help"
                     className="mt-1 text-xs text-muted-foreground"
                   >
-                    اكتب رقم الجوال كاملًا بهذا الشكل: +966566796659. بعد +966
-                    يجب أن يبدأ الرقم بـ 5 ويتكون من 9 أرقام.
+                    يبدأ الحقل افتراضيًا بـ +966 ويمكن تعديله أو حذفه. عند استخدام
+                    رمز السعودية يجب إدخال 9 أرقام على الأقل بعده.
                   </p>
                 )}
               </Field>
