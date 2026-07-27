@@ -169,7 +169,11 @@ export function CreateUserForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleGuardedSubmit} aria-busy={isCreating}>
+          <form
+            onSubmit={handleGuardedSubmit}
+            aria-busy={isCreating}
+            autoComplete="off"
+          >
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="fullName">الاسم الكامل</FieldLabel>
@@ -178,6 +182,9 @@ export function CreateUserForm() {
                   type="text"
                   placeholder="أدخل الاسم الكامل"
                   disabled={isCreating}
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   {...register("fullName")}
                   aria-invalid={errors.fullName ? "true" : "false"}
                 />
@@ -195,7 +202,9 @@ export function CreateUserForm() {
                   type="tel"
                   dir="ltr"
                   inputMode="tel"
-                  autoComplete="tel"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   placeholder="+966566796659"
                   maxLength={16}
                   disabled={isCreating}
@@ -239,6 +248,9 @@ export function CreateUserForm() {
                   dir="ltr"
                   placeholder="user@example.com"
                   disabled={isCreating}
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   {...register("email")}
                   aria-invalid={errors.email ? "true" : "false"}
                   className="text-left"
@@ -260,6 +272,9 @@ export function CreateUserForm() {
                   dir="ltr"
                   placeholder="Customer12345"
                   disabled={isCreating}
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   {...register("temporaryPassword")}
                   aria-invalid={errors.temporaryPassword ? "true" : "false"}
                   aria-describedby="temporaryPassword-help"
