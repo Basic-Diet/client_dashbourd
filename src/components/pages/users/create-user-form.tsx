@@ -33,6 +33,16 @@ import { TemporaryCredentialsDialog } from "./temporary-credentials-dialog";
 const malformedCreateCredentialsMessage =
   "تم إنشاء الحساب، ولكن تعذر عرض بيانات الدخول المؤقتة. تحقق من حالة المستخدم قبل محاولة إنشاء الحساب مرة أخرى.";
 
+function normalizeSaudiSubscriberInput(value: string) {
+  let digits = value.replace(/\D/g, "");
+
+  if (digits.startsWith("00966")) digits = digits.slice(5);
+  else if (digits.startsWith("966")) digits = digits.slice(3);
+  if (digits.startsWith("0")) digits = digits.slice(1);
+
+  return digits.slice(0, 9);
+}
+
 export function CreateUserForm() {
   const [credentials, setCredentials] = useState<CredentialsDialogData | null>(
     null
@@ -53,6 +63,8 @@ export function CreateUserForm() {
   const createCustomer = useCreateAdminCustomerMutation();
   const resetCreateCustomerMutation = createCustomer.reset;
   const isActive = watch("isActive");
+  const phoneSubscriberNumber = watch("phoneE164");
+  const phoneRegistration = register("phoneE164");
   const protectedState =
     createCustomer.isPending || Boolean(credentials) || malformedSuccessOpen;
 
@@ -182,24 +194,54 @@ export function CreateUserForm() {
 
               <Field>
                 <FieldLabel htmlFor="phoneE164">رقم الجوال</FieldLabel>
-                <Input
-                  id="phoneE164"
-                  type="tel"
+                <div
+                  className="flex overflow-hidden rounded-md border bg-background shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
                   dir="ltr"
-                  inputMode="tel"
-                  placeholder="+9665XXXXXXXX"
-                  disabled={createCustomer.isPending}
-                  {...register("phoneE164")}
-                  aria-invalid={errors.phoneE164 ? "true" : "false"}
-                  className="text-left"
-                />
+                >
+                  <span
+                    className="flex shrink-0 items-center border-r bg-muted/60 px-3 font-medium text-foreground"
+                    aria-label="رمز الدولة السعودية"
+                  >
+                    +966
+                  </span>
+                  <Input
+                    id="phoneE164"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    placeholder="5XXXXXXXX"
+                    maxLength={9}
+                    disabled={createCustomer.isPending}
+                    name={phoneRegistration.name}
+                    ref={phoneRegistration.ref}
+                    onBlur={phoneRegistration.onBlur}
+                    value={phoneSubscriberNumber}
+                    onChange={(event) => {
+                      setValue(
+                        "phoneE164",
+                        normalizeSaudiSubscriberInput(event.target.value),
+                        {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: Boolean(errors.phoneE164),
+                        }
+                      );
+                    }}
+                    aria-invalid={errors.phoneE164 ? "true" : "false"}
+                    aria-describedby="phoneE164-help"
+                    className="rounded-none border-0 text-left shadow-none focus-visible:ring-0"
+                  />
+                </div>
                 {errors.phoneE164 ? (
-                  <p className="mt-1 text-sm text-destructive">
+                  <p className="mt-1 text-sm text-destructive" role="alert">
                     {errors.phoneE164.message}
                   </p>
                 ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    استخدم الصيغة الدولية مثل +9665XXXXXXXX.
+                  <p
+                    id="phoneE164-help"
+                    className="mt-1 text-xs text-muted-foreground"
+                  >
+                    رمز الدولة ثابت +966. أدخل 9 أرقام تبدأ بالرقم 5.
                   </p>
                 )}
               </Field>
