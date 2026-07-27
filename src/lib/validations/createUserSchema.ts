@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { normalizePhoneE164 } from "@/utils/fetchUsersData";
+import {
+  isCompleteSaudiPhone,
+  normalizeSaudiPhoneForSubmit,
+} from "@/utils/saudiPhoneInput";
 
 const optionalTemporaryPassword = z
   .string()
@@ -27,10 +30,10 @@ const createUserSchema = z.object({
     .string()
     .trim()
     .min(1, "رقم الجوال مطلوب")
-    .transform((value) => normalizePhoneE164(value))
-    .refine((value) => /^\+9665\d{8}$/.test(value), {
+    .transform((value) => normalizeSaudiPhoneForSubmit(value))
+    .refine((value) => isCompleteSaudiPhone(value), {
       message:
-        "رقم الجوال غير صحيح. استخدم رقمًا سعوديًا كاملًا مثل +966566796659.",
+        "رقم الجوال غير صحيح. يجب أن يبدأ بـ +966 ويحتوي على 9 أرقام على الأقل بعد رمز الدولة.",
     }),
   email: z
     .string()
