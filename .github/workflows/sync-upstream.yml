@@ -1,0 +1,66 @@
+name: Sync from Basic-Diet organization
+
+# Keep the personal main branch aligned with the latest organization main.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/sync-upstream.yml
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - sync-upstream
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-basic-diet-client-dashboard
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout personal repository
+        uses: actions/checkout@v4
+        with:
+          path: target
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Mirror organization main into personal main
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd target
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream https://github.com/Basic-Diet/client_dashbourd.git
+          git fetch --no-tags upstream main
+
+          UPSTREAM_SHA="$(git rev-parse upstream/main)"
+          CURRENT_PARENT="$(git rev-parse HEAD^ 2>/dev/null || true)"
+
+          if [[ "${CURRENT_PARENT}" == "${UPSTREAM_SHA}" ]]; then
+            if git diff --quiet "${UPSTREAM_SHA}" -- . ':(exclude).github/workflows/sync-upstream.yml'; then
+              echo "Already synchronized with ${UPSTREAM_SHA}."
+              exit 0
+            fi
+          fi
+
+          cp .github/workflows/sync-upstream.yml /tmp/sync-upstream.yml
+
+          git checkout --detach "${UPSTREAM_SHA}"
+          mkdir -p .github/workflows
+          cp /tmp/sync-upstream.yml .github/workflows/sync-upstream.yml
+          git add .github/workflows/sync-upstream.yml
+          git commit -m "chore(sync): mirror Basic-Diet/client_dashbourd@${UPSTREAM_SHA}"
+          git push --force origin HEAD:main
