@@ -8,7 +8,17 @@ export interface Payment {
   vatHalala?: number;
   totalHalala?: number;
   status: "pending" | "paid" | "completed" | "failed" | "refunded";
-  method: "credit_card" | "apple_pay" | "google_pay" | "wallet" | "moyasar";
+  method:
+    | "credit_card"
+    | "apple_pay"
+    | "google_pay"
+    | "wallet"
+    | "moyasar"
+    | "electronic_gateway"
+    | "cash";
+  paymentMethod?: string;
+  paymentChannel?: string;
+  paymentMethodLabel?: string | { ar?: string; en?: string };
   provider?: string;
   type:
     | "subscription_activation"
