@@ -1,38 +1,40 @@
 import { z } from "zod";
 
-const mealOptionSchema = z.object({
-  mealsPerDay: z.coerce
-    .number({ message: "يجب أن يكون عدد الوجبات رقماً" })
-    .int("يجب أن يكون عدد الوجبات رقماً صحيحاً")
-    .min(1, "يجب أن يكون عدد الوجبات 1 على الأقل"),
-  sortOrder: z.coerce
-    .number({ message: "ترتيب العرض يجب أن يكون رقماً" })
-    .int("ترتيب العرض يجب أن يكون رقماً صحيحاً")
-    .min(0, "ترتيب العرض لا يمكن أن يكون أقل من 0")
-    .default(0),
-  isActive: z.boolean().default(true),
-  priceSar: z.coerce
-    .number({ message: "السعر يجب أن يكون رقماً" })
-    .min(0.01, "يجب أن يكون السعر أكبر من 0")
-    .multipleOf(0.01, "السعر يجب أن يكون بدقة هللتين كحد أقصى"),
-  compareAtSar: z.coerce
-    .number({ message: "سعر المقارنة يجب أن يكون رقماً" })
-    .min(0, "سعر المقارنة لا يمكن أن يكون أقل من 0")
-    .multipleOf(0.01, "سعر المقارنة يجب أن يكون بدقة هللتين كحد أقصى")
-    .optional()
-    .or(z.literal("")),
-}).refine(
-  (data) => {
-    if (data.compareAtSar && Number(data.compareAtSar) > 0) {
-      return Number(data.compareAtSar) > Number(data.priceSar);
+const mealOptionSchema = z
+  .object({
+    mealsPerDay: z.coerce
+      .number({ message: "يجب أن يكون عدد الوجبات رقماً" })
+      .int("يجب أن يكون عدد الوجبات رقماً صحيحاً")
+      .min(1, "يجب أن يكون عدد الوجبات 1 على الأقل"),
+    sortOrder: z.coerce
+      .number({ message: "ترتيب العرض يجب أن يكون رقماً" })
+      .int("ترتيب العرض يجب أن يكون رقماً صحيحاً")
+      .min(0, "ترتيب العرض لا يمكن أن يكون أقل من 0")
+      .default(0),
+    isActive: z.boolean().default(true),
+    priceSar: z.coerce
+      .number({ message: "السعر يجب أن يكون رقماً" })
+      .min(0.01, "يجب أن يكون السعر أكبر من 0")
+      .multipleOf(0.01, "السعر يجب أن يكون بدقة هللتين كحد أقصى"),
+    compareAtSar: z.coerce
+      .number({ message: "سعر المقارنة يجب أن يكون رقماً" })
+      .min(0, "سعر المقارنة لا يمكن أن يكون أقل من 0")
+      .multipleOf(0.01, "سعر المقارنة يجب أن يكون بدقة هللتين كحد أقصى")
+      .optional()
+      .or(z.literal("")),
+  })
+  .refine(
+    (data) => {
+      if (data.compareAtSar && Number(data.compareAtSar) > 0) {
+        return Number(data.compareAtSar) > Number(data.priceSar);
+      }
+      return true;
+    },
+    {
+      message: "سعر المقارنة يجب أن يكون أكبر من السعر الأساسي",
+      path: ["compareAtSar"],
     }
-    return true;
-  },
-  {
-    message: "سعر المقارنة يجب أن يكون أكبر من السعر الأساسي",
-    path: ["compareAtSar"],
-  }
-);
+  );
 
 const gramOptionSchema = z.object({
   grams: z.coerce
@@ -65,6 +67,11 @@ const createPackageSchema = z.object({
     .number({ message: "عدد الأيام يجب أن يكون رقماً" })
     .int("عدد الأيام يجب أن يكون رقماً صحيحاً")
     .min(1, "يجب أن يكون عدد الأيام أكبر من 0"),
+  timelineExtraDays: z.coerce
+    .number({ message: "عدد أيام الخط الزمني الإضافية يجب أن يكون رقماً" })
+    .int("عدد أيام الخط الزمني الإضافية يجب أن يكون رقماً صحيحاً")
+    .min(0, "عدد أيام الخط الزمني الإضافية لا يمكن أن يكون أقل من 0")
+    .max(365, "عدد أيام الخط الزمني الإضافية لا يمكن أن يتجاوز 365 يوماً"),
   currency: z.string().default("SAR"),
   sortOrder: z.coerce
     .number({ message: "ترتيب العرض يجب أن يكون رقماً" })
