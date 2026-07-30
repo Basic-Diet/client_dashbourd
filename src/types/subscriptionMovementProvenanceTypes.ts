@@ -66,12 +66,15 @@ export interface SubscriptionMealMovementCoverage {
   derivedMeals: number;
   unknownMeals: number;
   reservationMeals: number;
+  forfeitureMeals?: number;
   difference: number;
   consumption: {
     delivery: number;
     branchPickup: number;
     dashboardManual: number;
     consumedWithoutPreparation: number;
+    noShow?: number;
+    canceled?: number;
     other: number;
     unknown: number;
   };
