@@ -25,6 +25,17 @@ export interface SubscriptionTrackingAddonItem {
   category?: string;
 }
 
+export type SubscriptionTrackingDayState =
+  | "received"
+  | "consumed_without_preparation"
+  | "exception"
+  | "missed_selection"
+  | "in_progress"
+  | "planned"
+  | "available_today"
+  | "upcoming"
+  | "historical_empty";
+
 export interface SubscriptionTrackingDay {
   date: string;
   isToday: boolean;
@@ -32,6 +43,7 @@ export interface SubscriptionTrackingDay {
   status: string;
   dayStatus: string;
   statusLabel: string;
+  trackingState?: SubscriptionTrackingDayState;
   source: string;
   sourceLabel: string;
   calendar?: {
