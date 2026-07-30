@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,10 +41,42 @@ interface DeliveryFiltersProps {
   visibleCount: number;
 }
 
-function uniqueValues(values: string[]) {
-  return Array.from(
-    new Set(values.map((value) => value.trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b, "ar"));
+interface CountedOption {
+  label: string;
+  value: string;
+  count: number;
+}
+
+function normalizeOptionKey(value: string) {
+  return value.trim().toLocaleLowerCase("ar").replace(/\s+/g, " ");
+}
+
+function buildCountedOptions(
+  items: UnifiedQueueItem[],
+  getValue: (item: UnifiedQueueItem) => string
+): CountedOption[] {
+  const values = new Map<string, CountedOption>();
+
+  for (const item of items) {
+    const value = getValue(item).trim();
+    if (!value) continue;
+    const key = normalizeOptionKey(value);
+    const existing = values.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    values.set(key, { label: value, value, count: 1 });
+  }
+
+  return Array.from(values.values()).sort((a, b) =>
+    a.label.localeCompare(b.label, "ar")
+  );
+}
+
+function containsOption(options: CountedOption[], value: string) {
+  const key = normalizeOptionKey(value);
+  return options.some((option) => normalizeOptionKey(option.value) === key);
 }
 
 function SelectFilter({
@@ -95,8 +128,26 @@ export function DeliveryFilters({
   statusCountData,
   visibleCount,
 }: DeliveryFiltersProps) {
-  const windows = uniqueValues(baseData.map(getDeliveryOperationWindow));
-  const zones = uniqueValues(baseData.map(getDeliveryOperationZone));
+  const windows = useMemo(
+    () => buildCountedOptions(baseData, getDeliveryOperationWindow),
+    [baseData]
+  );
+  const areas = useMemo(
+    () => buildCountedOptions(baseData, getDeliveryOperationZone),
+    [baseData]
+  );
+
+  useEffect(() => {
+    if (windowFilter !== "all" && !containsOption(windows, windowFilter)) {
+      onWindowFilterChange("all");
+    }
+  }, [onWindowFilterChange, windowFilter, windows]);
+
+  useEffect(() => {
+    if (zoneFilter !== "all" && !containsOption(areas, zoneFilter)) {
+      onZoneFilterChange("all");
+    }
+  }, [areas, onZoneFilterChange, zoneFilter]);
 
   return (
     <div className="space-y-3 rounded-2xl border bg-card p-3 shadow-sm md:p-4">
@@ -104,7 +155,7 @@ export function DeliveryFilters({
         <div className="relative w-full">
           <Search className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="ابحث بالاسم أو الهاتف أو المرجع أو العنوان أو المنطقة..."
+            placeholder="ابحث بالاسم أو الهاتف أو المرجع أو العنوان أو الحي..."
             value={searchStr}
             onChange={(event) => onSearchChange(event.target.value)}
             className="min-h-11 w-full border-muted bg-background pr-10 text-sm shadow-sm"
@@ -179,16 +230,22 @@ export function DeliveryFilters({
           onChange={onWindowFilterChange}
           options={[
             { label: "كل الأوقات", value: "all" },
-            ...windows.map((value) => ({ label: value, value })),
+            ...windows.map((option) => ({
+              label: `${option.label} (${option.count})`,
+              value: option.value,
+            })),
           ]}
         />
         <SelectFilter
-          label="المنطقة"
+          label="الحي / المنطقة"
           value={zoneFilter}
           onChange={onZoneFilterChange}
           options={[
-            { label: "كل المناطق", value: "all" },
-            ...zones.map((value) => ({ label: value, value })),
+            { label: "كل الأحياء والمناطق", value: "all" },
+            ...areas.map((option) => ({
+              label: `${option.label} (${option.count})`,
+              value: option.value,
+            })),
           ]}
         />
         <SelectFilter
