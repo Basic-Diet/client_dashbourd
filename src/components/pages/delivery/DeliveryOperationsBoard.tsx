@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, Search } from "lucide-react";
-import { toast } from "sonner";
+import { OperationsBoardSkeleton } from "@/components/pages/operations-board/OperationsBoardSkeleton";
+import { OperationsCourierBoard } from "@/components/pages/operations-board/OperationsCourierBoard";
 import { ReasonActionDialog } from "@/components/pages/pickup-board/ReasonActionDialog";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useOperationsBoard } from "@/hooks/useOperationsBoard";
 import { useOperationsBoardDialog } from "@/hooks/useOperationsBoardDialog";
 import type { UnifiedQueueItem } from "@/types/dashboardOpsTypes";
-import { OperationsBoardSkeleton } from "@/components/pages/operations-board/OperationsBoardSkeleton";
-import { OperationsCourierBoard } from "@/components/pages/operations-board/OperationsCourierBoard";
 
 export function DeliveryOperationsBoard() {
   const [date, setDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
@@ -74,30 +73,6 @@ export function DeliveryOperationsBoard() {
       </div>
     );
   }
-
-  const handleDirectFulfill = (item: UnifiedQueueItem) => {
-    const pickupCode =
-      item.fulfillment?.pickup?.pickupCode || item.pickup?.pickupCode;
-
-    if (!pickupCode) {
-      toast.error(
-        "تعذر إتمام الاستلام لأن رمز الاستلام غير متاح في بيانات الطلب."
-      );
-      return;
-    }
-
-    requestAction(
-      item,
-      "fulfill",
-      "تم الاستلام",
-      false,
-      undefined,
-      undefined,
-      pickupCode
-    );
-  };
-
-  void handleDirectFulfill;
 
   return (
     <div
