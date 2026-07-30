@@ -57,7 +57,7 @@ const KITCHEN_ROUTES = [
   "/profile",
 ];
 
-const COURIER_ROUTES = ["/delivery", "/profile"];
+const COURIER_ROUTES = ["/delivery", "/operations", "/profile"];
 
 const CASHIER_ROUTES = [
   "/manual-deduction",
