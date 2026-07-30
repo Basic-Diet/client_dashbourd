@@ -1,0 +1,44 @@
+name: Accounting range UX
+
+on:
+  pull_request:
+    paths:
+      - "src/features/accounting/**"
+      - "src/routes/_protected/accounting/**"
+      - "src/hooks/useDashboardAdminQuery.ts"
+      - "src/utils/dashboardApiContract.ts"
+      - "src/utils/fetchDashboardSupportData.ts"
+      - "tests/accountingReports.test.ts"
+      - "tests/accountingRangeUx.test.ts"
+      - ".github/workflows/accounting-range-ux.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run focused accounting tests
+        run: npx vitest run tests/accountingReports.test.ts tests/accountingRangeUx.test.ts
+      - name: TypeScript and production build
+        run: npm run build
+      - name: Lint accounting changes
+        run: >-
+          npx eslint
+          src/features/accounting/accountingRange.ts
+          src/features/accounting/accountingRangeTypes.ts
+          src/features/accounting/components/AccountingRangeInsights.tsx
+          src/routes/_protected/accounting/index.tsx
+          src/hooks/useDashboardAdminQuery.ts
+          src/utils/dashboardApiContract.ts
+          src/utils/fetchDashboardSupportData.ts
+          tests/accountingRangeUx.test.ts
