@@ -1,133 +1,201 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-
 import {
+  countDeliveryByStatusFilter,
+  enrichDeliveryOperationItem,
   filterDeliveryOperations,
   getAllDeliveryOperationItems,
-  getDeliveryOperationWindow,
   getDeliveryOperationZone,
   matchesDeliveryActionFilter,
+  matchesDeliverySearch,
+  matchesDeliveryStatusFilter,
 } from "../src/lib/deliveryOperations";
-import { countByFilter, type UnifiedQueueItem } from "../src/types/dashboardOpsTypes";
+import type { UnifiedQueueItem } from "../src/types/dashboardOpsTypes";
 
-const makeItem = (overrides: Partial<UnifiedQueueItem>): UnifiedQueueItem =>
-  ({
-    id: overrides.id ?? overrides.entityId ?? "item",
-    entityId: overrides.entityId ?? overrides.id ?? "item",
-    entityType: "subscription_day",
-    source: "subscription",
-    type: "subscription",
-    mode: "delivery",
-    reference: "REF-1",
-    status: "preparing",
-    statusLabel: "قيد التحضير",
-    ui: { label: "قيد التحضير" },
-    customer: { name: "عميل", phone: "0500000000" },
-    fulfillment: { type: "delivery", mode: "delivery" },
-    context: { date: "2026-07-27", window: "10:00-12:00" },
-    delivery: {
-      window: "10:00-12:00",
-      deliveryWindow: "10:00-12:00",
-      zone: { id: "north", name: "الشمال" },
-      addressSummary: "حي النخيل",
+function queueItem(
+  overrides: Partial<UnifiedQueueItem> & Pick<UnifiedQueueItem, "id" | "status">
+): UnifiedQueueItem {
+  return {
+    id: overrides.id,
+    entityId: overrides.entityId ?? overrides.id,
+    entityType: overrides.entityType ?? "subscription_day",
+    source: overrides.source ?? "subscription",
+    type: overrides.type ?? "subscription",
+    mode: overrides.mode ?? "delivery",
+    reference: overrides.reference ?? overrides.id,
+    status: overrides.status,
+    statusLabel: overrides.statusLabel ?? overrides.status,
+    ui: overrides.ui ?? {},
+    customer: overrides.customer ?? {
+      id: `customer-${overrides.id}`,
+      name: "عميل اختبار",
+      phone: "+966 55 123 4567",
     },
-    allowedActions: [],
-    timestamps: { createdAt: null, updatedAt: null },
-    ...overrides,
-  }) as UnifiedQueueItem;
+    fulfillment: overrides.fulfillment ?? { mode: "delivery" },
+    delivery: overrides.delivery ?? null,
+    kitchen: overrides.kitchen ?? null,
+    allowedActions: overrides.allowedActions ?? [],
+    timestamps: overrides.timestamps ?? {
+      createdAt: null,
+      updatedAt: null,
+    },
+    context: overrides.context ?? { date: "2026-07-30" },
+    rawData: overrides.rawData,
+  };
+}
 
-test("delivery filters use enriched delivery fields consistently", () => {
-  const delivery = makeItem({
-    id: "delivery-1",
-    context: { date: "2026-07-27" },
-    delivery: undefined,
-    rawData: {
-      fulfillment: {
-        delivery: {
-          window: " 12:00-14:00 ",
-          zone: { id: "east", name: "الشرق" },
-          address: { district: "الروضة", street: "شارع الأمير" },
-        },
+const readySubscription = enrichDeliveryOperationItem(
+  queueItem({
+    id: "sub-ready",
+    status: "ready_for_delivery",
+    reference: "SUB-READY-001",
+    delivery: {
+      window: "10:00–12:00",
+      address: {
+        line1: "شارع الأمير",
+        district: "الروضة",
+        city: "جدة",
+        building: "14",
       },
     },
-  });
-  const pickupRequest = makeItem({
-    id: "pickup-request",
-    source: "subscription_pickup_request",
-    entityType: "subscription_pickup_request",
-    type: "subscription_pickup_request",
-    mode: "delivery",
-  });
-
-  const items = getAllDeliveryOperationItems([delivery, pickupRequest]);
-
-  assert.equal(items.length, 1);
-  assert.equal(getDeliveryOperationWindow(items[0]), "12:00-14:00");
-  assert.equal(getDeliveryOperationZone(items[0]), "الشرق");
-  assert.equal(
-    filterDeliveryOperations(items, { windowFilter: "12:00-14:00" }).length,
-    1
-  );
-  assert.equal(
-    filterDeliveryOperations(items, { zoneFilter: "الشرق" }).length,
-    1
-  );
-  assert.equal(filterDeliveryOperations(items, { search: "الروضة" }).length, 1);
-  assert.equal(filterDeliveryOperations(items, { search: "غير موجود" }).length, 0);
-});
-
-test("delivery filters cover source, status, and action aliases", () => {
-  const subscriptionReady = makeItem({
-    id: "subscription-ready",
-    source: "subscription",
-    status: "ready_for_delivery",
     allowedActions: [
       {
-        id: "courier_pickup",
+        id: "pickup",
         label: "استلام للتوصيل",
-        endpoint: "/api/courier/deliveries/subscription-ready/collect",
+        endpoint: "/api/courier/deliveries/1/collect",
         method: "PUT",
       },
     ],
-  });
-  const oneTimeOut = makeItem({
-    id: "order-out",
+  })
+);
+
+const oneTimeOnRoad = enrichDeliveryOperationItem(
+  queueItem({
+    id: "order-road",
     entityType: "order",
     source: "one_time_order",
     type: "order",
     status: "arriving_soon",
-    allowedActions: [],
-  });
-  const disabledOnly = makeItem({
-    id: "disabled",
+    orderNumber: "ORD-7788",
+    customer: {
+      id: "customer-order",
+      name: "أحمد محمد",
+      phone: "+966501112233",
+    },
+    delivery: {
+      window: "12:00 - 14:00",
+      zone: { id: "zone-north", name: "شمال جدة" },
+      address: {
+        line1: "طريق المدينة",
+        district: "النزهة",
+        city: "جدة",
+      },
+    },
     allowedActions: [
       {
         id: "fulfill",
         label: "تم التسليم",
-        endpoint: "/api/courier/deliveries/disabled/delivered",
+        endpoint: "/api/courier/orders/2/delivered",
         method: "PUT",
-        disabled: true,
       },
     ],
+  })
+);
+
+const canceledSubscription = enrichDeliveryOperationItem(
+  queueItem({
+    id: "sub-canceled",
+    status: "delivery_canceled",
+    customer: {
+      id: "customer-canceled",
+      name: "سارة",
+      phone: "+966500000000",
+    },
+    delivery: {
+      window: "10:00-12:00",
+      address: { district: "الصفا", city: "جدة" },
+    },
+  })
+);
+
+test("delivery list keeps only delivery operations", () => {
+  const pickupRequest = queueItem({
+    id: "pickup-request",
+    status: "ready_for_pickup",
+    source: "subscription_pickup_request",
+    entityType: "subscription_pickup_request",
+    type: "subscription_pickup_request",
   });
-
-  const items = [subscriptionReady, oneTimeOut, disabledOnly];
-
-  assert.equal(
-    filterDeliveryOperations(items, { sourceFilter: "one_time_order" }).map(
-      (item) => item.id
-    )[0],
-    "order-out"
-  );
   assert.deepEqual(
-    filterDeliveryOperations(items, { statusFilter: "out_for_delivery" }).map(
+    getAllDeliveryOperationItems([readySubscription, pickupRequest]).map(
       (item) => item.id
     ),
-    ["order-out"]
+    ["sub-ready"]
   );
-  assert.equal(countByFilter(items, "out_for_delivery"), 1);
-  assert.equal(matchesDeliveryActionFilter(subscriptionReady, "ready_to_collect"), true);
-  assert.equal(matchesDeliveryActionFilter(subscriptionReady, "needs_action"), true);
-  assert.equal(matchesDeliveryActionFilter(disabledOnly, "needs_action"), false);
-  assert.equal(matchesDeliveryActionFilter(disabledOnly, "no_actions"), true);
+});
+
+test("delivery status tabs include every operational alias", () => {
+  assert.equal(matchesDeliveryStatusFilter("open", "preparing"), true);
+  assert.equal(matchesDeliveryStatusFilter("locked", "preparing"), true);
+  assert.equal(matchesDeliveryStatusFilter("ready_for_delivery", "preparing"), true);
+  assert.equal(matchesDeliveryStatusFilter("arriving_soon", "out_for_delivery"), true);
+  assert.equal(matchesDeliveryStatusFilter("fulfilled", "delivered"), true);
+  assert.equal(matchesDeliveryStatusFilter("delivery_canceled", "canceled"), true);
+
+  assert.equal(
+    countDeliveryByStatusFilter(
+      [readySubscription, oneTimeOnRoad, canceledSubscription],
+      "all"
+    ),
+    3
+  );
+  assert.equal(
+    countDeliveryByStatusFilter(
+      [readySubscription, oneTimeOnRoad, canceledSubscription],
+      "preparing"
+    ),
+    1
+  );
+});
+
+test("region and delivery-window filters use address fallbacks and normalized punctuation", () => {
+  assert.equal(getDeliveryOperationZone(readySubscription), "الروضة");
+  assert.deepEqual(
+    filterDeliveryOperations(
+      [readySubscription, oneTimeOnRoad, canceledSubscription],
+      {
+        zoneFilter: "الروضة",
+        windowFilter: "10:00 - 12:00",
+      }
+    ).map((item) => item.id),
+    ["sub-ready"]
+  );
+});
+
+test("search covers Arabic text, normalized digits, references and complete addresses", () => {
+  assert.equal(matchesDeliverySearch(readySubscription, "الروضة مبنى 14"), true);
+  assert.equal(matchesDeliverySearch(readySubscription, "SUB READY 001"), true);
+  assert.equal(matchesDeliverySearch(readySubscription, "٩٦٦ ٥٥ ١٢٣ ٤٥٦٧"), true);
+  assert.equal(matchesDeliverySearch(oneTimeOnRoad, "أحمد طريق المدينة"), true);
+  assert.equal(matchesDeliverySearch(oneTimeOnRoad, "ORD 7788"), true);
+});
+
+test("source, status and action filters combine without leaking unrelated rows", () => {
+  assert.deepEqual(
+    filterDeliveryOperations(
+      [readySubscription, oneTimeOnRoad, canceledSubscription],
+      {
+        sourceFilter: "subscription",
+        statusFilter: "preparing",
+        actionFilter: "ready_to_collect",
+      }
+    ).map((item) => item.id),
+    ["sub-ready"]
+  );
+
+  assert.equal(
+    matchesDeliveryActionFilter(oneTimeOnRoad, "out_for_delivery"),
+    true
+  );
+  assert.equal(matchesDeliveryActionFilter(canceledSubscription, "no_actions"), true);
 });
