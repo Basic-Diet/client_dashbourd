@@ -45,7 +45,11 @@ const EMPTY_REASON_DIALOG: ReasonDialogState = {
   isDangerous: false,
 };
 
+type DeliveryWorkspace = "tracking" | "preparation";
+
 function DeliveryDashboard() {
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<DeliveryWorkspace>("tracking");
   const [statusFilter, setStatusFilter] =
     useState<DashboardOpsStatusFilter>("all");
   const [sourceFilter, setSourceFilter] =
@@ -179,32 +183,41 @@ function DeliveryDashboard() {
             متابعة التوصيلات وتحضير الطلبات من شاشة واحدة لصلاحية التوصيل.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="rounded-xl border bg-muted/30 px-4 py-2 text-right">
-            <span className="block text-[11px] font-bold text-muted-foreground">
-              يوم التشغيل
-            </span>
-            <span dir="ltr" className="font-mono text-sm font-bold">
-              {businessDate}
-            </span>
+        {activeWorkspace === "tracking" ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="rounded-xl border bg-muted/30 px-4 py-2 text-right">
+              <span className="block text-[11px] font-bold text-muted-foreground">
+                يوم التشغيل
+              </span>
+              <span dir="ltr" className="font-mono text-sm font-bold">
+                {businessDate}
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-xl"
+              disabled={isFetching}
+              onClick={() => refetch()}
+              aria-label="تحديث بيانات التوصيل"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+              />
+              {isFetching ? "جارٍ التحديث" : "تحديث"}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 rounded-xl"
-            disabled={isFetching}
-            onClick={() => refetch()}
-            aria-label="تحديث بيانات التوصيل"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-            />
-            {isFetching ? "جارٍ التحديث" : "تحديث"}
-          </Button>
-        </div>
+        ) : null}
       </div>
 
-      <Tabs defaultValue="tracking" className="flex flex-col gap-4" dir="rtl">
+      <Tabs
+        value={activeWorkspace}
+        onValueChange={(value) =>
+          setActiveWorkspace(value as DeliveryWorkspace)
+        }
+        className="flex flex-col gap-4"
+        dir="rtl"
+      >
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm sm:w-fit">
           <TabsTrigger
             value="tracking"
