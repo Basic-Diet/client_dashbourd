@@ -5,6 +5,7 @@ import {
   enrichDeliveryOperationItem,
   filterDeliveryOperations,
   getAllDeliveryOperationItems,
+  getDeliveryOperationAreaValues,
   getDeliveryOperationZone,
   matchesDeliveryActionFilter,
   matchesDeliverySearch,
@@ -51,6 +52,7 @@ const readySubscription = enrichDeliveryOperationItem(
     reference: "SUB-READY-001",
     delivery: {
       window: "10:00–12:00",
+      zone: { id: "zone-salamah", name: "سلامة" },
       address: {
         line1: "شارع الأمير",
         district: "الروضة",
@@ -118,6 +120,27 @@ const canceledSubscription = enrichDeliveryOperationItem(
   })
 );
 
+const genericAreaSubscription = enrichDeliveryOperationItem(
+  queueItem({
+    id: "sub-generic-area",
+    status: "preparing",
+    customer: {
+      id: "customer-generic",
+      name: "هناء الشريف",
+      phone: "+966544111785",
+    },
+    delivery: {
+      window: "10:00-12:00",
+      zone: { id: "other-jeddah", name: "مناطق أخرى داخل جدة" },
+      address: {
+        district: "مناطق أخرى داخل جدة",
+        street: "شارع الدرر الثاني - حي النعيم",
+        city: "Jeddah",
+      },
+    },
+  })
+);
+
 test("delivery list keeps only delivery operations", () => {
   const pickupRequest = queueItem({
     id: "pickup-request",
@@ -158,8 +181,15 @@ test("delivery status tabs include every operational alias", () => {
   );
 });
 
-test("region and delivery-window filters use address fallbacks and normalized punctuation", () => {
+test("area filter prefers the precise district over a broad delivery zone", () => {
   assert.equal(getDeliveryOperationZone(readySubscription), "الروضة");
+  assert.deepEqual(getDeliveryOperationAreaValues(readySubscription), [
+    "الروضة",
+    "سلامة",
+    "zone-salamah",
+    "جدة",
+  ]);
+
   assert.deepEqual(
     filterDeliveryOperations(
       [readySubscription, oneTimeOnRoad, canceledSubscription],
@@ -170,10 +200,29 @@ test("region and delivery-window filters use address fallbacks and normalized pu
     ).map((item) => item.id),
     ["sub-ready"]
   );
+
+  assert.deepEqual(
+    filterDeliveryOperations([readySubscription, oneTimeOnRoad], {
+      zoneFilter: "سلامة",
+    }).map((item) => item.id),
+    ["sub-ready"]
+  );
+});
+
+test("generic Jeddah area recovers the real neighborhood from the address", () => {
+  assert.equal(getDeliveryOperationZone(genericAreaSubscription), "النعيم");
+  assert.deepEqual(
+    filterDeliveryOperations([genericAreaSubscription, readySubscription], {
+      zoneFilter: "النعيم",
+    }).map((item) => item.id),
+    ["sub-generic-area"]
+  );
+  assert.equal(matchesDeliverySearch(genericAreaSubscription, "حي النعيم"), true);
 });
 
 test("search covers Arabic text, normalized digits, references and complete addresses", () => {
   assert.equal(matchesDeliverySearch(readySubscription, "الروضة مبنى 14"), true);
+  assert.equal(matchesDeliverySearch(readySubscription, "سلامة"), true);
   assert.equal(matchesDeliverySearch(readySubscription, "SUB READY 001"), true);
   assert.equal(matchesDeliverySearch(readySubscription, "٩٦٦ ٥٥ ١٢٣ ٤٥٦٧"), true);
   assert.equal(matchesDeliverySearch(oneTimeOnRoad, "أحمد طريق المدينة"), true);
