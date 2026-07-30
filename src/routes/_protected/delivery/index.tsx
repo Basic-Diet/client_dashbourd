@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { ChefHat, Info, RefreshCw, Truck } from "lucide-react";
+import { CalendarIcon, ChefHat, Info, RefreshCw, Truck } from "lucide-react";
 import { DeliveryDashboardCards } from "@/components/pages/delivery/DeliveryDashboardCards";
 import { DeliveryFilters } from "@/components/pages/delivery/DeliveryFilters";
 import { DeliveryList } from "@/components/pages/delivery/DeliveryList";
@@ -11,6 +11,7 @@ import {
   type ReasonDialogState,
 } from "@/components/pages/pickup-board/ReasonActionDialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useCourierDeliveryActionMutation,
@@ -50,6 +51,9 @@ type DeliveryWorkspace = "tracking" | "preparation";
 function DeliveryDashboard() {
   const [activeWorkspace, setActiveWorkspace] =
     useState<DeliveryWorkspace>("tracking");
+  const [selectedDate, setSelectedDate] = useState(() =>
+    format(new Date(), "yyyy-MM-dd")
+  );
   const [statusFilter, setStatusFilter] =
     useState<DashboardOpsStatusFilter>("all");
   const [sourceFilter, setSourceFilter] =
@@ -70,7 +74,7 @@ function DeliveryDashboard() {
     error,
     refetch,
     dataUpdatedAt,
-  } = useCourierDeliveryListQuery();
+  } = useCourierDeliveryListQuery(selectedDate);
   const actionMutation = useCourierDeliveryActionMutation();
 
   const baseData = useMemo(
@@ -94,6 +98,26 @@ function DeliveryDashboard() {
       searchStr,
       sourceFilter,
       statusFilter,
+      windowFilter,
+      zoneFilter,
+    ]
+  );
+
+  const statusCountData = useMemo(
+    () =>
+      filterDeliveryOperations(baseData, {
+        search: searchStr,
+        statusFilter: "all",
+        sourceFilter,
+        windowFilter,
+        zoneFilter,
+        actionFilter,
+      }),
+    [
+      actionFilter,
+      baseData,
+      searchStr,
+      sourceFilter,
       windowFilter,
       zoneFilter,
     ]
@@ -154,7 +178,7 @@ function DeliveryDashboard() {
     setReasonDialog(EMPTY_REASON_DIALOG);
   };
 
-  const businessDate = listRes?.data?.date || format(new Date(), "yyyy-MM-dd");
+  const businessDate = listRes?.data?.date || selectedDate;
   const lastUpdated = dataUpdatedAt
     ? new Intl.DateTimeFormat("ar-SA", {
         hour: "2-digit",
@@ -184,10 +208,26 @@ function DeliveryDashboard() {
           </p>
         </div>
         {activeWorkspace === "tracking" ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="rounded-xl border bg-muted/30 px-4 py-2 text-right">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="space-y-1 text-right">
               <span className="block text-[11px] font-bold text-muted-foreground">
                 يوم التشغيل
+              </span>
+              <div className="relative">
+                <CalendarIcon className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  className="h-11 min-w-44 pr-10 font-mono"
+                  dir="ltr"
+                  aria-label="اختيار يوم تشغيل التوصيل"
+                />
+              </div>
+            </label>
+            <div className="rounded-xl border bg-muted/30 px-4 py-2 text-right">
+              <span className="block text-[11px] font-bold text-muted-foreground">
+                البيانات المعروضة
               </span>
               <span dir="ltr" className="font-mono text-sm font-bold">
                 {businessDate}
@@ -279,13 +319,15 @@ function DeliveryDashboard() {
                 onActionFilterChange={setActionFilter}
                 onReset={resetFilters}
                 baseData={baseData}
+                statusCountData={statusCountData}
+                visibleCount={displayData.length}
               />
 
               <div className="flex items-start gap-2 rounded-xl border border-blue-500/15 bg-blue-50/70 p-3 text-xs text-blue-800 md:text-sm dark:bg-blue-950/30 dark:text-blue-300">
                 <Info className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  الإجراءات الظاهرة مملوكة للباكند ويتم تحديث الكارت بعد نجاح كل
-                  إجراء.
+                  الفلاتر تعمل على جميع توصيلات يوم التشغيل المحدد، والإجراءات الظاهرة
+                  مملوكة للباكند ويتم تحديث الكارت بعد نجاح كل إجراء.
                 </span>
               </div>
 
@@ -298,7 +340,7 @@ function DeliveryDashboard() {
                   emptyMessage={
                     hasActiveFilters
                       ? "لا توجد نتائج مطابقة للفلاتر الحالية. أعد ضبط الفلاتر لعرض كل التوصيلات."
-                      : "لا توجد توصيلات في يوم التشغيل الحالي."
+                      : "لا توجد توصيلات في يوم التشغيل المحدد."
                   }
                 />
               </div>
