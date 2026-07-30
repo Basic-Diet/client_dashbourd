@@ -5,6 +5,7 @@ import type {
 } from "@/types/dashboardOpsTypes";
 
 type UnknownRecord = Record<string, unknown>;
+
 export type DeliverySourceFilter = "all" | "subscription" | "one_time_order";
 export type DeliveryActionFilter =
   | "all"
@@ -91,7 +92,7 @@ const normalizeSearchText = (value: unknown) =>
     .replace(/[\u064b-\u065f\u0670\u0640]/g, "")
     .replace(/[إأآ]/g, "ا")
     .replace(/ى/g, "ي")
-    .replace(/[ة]/g, "ه")
+    .replace(/ة/g, "ه")
     .replace(/[+()\[\]{}.,،/\\:_–—-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -101,6 +102,22 @@ const normalizeFilterKey = (value: unknown) =>
 
 const normalizeStatus = (value: unknown) =>
   safeText(value, "").trim().toLowerCase();
+
+function uniqueStrings(values: unknown[]): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    const text = asString(value);
+    if (!text) continue;
+    const key = normalizeFilterKey(text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(text);
+  }
+
+  return result;
+}
 
 const formatAddress = (address: UnknownRecord | null): string | null => {
   const formatted = firstString(
@@ -127,7 +144,7 @@ const formatAddress = (address: UnknownRecord | null): string | null => {
   return parts.length ? parts.join("، ") : null;
 };
 
-function getRawDelivery(item: UnifiedQueueItem) {
+function getRawDelivery(item: UnifiedQueueItem): UnknownRecord {
   const raw = asRecord(item.rawData);
   const rawFulfillment = asRecord(raw?.fulfillment);
   return (
@@ -138,7 +155,7 @@ function getRawDelivery(item: UnifiedQueueItem) {
   );
 }
 
-function getDeliveryAddress(item: UnifiedQueueItem) {
+function getDeliveryAddress(item: UnifiedQueueItem): UnknownRecord | null {
   const raw = asRecord(item.rawData);
   const rawDelivery = getRawDelivery(item);
   return (
@@ -146,6 +163,134 @@ function getDeliveryAddress(item: UnifiedQueueItem) {
     asRecord(rawDelivery.address) ??
     asRecord(raw?.deliveryAddress)
   );
+}
+
+function isGenericAreaName(value: unknown): boolean {
+  const key = normalizeFilterKey(value);
+  if (!key) return true;
+
+  return (
+    key === "جده" ||
+    key === "jeddah" ||
+    key.includes("مناطقاخريداخلجده") ||
+    key.includes("مناطقأخريداخلجده") ||
+    key.includes("otherareasinjeddah") ||
+    key.includes("otherareasinsidejeddah") ||
+    key === "غيرمحدد" ||
+    key === "unknown"
+  );
+}
+
+function cleanExtractedArea(value: string): string | null {
+  const cleaned = value
+    .replace(/^[\s:،,\-–—]+|[\s:،,\-–—]+$/g, "")
+    .replace(/\s+(?:جدة|جده|jeddah).*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned.length >= 2 ? cleaned : null;
+}
+
+function extractNeighborhoodFromAddress(address: UnknownRecord | null): string | null {
+  if (!address) return null;
+
+  const candidates = uniqueStrings([
+    address.street,
+    address.line1,
+    address.line2,
+    address.formattedAddress,
+    address.addressSummary,
+    address.notes,
+  ]);
+
+  for (const candidate of candidates) {
+    const arabicMatch = candidate.match(
+      /(?:^|[\s،,;|/\\\-–—])حي\s+([^\n،,;|/\\\-–—]{2,45})/u
+    );
+    if (arabicMatch?.[1]) {
+      const area = cleanExtractedArea(arabicMatch[1]);
+      if (area) return area;
+    }
+
+    const englishMatch = candidate.match(
+      /\b(?:district|neighbou?rhood)\s*[:\-]?\s*([^,;|/\\\-–—]{2,45})/i
+    );
+    if (englishMatch?.[1]) {
+      const area = cleanExtractedArea(englishMatch[1]);
+      if (area) return area;
+    }
+  }
+
+  return null;
+}
+
+function getExplicitDeliveryZoneValues(item: UnifiedQueueItem): string[] {
+  const raw = asRecord(item.rawData);
+  const rawDelivery = getRawDelivery(item);
+
+  return uniqueStrings([
+    item.delivery?.zone?.name,
+    item.delivery?.zone?.id,
+    item.delivery?.zoneId,
+    asRecord(rawDelivery.zone)?.name,
+    asRecord(rawDelivery.zone)?.id,
+    rawDelivery.zoneName,
+    rawDelivery.zoneId,
+    raw?.deliveryZoneName,
+    raw?.deliveryZone,
+    raw?.deliveryZoneId,
+    raw?.zoneName,
+    raw?.zoneId,
+  ]);
+}
+
+/**
+ * Returns the precise customer neighborhood used as the primary UI filter value.
+ * A real district wins over a configured broad delivery zone. When historical
+ * data stores a generic value such as "مناطق أخرى داخل جدة", the function tries
+ * to recover "حي ..." from the street/full address before falling back.
+ */
+export function getDeliveryOperationZone(item: UnifiedQueueItem): string {
+  const address = getDeliveryAddress(item);
+  const district = firstString(
+    address?.district,
+    address?.neighborhood,
+    address?.neighbourhood,
+    address?.suburb,
+    address?.area
+  );
+
+  if (district && !isGenericAreaName(district)) return district;
+
+  const extractedNeighborhood = extractNeighborhoodFromAddress(address);
+  if (extractedNeighborhood) return extractedNeighborhood;
+
+  if (district) return district;
+
+  return (
+    getExplicitDeliveryZoneValues(item)[0] ??
+    firstString(address?.city) ??
+    ""
+  );
+}
+
+/**
+ * Complete list of values that may identify an item's area. The first value is
+ * the precise neighborhood displayed in the dropdown; broad zone aliases remain
+ * searchable/matchable for backward compatibility.
+ */
+export function getDeliveryOperationAreaValues(item: UnifiedQueueItem): string[] {
+  const address = getDeliveryAddress(item);
+  return uniqueStrings([
+    getDeliveryOperationZone(item),
+    address?.district,
+    address?.neighborhood,
+    address?.neighbourhood,
+    address?.suburb,
+    address?.area,
+    ...getExplicitDeliveryZoneValues(item),
+    address?.city,
+  ]);
 }
 
 export function enrichDeliveryOperationItem(
@@ -187,21 +332,7 @@ export function enrichDeliveryOperationItem(
     asRecord(raw.deliverySlot)?.window,
     raw.deliverySlot
   );
-  const zoneValue = firstString(
-    item.delivery?.zone?.name,
-    item.delivery?.zone?.id,
-    item.delivery?.zoneId,
-    asRecord(rawDelivery.zone)?.name,
-    asRecord(rawDelivery.zone)?.id,
-    rawDelivery.zoneName,
-    rawDelivery.zoneId,
-    raw.deliveryZoneName,
-    raw.deliveryZone,
-    raw.zoneName,
-    raw.zoneId,
-    address?.district,
-    address?.city
-  );
+  const explicitZone = getExplicitDeliveryZoneValues(item)[0] ?? null;
   const addressNotes = firstString(
     item.context.addressNotes,
     address?.notes,
@@ -227,20 +358,20 @@ export function enrichDeliveryOperationItem(
       window,
       deliveryWindow: window,
       status: deliveryStatus,
-      zone: zoneValue
+      zone: explicitZone
         ? {
             id: firstString(
               item.delivery?.zone?.id,
               rawDelivery.zoneId,
               raw.deliveryZoneId,
-              zoneValue
+              explicitZone
             ),
             name: firstString(
               item.delivery?.zone?.name,
               asRecord(rawDelivery.zone)?.name,
               rawDelivery.zoneName,
               raw.deliveryZoneName,
-              zoneValue
+              explicitZone
             ),
           }
         : item.delivery?.zone,
@@ -281,28 +412,6 @@ export function getDeliveryOperationWindow(item: UnifiedQueueItem): string {
       raw?.deliveryWindow,
       asRecord(raw?.deliverySlot)?.window,
       raw?.deliverySlot
-    ) ?? ""
-  );
-}
-
-export function getDeliveryOperationZone(item: UnifiedQueueItem): string {
-  const raw = asRecord(item.rawData);
-  const rawDelivery = getRawDelivery(item);
-  const address = getDeliveryAddress(item);
-  return (
-    firstString(
-      item.delivery?.zone?.name,
-      item.delivery?.zone?.id,
-      item.delivery?.zoneId,
-      asRecord(rawDelivery.zone)?.name,
-      rawDelivery.zoneName,
-      rawDelivery.zoneId,
-      raw?.deliveryZoneName,
-      raw?.deliveryZone,
-      raw?.zoneName,
-      raw?.zoneId,
-      address?.district,
-      address?.city
     ) ?? ""
   );
 }
@@ -409,7 +518,7 @@ export function matchesDeliverySearch(
     item.context.addressSummary,
     item.context.addressNotes,
     getDeliveryOperationWindow(item),
-    getDeliveryOperationZone(item),
+    ...getDeliveryOperationAreaValues(item),
     item.status,
     item.statusLabel,
     sourceLabel,
@@ -435,10 +544,12 @@ export function matchesDeliverySearch(
     raw?.deliveryZone,
     raw?.deliveryZoneName,
     raw?.scheduledDate,
-    ...item.allowedActions.flatMap((action) => [action.id, action.label]),
+    ...(item.allowedActions ?? []).flatMap((action) => [action.id, action.label]),
   ];
 
-  const haystack = normalizeSearchText(values.map((value) => safeText(value, "")).join(" "));
+  const haystack = normalizeSearchText(
+    values.map((value) => safeText(value, "")).join(" ")
+  );
   const tokens = normalizedQuery.split(" ").filter(Boolean);
   return tokens.every((token) => haystack.includes(token));
 }
@@ -452,6 +563,7 @@ export function matchesDeliveryFilters(
   const windowFilter = filters.windowFilter ?? "all";
   const zoneFilter = filters.zoneFilter ?? "all";
   const actionFilter = filters.actionFilter ?? "all";
+  const normalizedZoneFilter = normalizeFilterKey(zoneFilter);
 
   return (
     matchesDeliveryStatusFilter(item.status, statusFilter) &&
@@ -461,8 +573,9 @@ export function matchesDeliveryFilters(
       normalizeFilterKey(getDeliveryOperationWindow(item)) ===
         normalizeFilterKey(windowFilter)) &&
     (zoneFilter === "all" ||
-      normalizeFilterKey(getDeliveryOperationZone(item)) ===
-        normalizeFilterKey(zoneFilter)) &&
+      getDeliveryOperationAreaValues(item).some(
+        (value) => normalizeFilterKey(value) === normalizedZoneFilter
+      )) &&
     matchesDeliveryActionFilter(item, actionFilter) &&
     matchesDeliverySearch(item, filters.search)
   );
