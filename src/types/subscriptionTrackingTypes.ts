@@ -43,7 +43,10 @@ export interface SubscriptionTrackingDay {
   fulfillmentMode: string;
   selectedMeals: number;
   requiredMeals: number;
+  consumedMeals?: number;
   receivedMeals: number;
+  consumedWithoutPreparationMeals?: number;
+  otherDayConsumedMeals?: number;
   reservedMeals: number;
   forfeitedMeals: number;
   releasedMeals: number;
@@ -89,8 +92,12 @@ export interface SubscriptionTrackingSummary {
   consumedMeals: number;
   balanceConsumedMeals?: number;
   receivedMeals: number;
+  timelineConsumedMeals?: number;
+  consumedWithoutPreparationMeals?: number;
+  otherDayConsumedMeals?: number;
   remainingMeals: number;
   availableMeals: number;
+  displayRemainingMeals?: number;
   reservedMeals: number;
   forfeitedMeals: number;
   manualDeductedMeals?: number;
@@ -110,6 +117,9 @@ export interface SubscriptionTrackingSummary {
     consumedMeals: number;
     balanceConsumedMeals?: number;
     receivedMeals?: number;
+    timelineConsumedMeals?: number;
+    consumedWithoutPreparationMeals?: number;
+    otherDayConsumedMeals?: number;
     attributedToTimeline: number;
     manualDeductedMeals?: number;
     attributedKnownTotal?: number;
@@ -149,6 +159,8 @@ export interface SubscriptionTrackingData {
     manualDeductions: SubscriptionTrackingManualDeduction[];
     totals: {
       manualDeductedMeals: number;
+      consumedWithoutPreparationMeals?: number;
+      otherDayConsumedMeals?: number;
       otherConsumedMeals: number;
       forfeitedMeals: number;
     };
