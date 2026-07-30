@@ -11,13 +11,14 @@ import {
 
 export const courierDeliveryKeys = {
   all: ["courier-deliveries"] as const,
-  today: () => ["courier-deliveries", "today"] as const,
+  list: (date: string) => ["courier-deliveries", "list", date] as const,
 };
 
-export const useCourierDeliveryListQuery = () =>
+export const useCourierDeliveryListQuery = (date: string) =>
   useQuery({
-    queryKey: courierDeliveryKeys.today(),
-    queryFn: fetchCourierDeliveryList,
+    queryKey: courierDeliveryKeys.list(date),
+    queryFn: () => fetchCourierDeliveryList(date),
+    enabled: /^\d{4}-\d{2}-\d{2}$/.test(date),
     refetchInterval: 60_000,
     refetchIntervalInBackground: true,
     staleTime: 15_000,
@@ -39,7 +40,7 @@ export const useCourierDeliveryActionMutation = () => {
     }) => executeCourierDeliveryAction({ action, payload, actionDef }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: courierDeliveryKeys.today(),
+        queryKey: courierDeliveryKeys.all,
         refetchType: "active",
       });
       await queryClient.invalidateQueries({
