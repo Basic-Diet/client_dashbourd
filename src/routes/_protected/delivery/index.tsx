@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { format } from "date-fns";
 import { CalendarIcon, ChefHat, Info, RefreshCw, Truck } from "lucide-react";
 import { DeliveryDashboardCards } from "@/components/pages/delivery/DeliveryDashboardCards";
 import { DeliveryFilters } from "@/components/pages/delivery/DeliveryFilters";
@@ -48,12 +47,25 @@ const EMPTY_REASON_DIALOG: ReasonDialogState = {
 
 type DeliveryWorkspace = "tracking" | "preparation";
 
+function getTodayRiyadhDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function DeliveryDashboard() {
   const [activeWorkspace, setActiveWorkspace] =
     useState<DeliveryWorkspace>("tracking");
-  const [selectedDate, setSelectedDate] = useState(() =>
-    format(new Date(), "yyyy-MM-dd")
-  );
+  const [selectedDate, setSelectedDate] = useState(getTodayRiyadhDate);
   const [statusFilter, setStatusFilter] =
     useState<DashboardOpsStatusFilter>("all");
   const [sourceFilter, setSourceFilter] =
