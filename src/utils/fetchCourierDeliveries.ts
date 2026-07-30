@@ -11,6 +11,7 @@ import type {
 type CourierDeliveryResponse = {
   status: boolean;
   data?: unknown[] | { items?: unknown[]; date?: string };
+  meta?: { date?: string; total?: number };
 };
 
 type CourierDto = Record<string, unknown>;
@@ -22,6 +23,14 @@ const asRecord = (value: unknown): CourierDto | null =>
 
 const asString = (value: unknown) =>
   typeof value === "string" && value.trim() ? value.trim() : null;
+
+const firstString = (...values: unknown[]) => {
+  for (const value of values) {
+    const text = asString(value);
+    if (text) return text;
+  }
+  return null;
+};
 
 const asNumber = (value: unknown) => {
   const parsed = Number(value);
@@ -35,6 +44,14 @@ const toItems = (response: CourierDeliveryResponse): unknown[] => {
     return Array.isArray(items) ? items : [];
   }
   return [];
+};
+
+const responseBusinessDate = (response: CourierDeliveryResponse) => {
+  if (response.meta?.date) return response.meta.date;
+  if (response.data && !Array.isArray(response.data)) {
+    return asString(response.data.date);
+  }
+  return null;
 };
 
 const isSafeCourierEndpoint = (endpoint: string) =>
@@ -126,10 +143,17 @@ export const fallbackCourierActionsFor = (
 };
 
 const formatAddress = (address: CourierDto | null) => {
-  const formatted = asString(address?.formattedAddress);
+  const formatted = firstString(
+    address?.formattedAddress,
+    address?.addressSummary,
+    address?.line1
+  );
   if (formatted) return formatted;
+
   return [
     address?.label,
+    address?.line1,
+    address?.line2,
     address?.district,
     address?.street,
     address?.building ? `مبنى ${address.building}` : null,
@@ -144,16 +168,45 @@ const formatAddress = (address: CourierDto | null) => {
 
 const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
   const record = asRecord(item) ?? {};
-  const rawType = asString(record.type);
-  const source = rawType === "one_time_order" ? "one_time_order" : "subscription";
-  const address = asRecord(record.deliveryAddress);
+  const rawType = firstString(record.source, record.type, record.entityType);
+  const source =
+    rawType === "one_time_order" || rawType === "order"
+      ? "one_time_order"
+      : "subscription";
+  const address =
+    asRecord(record.deliveryAddress) ??
+    asRecord(asRecord(record.delivery)?.address) ??
+    {};
   const id = String(record.id ?? record.entityId ?? "");
-  const entityId = String(record.entityId ?? id);
+  const entityId = String(record.entityId ?? record.orderId ?? id);
   const mealCount = asNumber(record.mealCount) ?? 0;
   const addonCount = asNumber(record.addonCount) ?? 0;
   const premiumUpgradeCount = asNumber(record.premiumUpgradeCount) ?? 0;
-  const allowedActions = normalizeCourierActions(record.allowedActions);
+  const normalizedActions = normalizeCourierActions(record.allowedActions);
+  const allowedActions = normalizedActions.length
+    ? normalizedActions
+    : fallbackCourierActionsFor(record, source);
   const addressSummary = formatAddress(address);
+  const deliveryWindow = firstString(
+    record.deliveryWindow,
+    asRecord(record.deliverySlot)?.window,
+    record.deliverySlot,
+    asRecord(record.delivery)?.window
+  );
+  const deliveryZone = firstString(
+    record.deliveryZoneName,
+    record.deliveryZone,
+    record.zoneName,
+    record.zoneId,
+    address.district,
+    address.city
+  );
+  const scheduledDate = firstString(
+    record.scheduledDate,
+    record.fulfillmentDate,
+    record.deliveryDate,
+    record.date
+  );
 
   const normalized = normalizeOperationsQueueItem(
     {
@@ -167,6 +220,7 @@ const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
       reference:
         record.orderNumber ?? record.subscriptionDayId ?? record.entityId ?? id,
       customer: {
+        id: record.customerId ?? record.userId,
         name: record.customerName,
         phone: record.customerPhone,
       },
@@ -175,13 +229,13 @@ const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
         delivery: {
           deliveryId: id,
           status: record.status,
-          date: record.scheduledDate,
+          date: scheduledDate,
           address,
           addressSummary,
-          window: record.deliveryWindow,
-          deliveryWindow: record.deliveryWindow,
-          zone: record.deliveryZone
-            ? { id: String(record.deliveryZone), name: String(record.deliveryZone) }
+          window: deliveryWindow,
+          deliveryWindow,
+          zone: deliveryZone
+            ? { id: String(deliveryZone), name: String(deliveryZone) }
             : null,
         },
       },
@@ -191,10 +245,10 @@ const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
         itemCount: mealCount + addonCount + premiumUpgradeCount,
       },
       allowedActions,
-      date: record.scheduledDate,
+      date: scheduledDate,
       timestamps: record.timestamps,
     },
-    "courier-v1"
+    "courier-v2"
   );
 
   return {
@@ -203,10 +257,10 @@ const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
     subscriptionDayId: asString(record.subscriptionDayId),
     context: {
       ...normalized.context,
-      date: asString(record.scheduledDate),
-      window: asString(record.deliveryWindow),
+      date: scheduledDate,
+      window: deliveryWindow,
       addressSummary,
-      addressNotes: asString(address?.notes),
+      addressNotes: asString(address.notes),
       notes:
         asString(record.cancellationNote) ||
         asString(record.cancellationReason) ||
@@ -217,12 +271,12 @@ const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
       ...normalized.delivery,
       address,
       addressSummary,
-      date: asString(record.scheduledDate),
-      window: asString(record.deliveryWindow),
-      deliveryWindow: asString(record.deliveryWindow),
+      date: scheduledDate,
+      window: deliveryWindow,
+      deliveryWindow,
       status: asString(record.status),
-      zone: record.deliveryZone
-        ? { id: String(record.deliveryZone), name: String(record.deliveryZone) }
+      zone: deliveryZone
+        ? { id: String(deliveryZone), name: String(deliveryZone) }
         : null,
     },
     allowedActions,
@@ -234,22 +288,29 @@ const normalizeCourierItem = (item: unknown): UnifiedQueueItem => {
       timestamps: record.timestamps,
       premiumUpgradeCount,
       addonCount,
+      deliveryWindow,
+      deliveryZone,
+      scheduledDate,
     },
   };
 };
 
-export const fetchCourierDeliveryList = async (): Promise<DashboardOpsListResponse> => {
+export const fetchCourierDeliveryList = async (
+  date: string
+): Promise<DashboardOpsListResponse> => {
   const response = await api.get<CourierDeliveryResponse>(
-    "/api/courier/deliveries/today"
+    "/api/courier/deliveries/today",
+    { params: { date } }
   );
   const items = toItems(response.data).map(normalizeCourierItem);
   const firstDate = items.find((item) => item.context.date)?.context.date;
+  const businessDate = responseBusinessDate(response.data) || firstDate || date;
 
   return {
     status: true,
     data: {
-      contractVersion: "courier-v1",
-      date: firstDate || undefined,
+      contractVersion: "courier-v2",
+      date: businessDate,
       items,
     },
   };
