@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getDeliveryAddressPresentation } from "@/lib/deliveryAddress";
 import { buildOperationsActionPayload, safeText } from "@/lib/operationsBoard";
 import type {
   DashboardOpsActionRequest,
@@ -68,34 +69,6 @@ interface DeliveryCardProps {
   isActionLoading: boolean;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function numericValue(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function getMapUrl(item: UnifiedQueueItem) {
-  const address = asRecord(item.delivery?.address);
-  const lat = numericValue(address?.lat ?? address?.latitude);
-  const lng = numericValue(address?.lng ?? address?.longitude);
-
-  if (lat !== null && lng !== null) {
-    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-  }
-
-  const query =
-    item.context.addressSummary || item.delivery?.addressSummary || "";
-
-  return query
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
-    : null;
-}
-
 function getMealRows(item: UnifiedQueueItem) {
   if (item.kitchen?.version === "v2" && item.kitchen.cards.length) {
     return item.kitchen.cards.map((card, index) => ({
@@ -132,22 +105,18 @@ export function DeliveryCard({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const mealRows = getMealRows(item);
-  const mapUrl = getMapUrl(item);
+  const address = getDeliveryAddressPresentation(item);
   const mealCount =
     item.orderSummary?.mealCount ??
     item.context?.mealCount ??
     item.plan?.selectedMealsPerDay ??
     mealRows.length;
-  const addressNotes = item.context.addressNotes || "";
   const deliveryWindow =
     item.context.window ||
     item.delivery?.window ||
     item.delivery?.deliveryWindow;
   const hasDetails =
-    Boolean(
-      item.context.notes ||
-      item.context.addressNotes
-    ) ||
+    Boolean(item.context.notes) ||
     mealRows.length > 0 ||
     Boolean(item.dataQuality?.warnings?.length);
 
@@ -200,41 +169,85 @@ export function DeliveryCard({
           </span>
         </div>
 
-        <div className="flex items-start gap-3 text-sm">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <MapPin className="h-4 w-4" />
+        <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-3.5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MapPin className="h-4.5 w-4.5" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-black text-primary">
+                  عنوان التوصيل
+                </span>
+                <p className="mt-0.5 break-words text-sm leading-6 font-bold text-foreground/90">
+                  {address.summary}
+                </p>
+              </div>
+            </div>
+
+            {address.mapUrl ? (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-9 shrink-0 rounded-lg px-2.5 text-xs"
+              >
+                <a href={address.mapUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  الخريطة
+                </a>
+              </Button>
+            ) : null}
           </div>
-          <p className="mt-1.5 line-clamp-2 leading-relaxed font-medium text-muted-foreground">
-            {item.context.addressSummary || "لا يوجد عنوان مسجل"}
-          </p>
+
+          {address.details.length ? (
+            <dl className="grid grid-cols-2 gap-2">
+              {address.details.map((detail) => (
+                <div
+                  key={detail.key}
+                  className="min-w-0 rounded-lg border bg-background/70 px-2.5 py-2"
+                >
+                  <dt className="text-[10px] font-black text-muted-foreground">
+                    {detail.label}
+                  </dt>
+                  <dd className="mt-1 break-words text-xs leading-5 font-bold text-foreground">
+                    {detail.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+
+          {address.notes ? (
+            <div className="mt-2.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5">
+              <span className="block text-[10px] font-black text-amber-700 dark:text-amber-400">
+                وصف إضافي للوصول
+              </span>
+              <p className="mt-1 break-words text-xs leading-5 font-semibold text-amber-900 dark:text-amber-200">
+                {address.notes}
+              </p>
+            </div>
+          ) : null}
         </div>
 
-        <div className="flex items-center justify-between gap-3">
-          {deliveryWindow ? (
-            <div className="flex items-center gap-3 text-sm">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/10 text-orange-500">
-                <Clock className="h-4 w-4" />
-              </div>
-              <span className="font-bold text-orange-600 dark:text-orange-400">
+        {deliveryWindow ? (
+          <div className="flex items-center gap-3 text-sm">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/10 text-orange-500">
+              <Clock className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-muted-foreground">
+                نافذة التوصيل
+              </span>
+              <span
+                dir="ltr"
+                className="font-bold text-orange-600 dark:text-orange-400"
+              >
                 {deliveryWindow}
               </span>
             </div>
-          ) : null}
-
-          {mapUrl ? (
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-lg px-2.5 text-xs"
-            >
-              <a href={mapUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-3.5 w-3.5" />
-                الخريطة
-              </a>
-            </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-3 rounded-xl border bg-muted/20 p-3">
@@ -328,21 +341,10 @@ export function DeliveryCard({
 
       {isExpanded ? (
         <div className="mt-4 animate-in space-y-3 rounded-xl bg-muted/40 p-4 duration-200 fade-in slide-in-from-top-2">
-          {addressNotes ? (
-            <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-3 text-xs dark:border-sky-900/50 dark:bg-sky-950/30">
-              <span className="mb-1.5 block font-black text-sky-700 dark:text-sky-400">
-                ملاحظات العنوان:
-              </span>
-              <p className="leading-relaxed font-medium text-sky-800 dark:text-sky-300">
-                {addressNotes}
-              </p>
-            </div>
-          ) : null}
-
           {item.context.notes ? (
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-xs dark:border-blue-900/50 dark:bg-blue-950/30">
               <span className="mb-1.5 block font-black text-blue-700 dark:text-blue-400">
-                ملاحظة:
+                ملاحظة الطلب:
               </span>
               <p className="leading-relaxed font-medium text-blue-800 dark:text-blue-300">
                 {item.context.notes}
