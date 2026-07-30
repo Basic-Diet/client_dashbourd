@@ -60,16 +60,45 @@ export interface SubscriptionTrackingDay {
   };
 }
 
+export interface SubscriptionTrackingManualDeduction {
+  id: string | null;
+  businessDate: string | null;
+  deducted: {
+    regularMeals: number;
+    premiumMeals: number;
+    totalMeals: number;
+    addons: Array<{
+      addonId?: string;
+      qty?: number;
+      remainingBefore?: number;
+      remainingAfter?: number;
+    }>;
+  };
+  fulfillmentMethod: string | null;
+  reason: string;
+  notes: string;
+  actor: {
+    id: string | null;
+    role: string | null;
+  };
+  createdAt: string | null;
+}
+
 export interface SubscriptionTrackingSummary {
   totalMeals: number;
   consumedMeals: number;
+  balanceConsumedMeals?: number;
   receivedMeals: number;
   remainingMeals: number;
   availableMeals: number;
   reservedMeals: number;
   forfeitedMeals: number;
+  manualDeductedMeals?: number;
+  otherConsumedMeals?: number;
+  overAttributedMeals?: number;
   unconsumedMeals: number;
   progressPercent: number;
+  balanceUsagePercent?: number;
   timelineDays: number;
   deliveredDays: number;
   plannedMeals: number;
@@ -79,7 +108,23 @@ export interface SubscriptionTrackingSummary {
     status: "balanced" | "difference";
     authoritativeSource: string;
     consumedMeals: number;
+    balanceConsumedMeals?: number;
+    receivedMeals?: number;
     attributedToTimeline: number;
+    manualDeductedMeals?: number;
+    attributedKnownTotal?: number;
+    otherConsumedMeals?: number;
+    overAttributedMeals?: number;
+    difference: number;
+  };
+  balanceIntegrity?: {
+    status: "balanced" | "difference";
+    totalMeals: number;
+    remainingMeals: number;
+    reservedMeals: number;
+    consumedMeals: number;
+    forfeitedMeals: number;
+    accountedMeals: number;
     difference: number;
   };
 }
@@ -100,6 +145,14 @@ export interface SubscriptionTrackingData {
     skipCompensationDays?: number;
   } | null;
   months?: unknown[];
+  adjustments?: {
+    manualDeductions: SubscriptionTrackingManualDeduction[];
+    totals: {
+      manualDeductedMeals: number;
+      otherConsumedMeals: number;
+      forfeitedMeals: number;
+    };
+  };
   days: SubscriptionTrackingDay[];
 }
 
