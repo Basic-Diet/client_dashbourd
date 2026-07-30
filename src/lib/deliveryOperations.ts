@@ -3,7 +3,6 @@ import type {
   DashboardOpsStatusFilter,
   UnifiedQueueItem,
 } from "@/types/dashboardOpsTypes";
-import { matchesStatusFilter } from "@/types/dashboardOpsTypes";
 
 type UnknownRecord = Record<string, unknown>;
 export type DeliverySourceFilter = "all" | "subscription" | "one_time_order";
@@ -23,6 +22,49 @@ export interface DeliveryFilterState {
   actionFilter?: DeliveryActionFilter;
 }
 
+const PREPARATION_STATUSES = new Set([
+  "scheduled",
+  "open",
+  "locked",
+  "confirmed",
+  "preparing",
+  "in_preparation",
+  "ready_for_delivery",
+  "ready_to_collect",
+  "ready_for_pickup",
+]);
+const OUT_FOR_DELIVERY_STATUSES = new Set(["out_for_delivery", "arriving_soon"]);
+const DELIVERED_STATUSES = new Set(["delivered", "fulfilled"]);
+const CANCELED_STATUSES = new Set([
+  "canceled",
+  "cancelled",
+  "delivery_canceled",
+  "failed",
+]);
+
+const EASTERN_ARABIC_DIGITS: Record<string, string> = {
+  "٠": "0",
+  "١": "1",
+  "٢": "2",
+  "٣": "3",
+  "٤": "4",
+  "٥": "5",
+  "٦": "6",
+  "٧": "7",
+  "٨": "8",
+  "٩": "9",
+  "۰": "0",
+  "۱": "1",
+  "۲": "2",
+  "۳": "3",
+  "۴": "4",
+  "۵": "5",
+  "۶": "6",
+  "۷": "7",
+  "۸": "8",
+  "۹": "9",
+};
+
 const asRecord = (value: unknown): UnknownRecord | null =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as UnknownRecord)
@@ -39,12 +81,39 @@ const firstString = (...values: unknown[]): string | null => {
   return null;
 };
 
+const normalizeDigits = (value: string) =>
+  value.replace(/[٠-٩۰-۹]/g, (digit) => EASTERN_ARABIC_DIGITS[digit] ?? digit);
+
+const normalizeSearchText = (value: unknown) =>
+  normalizeDigits(safeText(value, ""))
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[\u064b-\u065f\u0670\u0640]/g, "")
+    .replace(/[إأآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/[ة]/g, "ه")
+    .replace(/[+()\[\]{}.,،/\\:_–—-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeFilterKey = (value: unknown) =>
+  normalizeSearchText(value).replace(/\s+/g, "");
+
+const normalizeStatus = (value: unknown) =>
+  safeText(value, "").trim().toLowerCase();
+
 const formatAddress = (address: UnknownRecord | null): string | null => {
-  const formatted = firstString(address?.formattedAddress, address?.addressSummary);
+  const formatted = firstString(
+    address?.formattedAddress,
+    address?.addressSummary,
+    address?.line1
+  );
   if (formatted) return formatted;
 
   const parts = [
     address?.label,
+    address?.line1,
+    address?.line2,
     address?.district,
     address?.street,
     address?.building ? `مبنى ${address.building}` : null,
@@ -58,26 +127,41 @@ const formatAddress = (address: UnknownRecord | null): string | null => {
   return parts.length ? parts.join("، ") : null;
 };
 
+function getRawDelivery(item: UnifiedQueueItem) {
+  const raw = asRecord(item.rawData);
+  const rawFulfillment = asRecord(raw?.fulfillment);
+  return (
+    asRecord(rawFulfillment?.delivery) ??
+    asRecord(raw?.delivery) ??
+    asRecord(raw?.deliveryDetails) ??
+    {}
+  );
+}
+
+function getDeliveryAddress(item: UnifiedQueueItem) {
+  const raw = asRecord(item.rawData);
+  const rawDelivery = getRawDelivery(item);
+  return (
+    asRecord(item.delivery?.address) ??
+    asRecord(rawDelivery.address) ??
+    asRecord(raw?.deliveryAddress)
+  );
+}
+
 export function enrichDeliveryOperationItem(
   item: UnifiedQueueItem
 ): UnifiedQueueItem {
   const raw = asRecord(item.rawData) ?? {};
   const rawFulfillment = asRecord(raw.fulfillment);
-  const rawDelivery =
-    asRecord(rawFulfillment?.delivery) ??
-    asRecord(raw.delivery) ??
-    asRecord(raw.deliveryDetails) ??
-    {};
-  const address =
-    asRecord(item.delivery?.address) ??
-    asRecord(rawDelivery.address) ??
-    asRecord(raw.deliveryAddress);
+  const rawDelivery = getRawDelivery(item);
+  const address = getDeliveryAddress(item);
 
   const addressSummary = firstString(
     item.context.addressSummary,
     item.delivery?.addressSummary,
     rawDelivery.addressSummary,
     address?.formattedAddress,
+    address?.line1,
     formatAddress(address)
   );
   const date = firstString(
@@ -85,6 +169,8 @@ export function enrichDeliveryOperationItem(
     item.delivery?.date,
     rawDelivery.date,
     raw.scheduledDate,
+    raw.fulfillmentDate,
+    raw.deliveryDate,
     raw.businessDate,
     raw.date
   );
@@ -92,11 +178,13 @@ export function enrichDeliveryOperationItem(
     item.context.window,
     item.delivery?.window,
     item.delivery?.deliveryWindow,
+    item.delivery?.deliverySlot,
     rawDelivery.window,
     rawDelivery.deliveryWindow,
     rawDelivery.deliverySlot,
     rawFulfillment?.deliverySlot,
     raw.deliveryWindow,
+    asRecord(raw.deliverySlot)?.window,
     raw.deliverySlot
   );
   const zoneValue = firstString(
@@ -105,14 +193,20 @@ export function enrichDeliveryOperationItem(
     item.delivery?.zoneId,
     asRecord(rawDelivery.zone)?.name,
     asRecord(rawDelivery.zone)?.id,
+    rawDelivery.zoneName,
     rawDelivery.zoneId,
+    raw.deliveryZoneName,
     raw.deliveryZone,
-    raw.zoneId
+    raw.zoneName,
+    raw.zoneId,
+    address?.district,
+    address?.city
   );
   const addressNotes = firstString(
     item.context.addressNotes,
     address?.notes,
-    rawDelivery.addressNotes
+    rawDelivery.addressNotes,
+    raw.addressNotes
   );
   const deliveryStatus = firstString(
     item.delivery?.status,
@@ -135,8 +229,19 @@ export function enrichDeliveryOperationItem(
       status: deliveryStatus,
       zone: zoneValue
         ? {
-            id: firstString(item.delivery?.zone?.id, rawDelivery.zoneId, zoneValue),
-            name: firstString(item.delivery?.zone?.name, asRecord(rawDelivery.zone)?.name, zoneValue),
+            id: firstString(
+              item.delivery?.zone?.id,
+              rawDelivery.zoneId,
+              raw.deliveryZoneId,
+              zoneValue
+            ),
+            name: firstString(
+              item.delivery?.zone?.name,
+              asRecord(rawDelivery.zone)?.name,
+              rawDelivery.zoneName,
+              raw.deliveryZoneName,
+              zoneValue
+            ),
           }
         : item.delivery?.zone,
     },
@@ -162,52 +267,117 @@ export function getAllDeliveryOperationItems(
 }
 
 export function getDeliveryOperationWindow(item: UnifiedQueueItem): string {
-  return firstString(
-    item.context.window,
-    item.delivery?.window,
-    item.delivery?.deliveryWindow,
-    item.delivery?.deliverySlot
-  ) ?? "";
+  const raw = asRecord(item.rawData);
+  const rawDelivery = getRawDelivery(item);
+  return (
+    firstString(
+      item.context.window,
+      item.delivery?.window,
+      item.delivery?.deliveryWindow,
+      item.delivery?.deliverySlot,
+      rawDelivery.window,
+      rawDelivery.deliveryWindow,
+      rawDelivery.deliverySlot,
+      raw?.deliveryWindow,
+      asRecord(raw?.deliverySlot)?.window,
+      raw?.deliverySlot
+    ) ?? ""
+  );
 }
 
 export function getDeliveryOperationZone(item: UnifiedQueueItem): string {
-  return firstString(
-    item.delivery?.zone?.name,
-    item.delivery?.zone?.id,
-    item.delivery?.zoneId
-  ) ?? "";
+  const raw = asRecord(item.rawData);
+  const rawDelivery = getRawDelivery(item);
+  const address = getDeliveryAddress(item);
+  return (
+    firstString(
+      item.delivery?.zone?.name,
+      item.delivery?.zone?.id,
+      item.delivery?.zoneId,
+      asRecord(rawDelivery.zone)?.name,
+      rawDelivery.zoneName,
+      rawDelivery.zoneId,
+      raw?.deliveryZoneName,
+      raw?.deliveryZone,
+      raw?.zoneName,
+      raw?.zoneId,
+      address?.district,
+      address?.city
+    ) ?? ""
+  );
 }
 
-const normalizeComparable = (value: unknown) =>
-  safeText(value, "").trim().toLowerCase();
+export function getDeliveryOperationSource(
+  item: UnifiedQueueItem
+): Exclude<DeliverySourceFilter, "all"> {
+  if (
+    item.source === "one_time_order" ||
+    item.entityType === "order" ||
+    item.type === "order"
+  ) {
+    return "one_time_order";
+  }
+  return "subscription";
+}
+
+export function matchesDeliveryStatusFilter(
+  itemStatus: string,
+  filter: DashboardOpsStatusFilter = "all"
+): boolean {
+  if (filter === "all") return true;
+  const status = normalizeStatus(itemStatus);
+
+  if (filter === "preparing") return PREPARATION_STATUSES.has(status);
+  if (filter === "out_for_delivery") {
+    return OUT_FOR_DELIVERY_STATUSES.has(status);
+  }
+  if (filter === "delivered") return DELIVERED_STATUSES.has(status);
+  if (filter === "canceled") return CANCELED_STATUSES.has(status);
+  return status === normalizeStatus(filter);
+}
+
+export function countDeliveryByStatusFilter(
+  items: UnifiedQueueItem[],
+  filter: DashboardOpsStatusFilter
+): number {
+  if (filter === "all") return items.length;
+  return items.filter((item) => matchesDeliveryStatusFilter(item.status, filter))
+    .length;
+}
 
 const hasDeliveryAction = (item: UnifiedQueueItem, actionIds: string[]) => {
   const ids = new Set(actionIds);
-  return item.allowedActions?.some((action) => ids.has(action.id));
+  return item.allowedActions?.some(
+    (action) => !action.disabled && ids.has(action.id)
+  );
 };
+
+const hasEnabledAction = (item: UnifiedQueueItem) =>
+  Boolean(item.allowedActions?.some((action) => !action.disabled));
 
 export function matchesDeliveryActionFilter(
   item: UnifiedQueueItem,
   filter: DeliveryActionFilter = "all"
 ): boolean {
   if (filter === "all") return true;
-  if (filter === "needs_action") {
-    return Boolean(item.allowedActions?.some((action) => !action.disabled));
-  }
+  if (filter === "needs_action") return hasEnabledAction(item);
   if (filter === "ready_to_collect") {
     return (
-      hasDeliveryAction(item, ["dispatch", "pickup", "collect", "courier_pickup"]) ||
+      hasDeliveryAction(item, [
+        "dispatch",
+        "pickup",
+        "collect",
+        "courier_pickup",
+      ]) ||
       ["ready_for_delivery", "ready_to_collect", "ready_for_pickup"].includes(
-        item.status
+        normalizeStatus(item.status)
       )
     );
   }
   if (filter === "out_for_delivery") {
-    return ["out_for_delivery", "arriving_soon"].includes(item.status);
+    return OUT_FOR_DELIVERY_STATUSES.has(normalizeStatus(item.status));
   }
-  if (filter === "no_actions") {
-    return !item.allowedActions?.some((action) => !action.disabled);
-  }
+  if (filter === "no_actions") return !hasEnabledAction(item);
   return true;
 }
 
@@ -215,35 +385,62 @@ export function matchesDeliverySearch(
   item: UnifiedQueueItem,
   query?: string
 ): boolean {
-  const search = query?.trim().toLowerCase() ?? "";
-  if (!search) return true;
+  const normalizedQuery = normalizeSearchText(query ?? "");
+  if (!normalizedQuery) return true;
 
   const raw = asRecord(item.rawData);
-  const rawDelivery = asRecord(raw?.delivery);
-  const address =
-    asRecord(item.delivery?.address) ??
-    asRecord(raw?.deliveryAddress) ??
-    asRecord(rawDelivery?.address);
-  const values = [
+  const rawDelivery = getRawDelivery(item);
+  const address = getDeliveryAddress(item);
+  const sourceLabel =
+    getDeliveryOperationSource(item) === "one_time_order"
+      ? "طلب فردي one time order"
+      : "اشتراك subscription";
+
+  const values: unknown[] = [
+    item.customer.id,
     item.customer.name,
     item.customer.phone,
     item.reference,
     item.orderNumber,
+    item.entityId,
+    item.id,
+    item.subscriptionDayId,
+    item.context.date,
     item.context.addressSummary,
     item.context.addressNotes,
     getDeliveryOperationWindow(item),
     getDeliveryOperationZone(item),
     item.status,
     item.statusLabel,
+    sourceLabel,
+    address?.label,
+    address?.formattedAddress,
+    address?.addressSummary,
+    address?.line1,
+    address?.line2,
     address?.district,
     address?.street,
     address?.building,
+    address?.floor,
+    address?.apartment,
+    address?.city,
+    address?.notes,
+    rawDelivery.addressSummary,
+    rawDelivery.zoneName,
+    rawDelivery.zoneId,
     raw?.subscriptionId,
     raw?.subscriptionDayId,
     raw?.orderId,
+    raw?.deliveryId,
+    raw?.deliveryZone,
+    raw?.deliveryZoneName,
+    raw?.scheduledDate,
+    ...item.allowedActions.flatMap((action) => [action.id, action.label]),
   ];
 
-  return values.some((value) => normalizeComparable(value).includes(search));
+  const haystack = normalizeSearchText(values.map((value) => safeText(value, "")).join(" "));
+  const tokens = normalizedQuery.split(" ").filter(Boolean);
+  return tokens.every((token) => haystack.includes(token));
 }
 
 export function matchesDeliveryFilters(
@@ -257,14 +454,15 @@ export function matchesDeliveryFilters(
   const actionFilter = filters.actionFilter ?? "all";
 
   return (
-    (statusFilter === "all" || matchesStatusFilter(item.status, statusFilter)) &&
-    (sourceFilter === "all" || item.source === sourceFilter) &&
+    matchesDeliveryStatusFilter(item.status, statusFilter) &&
+    (sourceFilter === "all" ||
+      getDeliveryOperationSource(item) === sourceFilter) &&
     (windowFilter === "all" ||
-      normalizeComparable(getDeliveryOperationWindow(item)) ===
-        normalizeComparable(windowFilter)) &&
+      normalizeFilterKey(getDeliveryOperationWindow(item)) ===
+        normalizeFilterKey(windowFilter)) &&
     (zoneFilter === "all" ||
-      normalizeComparable(getDeliveryOperationZone(item)) ===
-        normalizeComparable(zoneFilter)) &&
+      normalizeFilterKey(getDeliveryOperationZone(item)) ===
+        normalizeFilterKey(zoneFilter)) &&
     matchesDeliveryActionFilter(item, actionFilter) &&
     matchesDeliverySearch(item, filters.search)
   );
