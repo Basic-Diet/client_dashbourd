@@ -32,56 +32,65 @@ export function AccountingRangeInsights({
   report: SubscriptionPaymentRangeReportData;
 }) {
   const comparison = report.comparison;
+  const comparisonEnabled = Boolean(
+    comparison?.enabled &&
+      (comparison.grossCollection ||
+        comparison.refunds ||
+        comparison.netCollection ||
+        comparison.averageDailyNet)
+  );
   const statistics = report.statistics;
   const currency = report.currency ?? "SAR";
 
   return (
     <section className="space-y-4" aria-label="تحليلات النطاق" dir="rtl">
-      <Card className={PANEL_CLASS}>
-        <CardHeader className="gap-2 border-b">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CalendarRangeIcon className="size-5 text-primary" />
-                قراءة تنفيذية للفترة
-              </CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {report.range.labelAr} · {formatInteger(report.range.days)} يوم
-              </p>
+      {comparisonEnabled ? (
+        <Card className={PANEL_CLASS}>
+          <CardHeader className="gap-2 border-b">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <CalendarRangeIcon className="size-5 text-primary" />
+                  قراءة تنفيذية للفترة
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {report.range.labelAr} · {formatInteger(report.range.days)} يوم
+                </p>
+              </div>
+              <Badge variant="secondary" className="w-fit">
+                مقارنة تلقائية بفترة مساوية
+              </Badge>
             </div>
-            <Badge variant="secondary" className="w-fit">
-              مقارنة تلقائية بفترة مساوية
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
-          <ComparisonCard
-            title="إجمالي التحصيل"
-            comparison={comparison?.grossCollection}
-            currency={currency}
-          />
-          <ComparisonCard
-            title="المرتجعات"
-            comparison={comparison?.refunds}
-            currency={currency}
-          />
-          <ComparisonCard
-            title="صافي الحركة"
-            comparison={comparison?.netCollection}
-            currency={currency}
-          />
-          <ComparisonCard
-            title="متوسط صافي اليوم"
-            comparison={comparison?.averageDailyNet}
-            currency={currency}
-          />
-          {comparison?.labelAr ? (
-            <p className="rounded-xl border border-dashed px-4 py-3 text-xs leading-6 text-muted-foreground sm:col-span-2 xl:col-span-4">
-              {comparison.labelAr}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+            <ComparisonCard
+              title="إجمالي التحصيل"
+              comparison={comparison?.grossCollection}
+              currency={currency}
+            />
+            <ComparisonCard
+              title="المرتجعات"
+              comparison={comparison?.refunds}
+              currency={currency}
+            />
+            <ComparisonCard
+              title="صافي الحركة"
+              comparison={comparison?.netCollection}
+              currency={currency}
+            />
+            <ComparisonCard
+              title="متوسط صافي اليوم"
+              comparison={comparison?.averageDailyNet}
+              currency={currency}
+            />
+            {comparison?.labelAr ? (
+              <p className="rounded-xl border border-dashed px-4 py-3 text-xs leading-6 text-muted-foreground sm:col-span-2 xl:col-span-4">
+                {comparison.labelAr}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[1fr_1.15fr]">
         <Card className={PANEL_CLASS}>
@@ -113,9 +122,17 @@ export function AccountingRangeInsights({
             />
             <InsightMetric
               icon={<UsersIcon className="size-4" />}
-              label="تغير عدد العملاء"
-              value={signedCount(comparison?.customersCount?.delta)}
-              helper={`${formatInteger(comparison?.customersCount?.current)} حاليًا مقابل ${formatInteger(comparison?.customersCount?.previous)}`}
+              label={comparisonEnabled ? "تغير عدد العملاء" : "عدد العملاء"}
+              value={
+                comparisonEnabled
+                  ? signedCount(comparison?.customersCount?.delta)
+                  : formatInteger(report.summary?.uniqueCustomersCount)
+              }
+              helper={
+                comparisonEnabled
+                  ? `${formatInteger(comparison?.customersCount?.current)} حاليًا مقابل ${formatInteger(comparison?.customersCount?.previous)}`
+                  : "عملاء فريدون داخل الفترة المحددة"
+              }
             />
             <InsightMetric
               icon={<ArrowUpRightIcon className="size-4" />}
