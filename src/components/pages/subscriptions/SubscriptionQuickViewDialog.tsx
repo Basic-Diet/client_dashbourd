@@ -29,7 +29,6 @@ import {
   Clock3,
   MapPin,
   Package,
-  Phone,
   ReceiptText,
   ShieldCheck,
   Sparkles,
@@ -376,7 +375,7 @@ function TimelineDayCard({ day }: { day: SubscriptionTrackingDay }) {
           ) : null}
           {day.forfeitedMeals > 0 ? (
             <Badge variant="destructive" className="w-full justify-center py-2">
-              مفقود/مصادر: {day.forfeitedMeals}
+              وجبات مصادَرة: {day.forfeitedMeals}
             </Badge>
           ) : null}
           {day.addonItems.length ? (
