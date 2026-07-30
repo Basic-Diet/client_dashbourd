@@ -9,7 +9,8 @@ export function useSubscriptionTrackingQuery(subscriptionId: string) {
     queryKey: subscriptionTrackingQueryKey(subscriptionId),
     queryFn: () => fetchSubscriptionTracking(subscriptionId),
     enabled: Boolean(subscriptionId),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
