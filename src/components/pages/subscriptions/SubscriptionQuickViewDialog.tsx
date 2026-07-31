@@ -1,3 +1,3 @@
 export {
-  SubscriptionTrackingExperienceV3 as SubscriptionQuickViewDialog,
-} from "./SubscriptionTrackingExperienceV3";
+  SubscriptionTrackingExperienceV4 as SubscriptionQuickViewDialog,
+} from "./SubscriptionTrackingExperienceV4";
