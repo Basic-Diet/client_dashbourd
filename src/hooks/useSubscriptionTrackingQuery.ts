@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchSubscriptionTracking } from "@/utils/fetchSubscriptionTracking";
-import { manualDeductionDisplayLabel } from "@/utils/subscriptionMovementLabels";
+import {
+  manualDeductionDisplayLabel,
+  manualDeductionQuantity,
+} from "@/utils/subscriptionMovementLabels";
 import type { SubscriptionTrackingResponse } from "@/types/subscriptionTrackingTypes";
 import type { SubscriptionTrackingDataWithProvenance } from "@/types/subscriptionMovementProvenanceTypes";
 
@@ -19,12 +22,12 @@ function normalizeManualDeductionLabels(
   const normalizedMovements = movements.map((movement) => {
     if (movement.sourceCode !== "dashboard_manual_deduction") return movement;
 
-    const deductedMeals =
-      movement.deductionDetails?.totalMeals ?? movement.quantity;
+    const deductedMeals = manualDeductionQuantity(movement);
     const sourceLabel = manualDeductionDisplayLabel(deductedMeals);
     const completionLabel = "تم الخصم يدويًا";
 
     if (
+      movement.quantity === deductedMeals &&
       movement.sourceLabel === sourceLabel &&
       movement.completion.label === completionLabel
     ) {
@@ -34,6 +37,7 @@ function normalizeManualDeductionLabels(
     changed = true;
     return {
       ...movement,
+      quantity: deductedMeals,
       sourceLabel,
       completion: {
         ...movement.completion,
