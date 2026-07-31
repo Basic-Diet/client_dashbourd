@@ -44,15 +44,17 @@ function normalizeManualDeductionLabels(
 
   if (!changed) return response;
 
+  const normalizedTracking: SubscriptionTrackingDataWithProvenance = {
+    ...tracking,
+    provenance: {
+      ...tracking.provenance!,
+      movements: normalizedMovements,
+    },
+  };
+
   return {
     ...response,
-    data: {
-      ...tracking,
-      provenance: {
-        ...tracking.provenance!,
-        movements: normalizedMovements,
-      },
-    },
+    data: normalizedTracking,
   };
 }
 
