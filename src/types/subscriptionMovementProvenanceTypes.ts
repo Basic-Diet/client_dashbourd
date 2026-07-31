@@ -23,6 +23,34 @@ export interface MealMovementOperation {
   evidence: string;
 }
 
+export interface ManualDeductionBalanceSnapshot {
+  remainingRegularMeals: number | null;
+  remainingPremiumMeals: number | null;
+  remainingMeals: number | null;
+}
+
+export interface ManualDeductionMovementDetails {
+  regularMeals: number;
+  premiumMeals: number;
+  totalMeals: number;
+  addons: Array<{
+    addonId: string | null;
+    qty: number;
+    remainingBefore: number | null;
+    remainingAfter: number | null;
+  }>;
+  before: ManualDeductionBalanceSnapshot;
+  after: ManualDeductionBalanceSnapshot;
+  reasonCode: string;
+  reasonLabel: string;
+  notes: string;
+  businessDate: string | null;
+  fulfillmentContext: {
+    code: string;
+    label: string;
+  };
+}
+
 export interface SubscriptionMealMovement {
   id: string;
   type: "reservation" | "consumption" | "manual_deduction" | "forfeiture";
@@ -42,6 +70,10 @@ export interface SubscriptionMealMovement {
     label: string;
   };
   fulfillmentMode: string | null;
+  fulfillmentContext?: {
+    code: string;
+    label: string;
+  } | null;
   actor: MealMovementActor;
   status: string;
   reference: {
@@ -51,6 +83,9 @@ export interface SubscriptionMealMovement {
   mealItems: SubscriptionTrackingMealItem[];
   allocationKeys: string[];
   operations: MealMovementOperation[];
+  deductionDetails?: ManualDeductionMovementDetails | null;
+  reasonCode?: string | null;
+  reasonLabel?: string | null;
   reason?: string | null;
   notes?: string | null;
   evidence: string[];
