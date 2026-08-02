@@ -41,8 +41,6 @@ export interface ParsedApiError {
 const ERROR_CODE_MESSAGES_AR: Record<string, string> = {
   BALANCE_INTEGRITY_ERROR:
     "رصيد الاشتراك غير متوازن، وتم إيقاف الخصم لحماية بيانات العميل حتى تتم مراجعة السجل.",
-  MANUAL_DEDUCTION_CONFLICTS_WITH_RESERVED_MEALS:
-    "توجد وجبات محجوزة لهذا اليوم. نفّذ أو ألغِ حجز يوم الاشتراك بدل الخصم اليدوي حتى لا يحدث خصم مزدوج.",
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

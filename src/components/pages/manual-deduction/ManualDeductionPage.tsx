@@ -397,7 +397,7 @@ export default function ManualDeductionPage() {
           خصم يدوي من الاشتراك
         </h1>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          «متبقي للعميل» يطابق التطبيق ويشمل الوجبات المحجوزة. الخصم اليدوي مسموح فقط من «متاح للخصم» حتى لا تُخصم وجبة محجوزة مرتين.
+          «متبقي للعميل» يطابق التطبيق، و«متاح للخصم» يوضح الرصيد القابل للخصم. قبل التنفيذ راجع عمليات اليوم وتأكد أن الوجبات لم تُخصم مسبقًا.
         </p>
       </div>
 
@@ -415,7 +415,7 @@ export default function ManualDeductionPage() {
             <CardHeader>
               <CardTitle className="text-lg">اختر الاشتراك</CardTitle>
               <CardDescription>
-                تم العثور على {subscriptions.length} اشتراك. راجع الرصيد المتبقي للعميل والمحجوز والمتاح للخصم قبل اختيار الاشتراك.
+                تم العثور على {subscriptions.length} اشتراك. راجع الرصيد وعمليات اليوم قبل اختيار الاشتراك وتنفيذ الخصم.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -471,13 +471,21 @@ export default function ManualDeductionPage() {
         )}
 
       {selectedSubscription && (
-        <DeductionForm
-          key={selectedSubscription.id}
-          subscription={selectedSubscription}
-          onSubmit={onDeductionSubmit}
-          onCancel={handleCancelDeduction}
-          isPending={deductMutation.isPending}
-        />
+        <div className="space-y-4">
+          <Alert className="border-amber-500/40 bg-amber-500/10">
+            <AlertCircle className="h-4 w-4 text-amber-700" />
+            <AlertDescription className="font-medium text-amber-900">
+              تنبيه للعامل: قبل تنفيذ الخصم، تأكد من سجل عمليات اليوم أن الوجبات لم تُخصم أو تُستهلك بالفعل. وجود وجبات محجوزة لا يمنع الخصم اليدوي.
+            </AlertDescription>
+          </Alert>
+          <DeductionForm
+            key={selectedSubscription.id}
+            subscription={selectedSubscription}
+            onSubmit={onDeductionSubmit}
+            onCancel={handleCancelDeduction}
+            isPending={deductMutation.isPending}
+          />
+        </div>
       )}
     </div>
   );
