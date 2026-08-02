@@ -38,6 +38,13 @@ export interface ParsedApiError {
   expectedField?: string;
 }
 
+const ERROR_CODE_MESSAGES_AR: Record<string, string> = {
+  BALANCE_INTEGRITY_ERROR:
+    "رصيد الاشتراك غير متوازن، وتم إيقاف الخصم لحماية بيانات العميل حتى تتم مراجعة السجل.",
+  MANUAL_DEDUCTION_CONFLICTS_WITH_RESERVED_MEALS:
+    "توجد وجبات محجوزة لهذا اليوم. نفّذ أو ألغِ حجز يوم الاشتراك بدل الخصم اليدوي حتى لا يحدث خصم مزدوج.",
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -72,9 +79,11 @@ export function parseApiError(error: unknown): ParsedApiError {
     readString(apiError.code);
   const details = errorNode?.details;
   const expectedField = readString(data?.expectedField);
+  const codeMessage = errorCode ? ERROR_CODE_MESSAGES_AR[errorCode] : undefined;
 
   const message =
     readString(data?.messageAr) ??
+    codeMessage ??
     readString(data?.message) ??
     (typeof data?.error === "string" ? data.error : undefined) ??
     readString(errorNode?.messageAr) ??

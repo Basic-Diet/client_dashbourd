@@ -52,6 +52,22 @@ function getAddonCount(subscription: Subscription) {
   return subscription.addonBalances?.filter((addon) => addon.remainingQty > 0).length ?? 0;
 }
 
+function resolveAvailableMeals(subscription: ManualDeductionSubscription) {
+  return subscription.availableMeals ?? subscription.remainingMeals ?? 0;
+}
+
+function resolveReservedMeals(subscription: ManualDeductionSubscription) {
+  return subscription.reservedMeals ?? subscription.balance?.reservedMeals ?? 0;
+}
+
+function resolveDisplayRemainingMeals(subscription: ManualDeductionSubscription) {
+  const availableMeals = resolveAvailableMeals(subscription);
+  const reservedMeals = resolveReservedMeals(subscription);
+  return subscription.displayRemainingMeals
+    ?? subscription.balance?.displayRemainingMeals
+    ?? availableMeals + reservedMeals;
+}
+
 export default function ManualDeductionPage() {
   const [searchPhone, setSearchPhone] = useState("");
   const [selectedSubscription, setSelectedSubscription] =
@@ -73,12 +89,14 @@ export default function ManualDeductionPage() {
 
   const subscriptions: Subscription[] = rawSubscriptions.map(
     (sub: ManualDeductionSubscription) => {
-      const totalRemaining = sub.remainingMeals ?? 0;
+      const availableMeals = resolveAvailableMeals(sub);
+      const reservedMeals = resolveReservedMeals(sub);
+      const displayRemainingMeals = resolveDisplayRemainingMeals(sub);
       const premiumRemaining =
         sub.remainingPremiumMeals ?? sub.premiumRemaining ?? 0;
       const regularRemaining =
         sub.remainingRegularMeals ??
-        Math.max(0, totalRemaining - premiumRemaining);
+        Math.max(0, availableMeals - premiumRemaining);
       const user = sub.user ?? {
         id: customer?.id ?? sub.userId ?? "",
         fullName: customer?.name ?? sub.userName ?? "—",
@@ -98,7 +116,11 @@ export default function ManualDeductionPage() {
           email: user.email ?? "",
           isActive: user.isActive ?? true,
         },
-        remainingMeals: totalRemaining,
+        // Keep the legacy field aligned with the safe manual-deduction capacity.
+        remainingMeals: availableMeals,
+        availableMeals,
+        reservedMeals,
+        displayRemainingMeals,
         remainingRegularMeals: regularRemaining,
         remainingPremiumMeals: premiumRemaining,
         premiumRemaining,
@@ -115,6 +137,10 @@ export default function ManualDeductionPage() {
   };
 
   const handleSelectSubscription = (sub: Subscription) => {
+    if (sub.balance?.balanced === false) {
+      toast.error("رصيد الاشتراك غير متوازن ويحتاج مراجعة قبل تنفيذ أي خصم");
+      return;
+    }
     setSelectedSubscription(sub);
   };
 
@@ -163,9 +189,25 @@ export default function ManualDeductionPage() {
         setSelectedSubscription((current) => {
           if (!current) return current;
           const remainingAddons = remaining.addons ?? [];
+          const availableMeals =
+            remaining.availableMeals ??
+            remaining.totalMeals ??
+            current.availableMeals ??
+            current.remainingMeals;
+          const reservedMeals =
+            remaining.reservedMeals ?? current.reservedMeals ?? 0;
+          const displayRemainingMeals =
+            remaining.displayRemainingMeals ?? availableMeals + reservedMeals;
+
           return {
             ...current,
-            remainingMeals: remaining.totalMeals ?? current.remainingMeals,
+            remainingMeals: availableMeals,
+            availableMeals,
+            reservedMeals,
+            displayRemainingMeals,
+            consumedMeals: remaining.consumedMeals ?? current.consumedMeals,
+            forfeitedMeals: remaining.forfeitedMeals ?? current.forfeitedMeals,
+            balance: result.data.balance ?? current.balance,
             remainingRegularMeals:
               remaining.regularMeals ?? current.remainingRegularMeals,
             remainingPremiumMeals:
@@ -237,15 +279,42 @@ export default function ManualDeductionPage() {
         </div>
       ),
     }),
-    columnHelper.accessor("remainingMeals", {
-      header: "الرصيد الكلي",
-      cell: (info) => <Badge variant="outline">{info.getValue()} وجبة</Badge>,
+    columnHelper.accessor(
+      (row) => row.displayRemainingMeals ?? row.remainingMeals,
+      {
+        id: "displayRemainingMeals",
+        header: "متبقي للعميل",
+        cell: (info) => (
+          <Badge className="whitespace-nowrap">{info.getValue()} وجبة</Badge>
+        ),
+      }
+    ),
+    columnHelper.accessor(
+      (row) => row.availableMeals ?? row.remainingMeals,
+      {
+        id: "availableMeals",
+        header: "متاح للخصم",
+        cell: (info) => (
+          <Badge variant="outline" className="whitespace-nowrap">
+            {info.getValue()} وجبة
+          </Badge>
+        ),
+      }
+    ),
+    columnHelper.accessor((row) => row.reservedMeals ?? 0, {
+      id: "reservedMeals",
+      header: "محجوز لأيام",
+      cell: (info) => (
+        <Badge variant="secondary" className="whitespace-nowrap">
+          {info.getValue()} وجبة
+        </Badge>
+      ),
     }),
     columnHelper.accessor(
       (row) => row.remainingRegularMeals ?? row.remainingMeals,
       {
         id: "remainingRegularMeals",
-        header: "العادي",
+        header: "العادي المتاح",
         cell: (info) => (
           <Badge variant="secondary">{info.getValue()} وجبة</Badge>
         ),
@@ -255,7 +324,7 @@ export default function ManualDeductionPage() {
       (row) => row.remainingPremiumMeals ?? row.premiumRemaining ?? 0,
       {
         id: "remainingPremiumMeals",
-        header: "المميز",
+        header: "المميز المتاح",
         cell: (info) => <Badge variant="outline">{info.getValue()} وجبة</Badge>,
       }
     ),
@@ -287,6 +356,7 @@ export default function ManualDeductionPage() {
         const row = info.row.original;
         const alreadyDeductedToday =
           row.deliveryMode === "delivery" && row.hasDeliveryDeductionToday;
+        const balanceNeedsReview = row.balance?.balanced === false;
 
         return (
           <div className="flex flex-col gap-2">
@@ -295,9 +365,15 @@ export default function ManualDeductionPage() {
                 يوجد خصم توصيل اليوم
               </Badge>
             ) : null}
+            {balanceNeedsReview ? (
+              <Badge variant="outline" className="w-fit border-red-500/30 bg-red-500/10 text-red-700">
+                الرصيد يحتاج مراجعة
+              </Badge>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
+              disabled={balanceNeedsReview}
               onClick={() => handleSelectSubscription(row)}
             >
               اختيار
@@ -321,7 +397,7 @@ export default function ManualDeductionPage() {
           خصم يدوي من الاشتراك
         </h1>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          ابحث عن العميل بالهاتف، اختر الاشتراك، ثم نفذ خصم وجبات عادية أو مميزة أو إضافات في معاملة واحدة.
+          «متبقي للعميل» يطابق التطبيق ويشمل الوجبات المحجوزة. الخصم اليدوي مسموح فقط من «متاح للخصم» حتى لا تُخصم وجبة محجوزة مرتين.
         </p>
       </div>
 
@@ -339,7 +415,7 @@ export default function ManualDeductionPage() {
             <CardHeader>
               <CardTitle className="text-lg">اختر الاشتراك</CardTitle>
               <CardDescription>
-                تم العثور على {subscriptions.length} اشتراك. الخصم النهائي يتم التحقق منه من الخادم.
+                تم العثور على {subscriptions.length} اشتراك. راجع الرصيد المتبقي للعميل والمحجوز والمتاح للخصم قبل اختيار الاشتراك.
               </CardDescription>
             </CardHeader>
             <CardContent>
