@@ -378,7 +378,7 @@ function MovementRow({ movement }: { movement: SubscriptionMealMovement }) {
             <Badge variant={isManual ? "outline" : "secondary"}>{quantity} وجبة</Badge>
             {isManual ? (
               <Badge className="border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-200" variant="outline">
-                لا يُحسب استلامًا فعليًا
+                محسوب ضمن المستلم
               </Badge>
             ) : null}
           </div>
@@ -448,7 +448,7 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
     .reduce((sum, movement) => sum + manualDeductionQuantity(movement), 0);
 
   const total = safeCount(summary?.totalMeals ?? details?.totalMeals);
-  const received = safeCount(summary?.receivedMeals);
+  const systemReceived = safeCount(summary?.receivedMeals);
   const available = safeCount(summary?.availableMeals ?? details?.remainingMeals);
   const reserved = safeCount(summary?.reservedMeals);
   const remaining = available + reserved;
@@ -460,7 +460,8 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
     safeCount(tracking?.adjustments?.totals.manualDeductedMeals),
     safeCount(coverage?.consumption.dashboardManual)
   );
-  const operationalDeducted = Math.max(0, consumed - received - manualDeducted);
+  const received = Math.min(total, systemReceived + manualDeducted);
+  const operationalDeducted = Math.max(0, consumed - systemReceived - manualDeducted);
   const otherDeductions = operationalDeducted + forfeited;
   const deductedWithoutReceipt = Math.max(0, total - remaining - received);
   const accounted = available + reserved + consumed + forfeited;
@@ -549,9 +550,14 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
                   icon={<Package className="h-6 w-6" />}
                 />
                 <PrimaryMetric
-                  label="استلم فعليًا"
+                  label="المستلم"
                   value={received}
-                  note="وجبات تم توصيلها أو استلامها من الفرع بشكل مثبت"
+                  note={
+                    <span className="flex flex-wrap gap-x-3 gap-y-1">
+                      <span><strong className="text-foreground">{systemReceived}</strong> استلام مثبت</span>
+                      <span><strong className="text-foreground">{manualDeducted}</strong> خصم يدوي محسوب كمستلم</span>
+                    </span>
+                  }
                   icon={<CheckCircle2 className="h-6 w-6" />}
                   tone="success"
                 />
@@ -594,7 +600,7 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
                       <div>
                         <h2 className="text-lg font-black">الحساب ببساطة</h2>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          أهم معادلة تحتاجها لمعرفة رصيد العميل الحالي.
+                          الخصم اليدوي يُعامل هنا كاستلام لأن العامل أكد خروج الوجبات للعميل.
                         </p>
                       </div>
                       <Badge variant={balanceDifference === 0 ? "secondary" : "destructive"}>
@@ -604,15 +610,15 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
 
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                       <FormulaItem label="إجمالي الوجبات" value={total} />
-                      <FormulaItem label="استلم فعليًا" value={received} sign="−" />
+                      <FormulaItem label="المستلم" value={received} sign="−" />
                       <FormulaItem label="خصومات أخرى" value={deductedWithoutReceipt} sign="−" />
                       <FormulaItem label="المتبقي للعميل" value={remaining} sign="=" />
                     </div>
 
                     {deductedWithoutReceipt > 0 ? (
-                      <p className="mt-4 rounded-xl border border-violet-500/25 bg-violet-500/[0.05] p-3 text-sm leading-6">
-                        توجد <strong>{deductedWithoutReceipt}</strong> وجبة خرجت من الرصيد بدون أن تُحسب استلامًا فعليًا.
-                        منها <strong>{manualDeducted}</strong> خصم يدوي و<strong>{otherDeductions}</strong> حسم تشغيلي أو مصادرة.
+                      <p className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3 text-sm leading-6">
+                        توجد <strong>{deductedWithoutReceipt}</strong> وجبة خرجت من الرصيد خارج بند المستلم،
+                        وهي حسم تشغيلي أو مصادرة وتظل ظاهرة للمراجعة.
                       </p>
                     ) : null}
                   </section>
@@ -643,19 +649,14 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
                     <section className="rounded-xl border bg-card p-4 shadow-sm">
                       <h2 className="font-black">ما الذي خرج من الرصيد؟</h2>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        نفصل الاستلام الحقيقي عن أي تخفيض إداري أو تشغيلي.
+                        المستلم يجمع الاستلام المثبت والخصم اليدوي، مع إبقاء التقسيم ظاهرًا للمراجعة.
                       </p>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         <SmallMetric
-                          label="استلام فعلي"
+                          label="المستلم الإجمالي"
                           value={received}
+                          note={`${systemReceived} استلام مثبت · ${manualDeducted} خصم يدوي`}
                           icon={<CheckCircle2 className="h-4 w-4" />}
-                        />
-                        <SmallMetric
-                          label="خصم يدوي"
-                          value={manualDeducted}
-                          icon={<LayoutDashboard className="h-4 w-4" />}
-                          tone={manualDeducted ? "manual" : "default"}
                         />
                         <SmallMetric
                           label="حسم أو مصادرة"
@@ -728,7 +729,7 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
                       <div>
                         <h2 className="text-lg font-black">أيام الاشتراك</h2>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          راجع لكل يوم: اختار كام، استلم كام، وهل ما زالت وجباته محجوزة.
+                          رقم الاستلام داخل اليوم يعرض العملية المرتبطة بهذا اليوم فقط؛ الخصم اليدوي المجمع يظهر في الملخص وتفاصيل الرصيد ولا نوزعه على أيام قديمة بدون دليل.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -771,12 +772,13 @@ export function SubscriptionTrackingExperienceV7({ subscription, open, onOpenCha
                   <section className="rounded-xl border bg-card p-4 shadow-sm">
                     <h2 className="text-lg font-black">تفاصيل حركة الرصيد</h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      هذا القسم للمراجعة الإدارية. الخصم اليدوي ظاهر بوضوح ولا يُحسب استلامًا فعليًا.
+                      الخصم اليدوي محسوب ضمن المستلم، لكنه يظل ظاهرًا منفصلًا هنا لمعرفة طريقة تسجيل الاستلام ومن نفّذ العملية.
                     </p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <SmallMetric label="استلام فعلي" value={received} icon={<CheckCircle2 className="h-4 w-4" />} />
-                      <SmallMetric label="خصم يدوي" value={manualDeducted} icon={<LayoutDashboard className="h-4 w-4" />} tone={manualDeducted ? "manual" : "default"} />
-                      <SmallMetric label="حسم تشغيلي" value={operationalDeducted} icon={<Truck className="h-4 w-4" />} tone={operationalDeducted ? "danger" : "default"} />
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                      <SmallMetric label="المستلم الإجمالي" value={received} icon={<CheckCircle2 className="h-4 w-4" />} />
+                      <SmallMetric label="استلام مثبت" value={systemReceived} icon={<Truck className="h-4 w-4" />} />
+                      <SmallMetric label="خصم يدوي ضمن المستلم" value={manualDeducted} icon={<LayoutDashboard className="h-4 w-4" />} tone={manualDeducted ? "manual" : "default"} />
+                      <SmallMetric label="حسم تشغيلي" value={operationalDeducted} icon={<AlertTriangle className="h-4 w-4" />} tone={operationalDeducted ? "danger" : "default"} />
                       <SmallMetric label="مصادَر" value={forfeited} icon={<Store className="h-4 w-4" />} tone={forfeited ? "danger" : "default"} />
                     </div>
                   </section>
