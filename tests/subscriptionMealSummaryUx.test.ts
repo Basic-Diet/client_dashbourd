@@ -23,7 +23,7 @@ test("the first view prioritizes total, received and customer remaining", () => 
   const source = read(experiencePath);
 
   const totalPosition = source.indexOf('label="إجمالي الوجبات"');
-  const receivedPosition = source.indexOf('label="استلم فعليًا"');
+  const receivedPosition = source.indexOf('label="المستلم"');
   const remainingPosition = source.indexOf('label="المتبقي للعميل"');
 
   assert.ok(totalPosition >= 0, "total meals card is missing");
@@ -42,7 +42,6 @@ test("the first view prioritizes total, received and customer remaining", () => 
     3,
     "the primary summary must contain exactly three cards"
   );
-  assert.doesNotMatch(primaryGrid, /تم الخصم يدويًا/);
   assert.doesNotMatch(primaryGrid, /حسم أو مصادرة/);
 });
 
@@ -55,14 +54,32 @@ test("customer remaining includes available and reserved meals", () => {
   assert.match(source, /كلا الرقمين ما زالا من حق العميل/);
 });
 
-test("administrative deductions are secondary and never called receipt", () => {
+test("manual deductions are included in received and remain auditable", () => {
   const source = read(experiencePath);
 
-  assert.match(source, /ما الذي خرج من الرصيد؟/);
-  assert.match(source, /خصم يدوي/);
+  assert.match(source, /const systemReceived = safeCount\(summary\?\.receivedMeals\);/);
+  assert.match(
+    source,
+    /const received = Math\.min\(total, systemReceived \+ manualDeducted\);/
+  );
+  assert.match(source, /خصم يدوي محسوب كمستلم/);
+  assert.match(source, /محسوب ضمن المستلم/);
+  assert.match(source, /استلام مثبت/);
+  assert.match(source, /خصم يدوي ضمن المستلم/);
+  assert.doesNotMatch(source, /لا يُحسب استلامًا فعليًا/);
+});
+
+test("other deductions stay separate from the received total", () => {
+  const source = read(experiencePath);
+
+  assert.match(
+    source,
+    /const operationalDeducted = Math\.max\(0, consumed - systemReceived - manualDeducted\);/
+  );
+  assert.match(source, /const otherDeductions = operationalDeducted \+ forfeited;/);
   assert.match(source, /حسم أو مصادرة/);
-  assert.match(source, /لا يُحسب استلامًا فعليًا/);
-  assert.match(source, /عرض المعلومات الإدارية والتفسير الفني/);
+  assert.match(source, /حسم تشغيلي/);
+  assert.match(source, /مصادَر/);
 });
 
 test("navigation uses simple user-centered labels", () => {
