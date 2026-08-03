@@ -41,6 +41,12 @@ const ACTION_CONFIG: Record<string, ActionConfig> = {
     className:
       "bg-blue-600 text-white shadow-md shadow-blue-500/20 hover:bg-blue-700",
   },
+  pickup: {
+    label: "استلام للتوصيل",
+    variant: "default",
+    className:
+      "bg-blue-600 text-white shadow-md shadow-blue-500/20 hover:bg-blue-700",
+  },
   notify_arrival: {
     label: "قريب من العميل",
     variant: "secondary",
@@ -94,7 +100,7 @@ function getActionConfig(actionId: string): ActionConfig {
 }
 
 function getActionLabel(action: QueueAction) {
-  return safeText(action.label, ACTION_CONFIG[action.id]?.label || action.id);
+  return ACTION_CONFIG[action.id]?.label || safeText(action.label, action.id);
 }
 
 export function DeliveryCard({
