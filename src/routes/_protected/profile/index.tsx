@@ -8,33 +8,53 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
-import { useResetDashboardStaffUserPasswordMutation } from "@/hooks/useDashboardAdminQuery";
-import { UserRoles } from "@/types/auth";
+import { parseApiError } from "@/lib/apiErrors";
 import { getRoleLabel } from "@/lib/roleLabels";
 
 export const Route = createFileRoute("/_protected/profile/")({
   component: ProfilePage,
 });
 
+function getPasswordErrorMessage(error: unknown) {
+  const parsed = parseApiError(error);
+  if (parsed.code === "CURRENT_PASSWORD_INVALID" || parsed.status === 401) {
+    return "كلمة المرور الحالية غير صحيحة.";
+  }
+  if (parsed.code === "PASSWORD_UNCHANGED") {
+    return "كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية.";
+  }
+  if (parsed.code === "WEAK_PASSWORD") {
+    return "كلمة المرور الجديدة يجب أن تكون 12 حرفًا على الأقل وتحتوي على حرف كبير وحرف صغير ورقم ورمز.";
+  }
+  return parsed.message || "تعذر تحديث كلمة المرور";
+}
+
 function ProfilePage() {
-  const { user } = useAuth();
-  const resetPassword = useResetDashboardStaffUserPasswordMutation();
-  const [password, setPassword] = useState("");
-  const canResetPassword =
-    user?.role === UserRoles.ADMIN || user?.role === UserRoles.SUPERADMIN;
+  const { user, changePassword, isChangingPassword } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const passwordsMatch =
+    confirmPassword.length > 0 && newPassword === confirmPassword;
+  const canSubmit =
+    currentPassword.length > 0 && newPassword.length >= 12 && passwordsMatch;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!user?.id || !password.trim()) return;
+
+    if (!passwordsMatch) {
+      toast.error("تأكيد كلمة المرور غير مطابق.");
+      return;
+    }
 
     try {
-      await resetPassword.mutateAsync({ id: user.id, password });
-      setPassword("");
-      toast.success("تم تحديث كلمة المرور بنجاح");
+      await changePassword({ currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "تعذر تحديث كلمة المرور";
-      toast.error(message);
+      toast.error(getPasswordErrorMessage(error));
     }
   };
 
@@ -44,7 +64,7 @@ function ProfilePage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">الملف الشخصي</h1>
           <p className="text-sm text-muted-foreground">
-            بيانات حساب لوحة التحكم الحالي.
+            بيانات حساب لوحة التحكم الحالي وإعدادات كلمة المرور.
           </p>
         </div>
         <UserIcon className="size-6 text-muted-foreground" />
@@ -64,43 +84,72 @@ function ProfilePage() {
           </CardContent>
         </Card>
 
-        {canResetPassword ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>إعادة تعيين كلمة المرور</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">كلمة المرور الجديدة</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    minLength={8}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={resetPassword.isPending || password.length < 8}
-                >
-                  <SaveIcon className="size-4" />
-                  تحديث كلمة المرور
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>كلمة المرور</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              إعادة تعيين كلمة المرور متاحة لحسابات المدير والمدير العام فقط.
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>تغيير كلمة المرور</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">كلمة المرور الحالية</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-password">كلمة المرور الجديدة</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  12 حرفًا على الأقل، وتتضمن حرفًا كبيرًا وحرفًا صغيرًا ورقمًا ورمزًا.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">تأكيد كلمة المرور الجديدة</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  aria-invalid={
+                    confirmPassword.length > 0 && !passwordsMatch
+                      ? "true"
+                      : "false"
+                  }
+                />
+                {confirmPassword.length > 0 && !passwordsMatch ? (
+                  <p className="text-xs text-destructive">
+                    تأكيد كلمة المرور غير مطابق.
+                  </p>
+                ) : null}
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isChangingPassword || !canSubmit}
+              >
+                <SaveIcon className="size-4" />
+                {isChangingPassword
+                  ? "جاري تحديث كلمة المرور..."
+                  : "تحديث كلمة المرور"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
