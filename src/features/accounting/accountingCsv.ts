@@ -29,7 +29,7 @@ const xmlEscape = (value: unknown) =>
     .replace(/'/g, "&apos;");
 
 const stringCell = (value: unknown, style = "Text"): ExcelCell => ({
-  value: value ?? "",
+  value: String(value ?? ""),
   type: "String",
   style,
 });
