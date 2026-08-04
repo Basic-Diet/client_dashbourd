@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 
 import {
-  buildSubscriptionPaymentsCsv,
-  subscriptionPaymentsCsvFileName,
+  buildSubscriptionPaymentsExcel,
+  subscriptionPaymentsExcelFileName,
 } from "../src/features/accounting/accountingCsv";
 import type { SubscriptionPaymentDailyReportData } from "../src/features/accounting/accountingTypes";
 import {
@@ -15,7 +15,7 @@ import {
   sourceChannelLabel,
 } from "../src/features/accounting/accountingFormatters";
 
-test("accounting subscription report formatters and csv", () => {
+test("accounting subscription report formatters and Excel workbook", () => {
   assert.equal(formatMoney("١١٥٫٠٠ ر.س", 11500), "١١٥٫٠٠ ر.س");
   assert.match(formatSarFromHalala(11500), /115\.00|١١٥٫٠٠/);
   assert.equal(formatMoney(undefined, null), "-");
@@ -31,22 +31,56 @@ test("accounting subscription report formatters and csv", () => {
   const report: SubscriptionPaymentDailyReportData = {
     reportType: "daily",
     businessDate: "2026-07-25",
+    businessDateLabelAr: "٢٥ يوليو ٢٠٢٦",
+    titleAr: "تقرير تحصيل الاشتراكات اليومي",
     currency: "SAR",
+    generatedAt: "2026-07-25T12:00:00.000Z",
     summary: {
+      totalPaymentsCount: 1,
+      uniqueCustomersCount: 1,
       grossCollectionHalala: 11500,
       refundsHalala: 3000,
+      refundsCount: 1,
       netCollectionHalala: 8500,
       salesVatHalala: 1500,
       refundVatHalala: 391,
       netVatHalala: 1109,
       netBeforeVatHalala: 7391,
       refundsTrackingStatus: "available",
+      cashTotalHalala: 0,
+      cardTotalHalala: 11500,
+      moyasarTotalHalala: 11500,
+      unknownTotalHalala: 0,
+    } as SubscriptionPaymentDailyReportData["summary"] & {
+      moyasarTotalHalala: number;
+    },
+    reconciliation: {
+      status: "balanced",
+      statusLabelAr: "متوازن",
+      differenceHalala: 0,
+      noteAr: "ميسر ضمن تحصيل البطاقات ولا يُجمع مرتين.",
     },
     dashboardCards: [
       {
         key: "total",
-        titleAr: "إجمالي التحصيل",
+        titleAr: "إجمالي تحصيل الاشتراكات",
         amountFormattedAr: "١١٥٫٠٠ ر.س",
+      },
+    ],
+    byPaymentMethod: [
+      { key: "card", labelAr: "بطاقة / بوابة إلكترونية", count: 1, totalHalala: 11500 },
+    ],
+    bySourceChannel: [
+      { key: "app", labelAr: "التطبيق", count: 1, totalHalala: 11500 },
+    ],
+    byPaymentProvider: [
+      { key: "moyasar", labelAr: "ميسر", count: 1, totalHalala: 11500 },
+    ],
+    warnings: [
+      {
+        code: "TEST_WARNING",
+        messageAr: "حركة تحتاج مراجعة",
+        severity: "warning",
       },
     ],
     items: [
@@ -63,14 +97,19 @@ test("accounting subscription report formatters and csv", () => {
         paymentMethod: "card",
         paymentMethodLabelAr: "بطاقة",
         sourceChannel: "app",
+        sourceChannelLabelAr: "التطبيق",
         paymentProvider: "moyasar",
+        paymentProviderLabelAr: "ميسر",
+        providerPaymentId: "MOYASAR-PAY-1",
         statusLabelAr: "مدفوع",
         amountFormattedAr: "١١٥٫٠٠ ر.س",
         amountHalala: 11500,
         grossCollectionHalala: 11500,
         refundsHalala: 0,
         netMovementHalala: 11500,
+        netBeforeVatHalala: 10000,
         netBeforeVatFormattedAr: "١٠٠٫٠٠ ر.س",
+        vatHalala: 1500,
         vatFormattedAr: "١٥٫٠٠ ر.س",
         vatPercentage: 15,
         fulfillmentMethod: "pickup",
@@ -78,9 +117,9 @@ test("accounting subscription report formatters and csv", () => {
         subscriptionStatusLabelAr: "نشط",
         businessDateLabelAr: "٢٥ يوليو ٢٠٢٦",
         paidAtLabelAr: "٢٥ يوليو ٢٠٢٦، ٠٢:٠٠ م",
-        gatewayUsed: false,
-        gatewayUsedLabelAr: "لا",
-        recordingModeLabelAr: "تلقائي",
+        gatewayUsed: true,
+        gatewayUsedLabelAr: "نعم",
+        recordingModeLabelAr: "تحصيل إلكتروني عبر ميسر",
         needsReview: true,
         reviewReasonsAr: ["اشتراك ملغي"],
       },
@@ -122,16 +161,27 @@ test("accounting subscription report formatters and csv", () => {
     report.summary!.netVatHalala
   );
 
-  const csv = buildSubscriptionPaymentsCsv(report);
-  assert.ok(csv.startsWith("\ufeff"));
-  assert.ok(csv.includes("مرجع الدفعة"));
-  assert.ok(csv.includes("PAY-1"));
-  assert.ok(csv.includes("REF-1"));
-  assert.ok(csv.includes("مرتجع"));
-  assert.ok(csv.includes("التطبيق"));
-  assert.ok(csv.includes("ميسر"));
-  assert.ok(csv.includes("صافي الحركة"));
-  assert.ok(csv.includes("اشتراك ملغي"));
-  assert.equal(csv.includes("[object Object]"), false);
-  assert.equal(subscriptionPaymentsCsvFileName(report), "تقرير-تحصيل-الاشتراكات-2026-07-25.csv");
+  const excel = buildSubscriptionPaymentsExcel(report);
+  assert.ok(excel.startsWith('<?xml version="1.0"'));
+  assert.ok(excel.includes("Excel.Sheet"));
+  assert.ok(excel.includes('Worksheet ss:Name="الملخص"'));
+  assert.ok(excel.includes('Worksheet ss:Name="المدفوعات"'));
+  assert.ok(excel.includes('Worksheet ss:Name="التصنيفات"'));
+  assert.ok(excel.includes('Worksheet ss:Name="التحذيرات"'));
+  assert.ok(excel.includes("DisplayRightToLeft"));
+  assert.ok(excel.includes('ss:StyleID="Money"'));
+  assert.ok(excel.includes("مرجع الدفعة"));
+  assert.ok(excel.includes("PAY-1"));
+  assert.ok(excel.includes("MOYASAR-PAY-1"));
+  assert.ok(excel.includes("REF-1"));
+  assert.ok(excel.includes("مرتجع"));
+  assert.ok(excel.includes("التطبيق"));
+  assert.ok(excel.includes("ميسر"));
+  assert.ok(excel.includes("صافي الحركة"));
+  assert.ok(excel.includes("اشتراك ملغي"));
+  assert.equal(excel.includes("[object Object]"), false);
+  assert.equal(
+    subscriptionPaymentsExcelFileName(report),
+    "تقرير-تحصيل-الاشتراكات-2026-07-25.xls"
+  );
 });
