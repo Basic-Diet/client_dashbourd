@@ -195,7 +195,7 @@ const bucketRows = (
       stringCell(title),
       stringCell(textOrDash(bucket.labelAr, bucketKey(bucket))),
       numberCell(bucket.count, "Integer"),
-      numberCell(bucket.customersCount, "Integer"),
+      numberCell(bucket.customersCount ?? bucket.uniqueCustomersCount, "Integer"),
       moneyCell(bucket.totalHalala),
     ]),
   ];
