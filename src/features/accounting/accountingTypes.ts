@@ -69,6 +69,7 @@ export interface SubscriptionPaymentBucket {
   labelAr?: string | null;
   count?: number | null;
   customersCount?: number | null;
+  uniqueCustomersCount?: number | null;
   totalHalala?: number | null;
   totalSar?: number | null;
   totalFormattedAr?: string | null;
@@ -231,8 +232,14 @@ export interface SubscriptionPaymentSummary {
   netVatHalala?: number | null;
   netVatFormattedAr?: string | null;
   cardCount?: number | null;
+  cardCustomersCount?: number | null;
   cardTotalHalala?: number | null;
   cardTotalFormattedAr?: string | null;
+  moyasarCount?: number | null;
+  moyasarCustomersCount?: number | null;
+  moyasarTotalHalala?: number | null;
+  moyasarTotalFormattedAr?: string | null;
+  reviewItemsCount?: number | null;
   cancelledSubscriptionsCount?: number | null;
 }
 
@@ -253,6 +260,8 @@ export interface SubscriptionPaymentDailyBreakdownItem {
   cashTotalFormattedAr?: string | null;
   visaTotalHalala?: number | null;
   visaTotalFormattedAr?: string | null;
+  moyasarTotalHalala?: number | null;
+  moyasarTotalFormattedAr?: string | null;
 }
 
 export interface SubscriptionPaymentMonthlyStatistics {
@@ -290,6 +299,8 @@ interface SubscriptionPaymentReportBase {
   byFulfillmentMethod?: SubscriptionPaymentBucket[] | null;
   bySubscriptionStatus?: SubscriptionPaymentBucket[] | null;
   byPaymentType?: SubscriptionPaymentBucket[] | null;
+  bySourceChannel?: SubscriptionPaymentBucket[] | null;
+  byPaymentProvider?: SubscriptionPaymentBucket[] | null;
   reconciliation?: SubscriptionPaymentReconciliation | null;
   warnings?: SubscriptionPaymentWarning[] | null;
   items?: SubscriptionPaymentReportItem[] | null;
