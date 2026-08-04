@@ -85,7 +85,7 @@ const initialLegacyParams = resolveAccountingDailyReportParams({
 
 function AccountingPage() {
   const [activeTab, setActiveTab] = useState<AccountingTab>("subscription-payments");
-  const [reportMode, setReportMode] = useState<AccountingReportMode>("range");
+  const [reportMode, setReportMode] = useState<AccountingReportMode>("daily");
   const [date, setDate] = useState(initialDailyParams.date);
   const [month, setMonth] = useState(initialMonthlyParams.month);
   const [fulfillmentMethod, setFulfillmentMethod] =
