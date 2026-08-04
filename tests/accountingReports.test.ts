@@ -162,14 +162,30 @@ test("accounting subscription report formatters and Excel workbook", () => {
   );
 
   const excel = buildSubscriptionPaymentsExcel(report);
+  const compactSheet = excel
+    .split('Worksheet ss:Name="المدفوعات"')[1]
+    .split("</Worksheet>")[0];
+  const technicalSheet = excel
+    .split('Worksheet ss:Name="تفاصيل الدفع"')[1]
+    .split("</Worksheet>")[0];
+
   assert.ok(excel.startsWith('<?xml version="1.0"'));
   assert.ok(excel.includes("Excel.Sheet"));
   assert.ok(excel.includes('Worksheet ss:Name="الملخص"'));
   assert.ok(excel.includes('Worksheet ss:Name="المدفوعات"'));
+  assert.ok(excel.includes('Worksheet ss:Name="تفاصيل الدفع"'));
   assert.ok(excel.includes('Worksheet ss:Name="التصنيفات"'));
   assert.ok(excel.includes('Worksheet ss:Name="التحذيرات"'));
   assert.ok(excel.includes("DisplayRightToLeft"));
+  assert.ok(excel.includes("DoNotDisplayGridlines"));
   assert.ok(excel.includes('ss:StyleID="Money"'));
+  assert.ok(excel.includes('ss:MergeAcross="7"'));
+  assert.ok(excel.includes('ss:AutoFitHeight="0"'));
+  assert.ok(compactSheet.includes("<AutoFilter"));
+  assert.ok(compactSheet.includes("<SplitVertical>4</SplitVertical>"));
+  assert.ok(technicalSheet.includes("<SplitVertical>2</SplitVertical>"));
+  assert.equal(compactSheet.includes("أسباب المراجعة"), false);
+  assert.ok(technicalSheet.includes("أسباب المراجعة"));
   assert.ok(excel.includes("مرجع الدفعة"));
   assert.ok(excel.includes("PAY-1"));
   assert.ok(excel.includes("MOYASAR-PAY-1"));
@@ -179,6 +195,8 @@ test("accounting subscription report formatters and Excel workbook", () => {
   assert.ok(excel.includes("ميسر"));
   assert.ok(excel.includes("صافي الحركة"));
   assert.ok(excel.includes("اشتراك ملغي"));
+  assert.equal(excel.includes('ss:Width="280"'), false);
+  assert.equal(excel.includes('ss:Width="450"'), false);
   assert.equal(excel.includes("[object Object]"), false);
   assert.equal(
     subscriptionPaymentsExcelFileName(report),

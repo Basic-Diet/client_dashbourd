@@ -16,9 +16,22 @@ type ExcelCell = {
   value: string | number;
   type?: "String" | "Number";
   style?: string;
+  mergeAcross?: number;
 };
 
-type ExcelRow = ExcelCell[];
+type ExcelRow = {
+  cells: ExcelCell[];
+  height?: number;
+};
+
+type WorksheetConfig = {
+  name: string;
+  rows: ExcelRow[];
+  widths: number[];
+  frozenRows?: number;
+  frozenColumns?: number;
+  autoFilter?: boolean;
+};
 
 const xmlEscape = (value: unknown) =>
   String(value ?? "")
@@ -28,48 +41,94 @@ const xmlEscape = (value: unknown) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-const stringCell = (value: unknown, style = "Text"): ExcelCell => ({
+const stringCell = (
+  value: unknown,
+  style = "Text",
+  mergeAcross = 0
+): ExcelCell => ({
   value: String(value ?? ""),
   type: "String",
   style,
+  mergeAcross,
 });
 
-const numberCell = (value: unknown, style = "Number"): ExcelCell => {
+const numberCell = (
+  value: unknown,
+  style = "Integer",
+  mergeAcross = 0
+): ExcelCell => {
   const parsed = Number(value);
   return {
     value: Number.isFinite(parsed) ? parsed : 0,
     type: "Number",
     style,
+    mergeAcross,
   };
 };
 
-const moneyCell = (halala: unknown): ExcelCell => {
+const moneyCell = (
+  halala: unknown,
+  style = "Money",
+  mergeAcross = 0
+): ExcelCell => {
   const parsed = Number(halala);
-  return numberCell(Number.isFinite(parsed) ? parsed / 100 : 0, "Money");
+  return numberCell(Number.isFinite(parsed) ? parsed / 100 : 0, style, mergeAcross);
 };
 
-const renderCell = (cell: ExcelCell) =>
-  `<Cell ss:StyleID="${xmlEscape(cell.style ?? "Text")}"><Data ss:Type="${cell.type ?? "String"}">${xmlEscape(cell.value)}</Data></Cell>`;
+const row = (cells: ExcelCell[], height = 26): ExcelRow => ({ cells, height });
 
-const renderRow = (row: ExcelRow) => `<Row>${row.map(renderCell).join("")}</Row>`;
+const alternatingStyle = (base: "Text" | "Center" | "Money" | "Integer", alternate: boolean) =>
+  alternate ? `${base}Alt` : base;
 
-const renderWorksheet = (
-  name: string,
-  rows: ExcelRow[],
-  widths: number[] = []
-) => {
+const renderCell = (cell: ExcelCell) => {
+  const mergeAcross =
+    cell.mergeAcross && cell.mergeAcross > 0
+      ? ` ss:MergeAcross="${cell.mergeAcross}"`
+      : "";
+  return `<Cell ss:StyleID="${xmlEscape(cell.style ?? "Text")}"${mergeAcross}><Data ss:Type="${cell.type ?? "String"}">${xmlEscape(cell.value)}</Data></Cell>`;
+};
+
+const renderRow = (excelRow: ExcelRow) =>
+  `<Row ss:AutoFitHeight="0" ss:Height="${excelRow.height ?? 26}">${excelRow.cells
+    .map(renderCell)
+    .join("")}</Row>`;
+
+const renderWorksheet = ({
+  name,
+  rows,
+  widths,
+  frozenRows = 1,
+  frozenColumns = 0,
+  autoFilter = false,
+}: WorksheetConfig) => {
   const columns = widths
     .map((width) => `<Column ss:AutoFitWidth="0" ss:Width="${width}"/>`)
     .join("");
+  const freezeRows =
+    frozenRows > 0
+      ? `<SplitHorizontal>${frozenRows}</SplitHorizontal><TopRowBottomPane>${frozenRows}</TopRowBottomPane>`
+      : "";
+  const freezeColumns =
+    frozenColumns > 0
+      ? `<SplitVertical>${frozenColumns}</SplitVertical><LeftColumnRightPane>${frozenColumns}</LeftColumnRightPane>`
+      : "";
+  const autoFilterXml =
+    autoFilter && rows.length > 1
+      ? `<AutoFilter x:Range="R1C1:R${rows.length}C${widths.length}" xmlns="urn:schemas-microsoft-com:office:excel"/>`
+      : "";
+
   return `
     <Worksheet ss:Name="${xmlEscape(name.slice(0, 31))}">
       <Table>${columns}${rows.map(renderRow).join("")}</Table>
+      ${autoFilterXml}
       <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
         <DisplayRightToLeft/>
-        <FreezePanes/>
-        <FrozenNoSplit/>
-        <SplitHorizontal>1</SplitHorizontal>
-        <TopRowBottomPane>1</TopRowBottomPane>
+        <DoNotDisplayGridlines/>
+        ${
+          frozenRows > 0 || frozenColumns > 0
+            ? `<FreezePanes/><FrozenNoSplit/>${freezeRows}${freezeColumns}<ActivePane>0</ActivePane>`
+            : ""
+        }
         <ProtectObjects>False</ProtectObjects>
         <ProtectScenarios>False</ProtectScenarios>
       </WorksheetOptions>
@@ -90,85 +149,229 @@ const extendedSummary = (report: SubscriptionPaymentReportData) =>
     reviewItemsCount?: number | null;
   };
 
+const summaryValueRow = (
+  values: Array<{ value: unknown; kind: "money" | "integer" }>
+): ExcelRow =>
+  row(
+    values.map(({ value, kind }) =>
+      kind === "money"
+        ? moneyCell(value, "SummaryMoney", 1)
+        : numberCell(value, "SummaryNumber", 1)
+    ),
+    42
+  );
+
 const buildSummaryRows = (report: SubscriptionPaymentReportData): ExcelRow[] => {
   const summary = extendedSummary(report);
+  const reportMeta = `الفترة: ${periodLabel(report)}  |  إنشاء التقرير: ${textOrDash(
+    report.generatedAtLabelAr,
+    report.generatedAt
+  )}`;
+
   return [
-    [stringCell(report.titleAr || "تقرير تحصيل الاشتراكات", "Title"), stringCell("", "Title")],
-    [stringCell("الفترة", "Label"), stringCell(periodLabel(report), "Value")],
-    [stringCell("وقت إنشاء التقرير", "Label"), stringCell(textOrDash(report.generatedAtLabelAr, report.generatedAt), "Value")],
-    [stringCell("العملة", "Label"), stringCell(report.currency || "SAR", "Value")],
-    [stringCell("إجمالي تحصيل الاشتراكات", "Label"), moneyCell(summary.grossCollectionHalala ?? summary.totalHalala)],
-    [stringCell("المرتجعات", "Label"), moneyCell(summary.refundsHalala)],
-    [stringCell("صافي الحركة", "Label"), moneyCell(summary.netCollectionHalala)],
-    [stringCell("الصافي قبل الضريبة", "Label"), moneyCell(summary.netBeforeVatHalala)],
-    [stringCell("صافي الضريبة", "Label"), moneyCell(summary.netVatHalala)],
-    [stringCell("التحصيل النقدي", "Label"), moneyCell(summary.cashTotalHalala)],
-    [stringCell("تحصيل البطاقات (يشمل ميسر)", "Label"), moneyCell(summary.cardTotalHalala ?? summary.visaTotalHalala)],
-    [stringCell("منها عبر ميسر — ضمن البطاقات", "Label"), moneyCell(summary.moyasarTotalHalala)],
-    [stringCell("مبالغ غير مصنفة", "Label"), moneyCell(summary.unknownTotalHalala)],
-    [stringCell("عدد عمليات الدفع", "Label"), numberCell(summary.totalPaymentsCount, "Integer")],
-    [stringCell("عدد العملاء", "Label"), numberCell(summary.uniqueCustomersCount, "Integer")],
-    [stringCell("حركات تحتاج مراجعة", "Label"), numberCell(summary.reviewItemsCount, "Integer")],
-    [stringCell("حالة التسوية", "Label"), stringCell(textOrDash(report.reconciliation?.statusLabelAr, report.reconciliation?.status), "Value")],
-    [stringCell("فرق التسوية", "Label"), moneyCell(report.reconciliation?.differenceHalala)],
-    [stringCell("ملاحظة", "Label"), stringCell(report.reconciliation?.noteAr || "-", "Value")],
+    row([stringCell(report.titleAr || "تقرير تحصيل الاشتراكات", "Title", 7)], 52),
+    row([stringCell(reportMeta, "Subtitle", 7)], 32),
+    row([stringCell("", "Spacer", 7)], 10),
+    row(
+      [
+        stringCell("إجمالي التحصيل", "KpiLabel", 1),
+        stringCell("المرتجعات", "KpiLabel", 1),
+        stringCell("صافي الحركة", "KpiLabel", 1),
+        stringCell("عدد العملاء", "KpiLabel", 1),
+      ],
+      28
+    ),
+    summaryValueRow([
+      { value: summary.grossCollectionHalala ?? summary.totalHalala, kind: "money" },
+      { value: summary.refundsHalala, kind: "money" },
+      { value: summary.netCollectionHalala, kind: "money" },
+      { value: summary.uniqueCustomersCount, kind: "integer" },
+    ]),
+    row([stringCell("", "Spacer", 7)], 10),
+    row(
+      [
+        stringCell("التحصيل النقدي", "KpiLabelLight", 1),
+        stringCell("تحصيل البطاقات", "KpiLabelLight", 1),
+        stringCell("منها عبر ميسر", "KpiLabelLight", 1),
+        stringCell("حركات تحتاج مراجعة", "KpiLabelLight", 1),
+      ],
+      28
+    ),
+    summaryValueRow([
+      { value: summary.cashTotalHalala, kind: "money" },
+      {
+        value: summary.cardTotalHalala ?? summary.visaTotalHalala,
+        kind: "money",
+      },
+      { value: summary.moyasarTotalHalala, kind: "money" },
+      { value: summary.reviewItemsCount, kind: "integer" },
+    ]),
+    row([stringCell("", "Spacer", 7)], 10),
+    row([stringCell("تفاصيل التسوية والضريبة", "SectionTitle", 7)], 30),
+    row(
+      [
+        stringCell("الصافي قبل الضريبة", "DetailLabel", 2),
+        moneyCell(summary.netBeforeVatHalala, "DetailMoney", 4),
+      ],
+      28
+    ),
+    row(
+      [
+        stringCell("صافي الضريبة", "DetailLabel", 2),
+        moneyCell(summary.netVatHalala, "DetailMoney", 4),
+      ],
+      28
+    ),
+    row(
+      [
+        stringCell("مبالغ غير مصنفة", "DetailLabel", 2),
+        moneyCell(summary.unknownTotalHalala, "DetailMoney", 4),
+      ],
+      28
+    ),
+    row(
+      [
+        stringCell("حالة التسوية", "DetailLabel", 2),
+        stringCell(
+          textOrDash(report.reconciliation?.statusLabelAr, report.reconciliation?.status),
+          report.reconciliation?.status === "balanced" ? "Success" : "Warning",
+          4
+        ),
+      ],
+      28
+    ),
+    row(
+      [
+        stringCell("فرق التسوية", "DetailLabel", 2),
+        moneyCell(report.reconciliation?.differenceHalala, "DetailMoney", 4),
+      ],
+      28
+    ),
+    row(
+      [
+        stringCell("ملاحظة", "DetailLabel", 2),
+        stringCell(report.reconciliation?.noteAr || "-", "DetailText", 4),
+      ],
+      44
+    ),
   ];
 };
 
-const detailsHeaders = [
-  "نوع الحركة",
+const compactHeaders = [
+  "تاريخ العمل",
   "مرجع الدفعة",
-  "رقم الاشتراك",
   "اسم العميل",
   "رقم الهاتف",
-  "اسم الخطة",
-  "نوع الدفعة",
+  "الخطة",
   "طريقة الدفع",
-  "قناة المصدر",
+  "المصدر",
   "مزود الدفع",
+  "الإجمالي",
+  "الضريبة",
+  "صافي الحركة",
+  "التنفيذ",
   "الحالة",
-  "الإجمالي (ر.س)",
-  "الصافي قبل الضريبة (ر.س)",
-  "الضريبة (ر.س)",
-  "صافي الحركة (ر.س)",
-  "طريقة التنفيذ",
-  "حالة الاشتراك",
-  "تاريخ العمل",
+  "مراجعة",
+] as const;
+
+const shortPaymentReference = (item: SubscriptionPaymentReportItem) => {
+  const reference = textOrDash(item.paymentReference, item.paymentId);
+  return reference.length <= 18 ? reference : `…${reference.slice(-15)}`;
+};
+
+const buildCompactPaymentRows = (
+  items: SubscriptionPaymentReportItem[]
+): ExcelRow[] => [
+  row(compactHeaders.map((header) => stringCell(header, "Header")), 38),
+  ...items.map((item, index) => {
+    const alternate = index % 2 === 1;
+    const textStyle = alternatingStyle("Text", alternate);
+    const centerStyle = alternatingStyle("Center", alternate);
+    const moneyStyle = alternatingStyle("Money", alternate);
+    const reviewStyle = item.needsReview ? "Warning" : centerStyle;
+    return row(
+      [
+        stringCell(textOrDash(item.businessDateLabelAr, item.businessDate), textStyle),
+        stringCell(shortPaymentReference(item), centerStyle),
+        stringCell(textOrDash(item.customerName), textStyle),
+        stringCell(`‎${textOrDash(item.customerPhone)}`, centerStyle),
+        stringCell(textOrDash(item.planNameAr), textStyle),
+        stringCell(paymentMethodLabel(item.paymentMethod, item.paymentMethodLabelAr), textStyle),
+        stringCell(sourceChannelLabel(item.sourceChannel, item.sourceChannelLabelAr), centerStyle),
+        stringCell(
+          paymentProviderLabel(
+            item.paymentProvider ?? item.provider,
+            item.paymentProviderLabelAr ?? item.providerLabelAr
+          ),
+          textStyle
+        ),
+        moneyCell(item.amountHalala, moneyStyle),
+        moneyCell(item.vatHalala, moneyStyle),
+        moneyCell(item.netMovementHalala, moneyStyle),
+        stringCell(
+          fulfillmentMethodLabel(item.fulfillmentMethod, item.fulfillmentMethodLabelAr),
+          textStyle
+        ),
+        stringCell(textOrDash(item.statusLabelAr, item.status), centerStyle),
+        stringCell(formatBooleanAr(item.needsReview), reviewStyle),
+      ],
+      30
+    );
+  }),
+];
+
+const technicalHeaders = [
+  "مرجع الدفعة الكامل",
+  "رقم الاشتراك",
+  "نوع الحركة",
+  "نوع الدفعة",
+  "الإجمالي",
+  "الصافي قبل الضريبة",
+  "الضريبة",
+  "صافي الحركة",
   "تاريخ الدفع",
   "تاريخ الاسترداد",
   "رقم ميسر/المزود",
   "رقم المرتجع",
+  "حالة الاشتراك",
   "محتسب في الإجماليات",
-  "تحتاج مراجعة",
   "أسباب المراجعة",
 ] as const;
 
-const itemToExcelRow = (item: SubscriptionPaymentReportItem): ExcelRow => [
-  stringCell(textOrDash(item.movementTypeLabelAr, item.movementType, "تحصيل")),
-  stringCell(textOrDash(item.paymentReference, item.paymentId)),
-  stringCell(textOrDash(item.subscriptionId)),
-  stringCell(textOrDash(item.customerName)),
-  stringCell(textOrDash(item.customerPhone)),
-  stringCell(textOrDash(item.planNameAr)),
-  stringCell(textOrDash(item.paymentTypeLabelAr, item.paymentType)),
-  stringCell(paymentMethodLabel(item.paymentMethod, item.paymentMethodLabelAr)),
-  stringCell(sourceChannelLabel(item.sourceChannel, item.sourceChannelLabelAr)),
-  stringCell(paymentProviderLabel(item.paymentProvider ?? item.provider, item.paymentProviderLabelAr ?? item.providerLabelAr)),
-  stringCell(textOrDash(item.statusLabelAr, item.status)),
-  moneyCell(item.amountHalala),
-  moneyCell(item.netBeforeVatHalala),
-  moneyCell(item.vatHalala),
-  moneyCell(item.netMovementHalala),
-  stringCell(fulfillmentMethodLabel(item.fulfillmentMethod, item.fulfillmentMethodLabelAr)),
-  stringCell(textOrDash(item.subscriptionStatusLabelAr, item.subscriptionStatus)),
-  stringCell(textOrDash(item.businessDateLabelAr, item.businessDate)),
-  stringCell(textOrDash(item.paidAtLabelAr, item.paidAt)),
-  stringCell(textOrDash(item.refundedAtLabelAr, item.refundedAt)),
-  stringCell(textOrDash(item.providerPaymentId, item.providerInvoiceId)),
-  stringCell(textOrDash(item.providerRefundId, item.refundId)),
-  stringCell(formatBooleanAr(item.countedInTotals)),
-  stringCell(formatBooleanAr(item.needsReview), item.needsReview ? "Warning" : "Text"),
-  stringCell(item.reviewReasonsAr?.join("، ") ?? ""),
+const buildTechnicalPaymentRows = (
+  items: SubscriptionPaymentReportItem[]
+): ExcelRow[] => [
+  row(technicalHeaders.map((header) => stringCell(header, "Header")), 38),
+  ...items.map((item, index) => {
+    const alternate = index % 2 === 1;
+    const textStyle = alternatingStyle("Text", alternate);
+    const centerStyle = alternatingStyle("Center", alternate);
+    const moneyStyle = alternatingStyle("Money", alternate);
+    const reviewReasons = item.reviewReasonsAr?.join("، ") ?? "";
+    return row(
+      [
+        stringCell(textOrDash(item.paymentReference, item.paymentId), textStyle),
+        stringCell(textOrDash(item.subscriptionId), textStyle),
+        stringCell(textOrDash(item.movementTypeLabelAr, item.movementType), centerStyle),
+        stringCell(textOrDash(item.paymentTypeLabelAr, item.paymentType), textStyle),
+        moneyCell(item.amountHalala, moneyStyle),
+        moneyCell(item.netBeforeVatHalala, moneyStyle),
+        moneyCell(item.vatHalala, moneyStyle),
+        moneyCell(item.netMovementHalala, moneyStyle),
+        stringCell(textOrDash(item.paidAtLabelAr, item.paidAt), textStyle),
+        stringCell(textOrDash(item.refundedAtLabelAr, item.refundedAt), textStyle),
+        stringCell(textOrDash(item.providerPaymentId, item.providerInvoiceId), textStyle),
+        stringCell(textOrDash(item.providerRefundId, item.refundId), textStyle),
+        stringCell(
+          textOrDash(item.subscriptionStatusLabelAr, item.subscriptionStatus),
+          centerStyle
+        ),
+        stringCell(formatBooleanAr(item.countedInTotals), centerStyle),
+        stringCell(reviewReasons || "-", item.needsReview ? "Warning" : textStyle),
+      ],
+      reviewReasons.length > 45 ? 46 : 30
+    );
+  }),
 ];
 
 const bucketKey = (bucket: SubscriptionPaymentBucket) => {
@@ -186,55 +389,130 @@ const bucketKey = (bucket: SubscriptionPaymentBucket) => {
 
 const bucketRows = (
   title: string,
-  rows: SubscriptionPaymentBucket[] | null | undefined
+  rows: SubscriptionPaymentBucket[] | null | undefined,
+  startIndex: number
 ): ExcelRow[] => {
   if (!rows?.length) return [];
-  return [
-    [stringCell(title, "Section"), stringCell("التصنيف", "Header"), stringCell("العمليات", "Header"), stringCell("العملاء", "Header"), stringCell("الإجمالي (ر.س)", "Header")],
-    ...rows.map((bucket) => [
-      stringCell(title),
-      stringCell(textOrDash(bucket.labelAr, bucketKey(bucket))),
-      numberCell(bucket.count, "Integer"),
-      numberCell(bucket.customersCount ?? bucket.uniqueCustomersCount, "Integer"),
-      moneyCell(bucket.totalHalala),
-    ]),
-  ];
+  return rows.map((bucket, index) => {
+    const alternate = (startIndex + index) % 2 === 1;
+    return row(
+      [
+        stringCell(title, alternatingStyle("Text", alternate)),
+        stringCell(
+          textOrDash(bucket.labelAr, bucketKey(bucket)),
+          alternatingStyle("Text", alternate)
+        ),
+        numberCell(bucket.count, alternatingStyle("Integer", alternate)),
+        numberCell(
+          bucket.customersCount ?? bucket.uniqueCustomersCount,
+          alternatingStyle("Integer", alternate)
+        ),
+        moneyCell(bucket.totalHalala, alternatingStyle("Money", alternate)),
+      ],
+      28
+    );
+  });
 };
 
-const buildClassificationRows = (report: SubscriptionPaymentReportData): ExcelRow[] => [
-  [stringCell("المحور", "Header"), stringCell("التصنيف", "Header"), stringCell("العمليات", "Header"), stringCell("العملاء", "Header"), stringCell("الإجمالي (ر.س)", "Header")],
-  ...bucketRows("طريقة الدفع", report.byPaymentMethod).slice(1),
-  ...bucketRows("قناة المصدر", report.bySourceChannel).slice(1),
-  ...bucketRows("مزود الدفع", report.byPaymentProvider).slice(1),
-  ...bucketRows("طريقة التنفيذ", report.byFulfillmentMethod).slice(1),
-  ...bucketRows("حالة الاشتراك", report.bySubscriptionStatus).slice(1),
-  ...bucketRows("نوع الدفعة", report.byPaymentType).slice(1),
-];
+const buildClassificationRows = (report: SubscriptionPaymentReportData): ExcelRow[] => {
+  const sections = [
+    ["طريقة الدفع", report.byPaymentMethod],
+    ["قناة المصدر", report.bySourceChannel],
+    ["مزود الدفع", report.byPaymentProvider],
+    ["طريقة التنفيذ", report.byFulfillmentMethod],
+    ["حالة الاشتراك", report.bySubscriptionStatus],
+    ["نوع الدفعة", report.byPaymentType],
+  ] as const;
 
-const buildWarningsRows = (report: SubscriptionPaymentReportData): ExcelRow[] => [
-  [stringCell("الكود", "Header"), stringCell("التحذير", "Header"), stringCell("الخطورة", "Header")],
-  ...(report.warnings?.length
-    ? report.warnings.map((warning) => [
-        stringCell(warning.code || "-"),
-        stringCell(textOrDash(warning.messageAr, warning.message), "Warning"),
-        stringCell(warning.severity || "warning", "Warning"),
-      ])
-    : [[stringCell("-"), stringCell("لا توجد تحذيرات من الخادم."), stringCell("normal")]]),
-];
+  const output: ExcelRow[] = [
+    row(
+      ["المحور", "التصنيف", "العمليات", "العملاء", "الإجمالي (ر.س)"].map((header) =>
+        stringCell(header, "Header")
+      ),
+      36
+    ),
+  ];
+  let rowIndex = 0;
+  for (const [title, buckets] of sections) {
+    const rows = bucketRows(title, buckets, rowIndex);
+    output.push(...rows);
+    rowIndex += rows.length;
+  }
+  return output;
+};
+
+const buildWarningsRows = (report: SubscriptionPaymentReportData): ExcelRow[] => {
+  const header = row(
+    ["الكود", "التحذير", "الخطورة"].map((value) => stringCell(value, "Header")),
+    36
+  );
+  if (!report.warnings?.length) {
+    return [
+      header,
+      row(
+        [
+          stringCell("-", "Success"),
+          stringCell("لا توجد تحذيرات من الخادم.", "Success"),
+          stringCell("طبيعي", "Success"),
+        ],
+        36
+      ),
+    ];
+  }
+  return [
+    header,
+    ...report.warnings.map((warning) =>
+      row(
+        [
+          stringCell(warning.code || "-", "Warning"),
+          stringCell(textOrDash(warning.messageAr, warning.message), "Warning"),
+          stringCell(warning.severity || "warning", "Warning"),
+        ],
+        46
+      )
+    ),
+  ];
+};
 
 const buildDailyRows = (report: SubscriptionPaymentReportData): ExcelRow[] => {
   if (report.reportType !== "monthly") return [];
   return [
-    [stringCell("اليوم", "Header"), stringCell("العمليات", "Header"), stringCell("إجمالي التحصيل (ر.س)", "Header"), stringCell("المرتجعات (ر.س)", "Header"), stringCell("الصافي (ر.س)", "Header"), stringCell("نقدي (ر.س)", "Header"), stringCell("بطاقات (ر.س)", "Header")],
-    ...(report.dailyBreakdown ?? []).map((row) => [
-      stringCell(textOrDash(row.businessDateLabelAr, row.businessDate)),
-      numberCell(row.paymentsCount ?? row.totalPaymentsCount, "Integer"),
-      moneyCell(row.grossCollectionHalala ?? row.totalHalala),
-      moneyCell(row.refundsHalala),
-      moneyCell(row.netCollectionHalala),
-      moneyCell(row.cashTotalHalala),
-      moneyCell(row.visaTotalHalala),
-    ]),
+    row(
+      [
+        "اليوم",
+        "العمليات",
+        "إجمالي التحصيل (ر.س)",
+        "المرتجعات (ر.س)",
+        "الصافي (ر.س)",
+        "نقدي (ر.س)",
+        "بطاقات (ر.س)",
+      ].map((header) => stringCell(header, "Header")),
+      38
+    ),
+    ...(report.dailyBreakdown ?? []).map((daily, index) => {
+      const alternate = index % 2 === 1;
+      return row(
+        [
+          stringCell(
+            textOrDash(daily.businessDateLabelAr, daily.businessDate),
+            alternatingStyle("Text", alternate)
+          ),
+          numberCell(
+            daily.paymentsCount ?? daily.totalPaymentsCount,
+            alternatingStyle("Integer", alternate)
+          ),
+          moneyCell(
+            daily.grossCollectionHalala ?? daily.totalHalala,
+            alternatingStyle("Money", alternate)
+          ),
+          moneyCell(daily.refundsHalala, alternatingStyle("Money", alternate)),
+          moneyCell(daily.netCollectionHalala, alternatingStyle("Money", alternate)),
+          moneyCell(daily.cashTotalHalala, alternatingStyle("Money", alternate)),
+          moneyCell(daily.visaTotalHalala, alternatingStyle("Money", alternate)),
+        ],
+        28
+      );
+    }),
   ];
 };
 
@@ -242,19 +520,53 @@ export const buildSubscriptionPaymentsExcel = (
   report: SubscriptionPaymentReportData,
   visibleItems: SubscriptionPaymentReportItem[] = report.items ?? []
 ) => {
-  const worksheets = [
-    renderWorksheet("الملخص", buildSummaryRows(report), [190, 300]),
-    renderWorksheet(
-      "المدفوعات",
-      [detailsHeaders.map((header) => stringCell(header, "Header")), ...visibleItems.map(itemToExcelRow)],
-      [110, 115, 145, 130, 105, 130, 110, 110, 100, 120, 100, 90, 105, 90, 100, 115, 100, 120, 145, 145, 150, 130, 100, 100, 280]
-    ),
-    renderWorksheet("التصنيفات", buildClassificationRows(report), [130, 190, 80, 80, 110]),
-    renderWorksheet("التحذيرات", buildWarningsRows(report), [140, 450, 100]),
-    ...(report.reportType === "monthly"
-      ? [renderWorksheet("الحركة اليومية", buildDailyRows(report), [160, 80, 120, 110, 110, 100, 110])]
-      : []),
+  const worksheets: WorksheetConfig[] = [
+    {
+      name: "الملخص",
+      rows: buildSummaryRows(report),
+      widths: [92, 92, 92, 92, 92, 92, 92, 92],
+      frozenRows: 2,
+    },
+    {
+      name: "المدفوعات",
+      rows: buildCompactPaymentRows(visibleItems),
+      widths: [120, 105, 125, 100, 170, 120, 95, 135, 85, 80, 85, 110, 85, 85],
+      frozenRows: 1,
+      frozenColumns: 4,
+      autoFilter: true,
+    },
+    {
+      name: "تفاصيل الدفع",
+      rows: buildTechnicalPaymentRows(visibleItems),
+      widths: [145, 170, 95, 115, 85, 100, 80, 95, 145, 145, 165, 135, 105, 100, 260],
+      frozenRows: 1,
+      frozenColumns: 2,
+      autoFilter: true,
+    },
+    {
+      name: "التصنيفات",
+      rows: buildClassificationRows(report),
+      widths: [125, 190, 85, 85, 115],
+      frozenRows: 1,
+      autoFilter: true,
+    },
+    {
+      name: "التحذيرات",
+      rows: buildWarningsRows(report),
+      widths: [145, 420, 110],
+      frozenRows: 1,
+    },
   ];
+
+  if (report.reportType === "monthly" && (report.dailyBreakdown ?? []).length > 0) {
+    worksheets.push({
+      name: "الحركة اليومية",
+      rows: buildDailyRows(report),
+      widths: [170, 85, 125, 115, 115, 100, 110],
+      frozenRows: 1,
+      autoFilter: true,
+    });
+  }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
@@ -275,19 +587,31 @@ export const buildSubscriptionPaymentsExcel = (
   <ProtectWindows>False</ProtectWindows>
  </ExcelWorkbook>
  <Styles>
-  <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="11"/></Style>
-  <Style ss:ID="Text"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
-  <Style ss:ID="Title"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="16" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#17365D" ss:Pattern="Solid"/></Style>
-  <Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2F75B5" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1F4E78"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
-  <Style ss:ID="Section"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Bold="1" ss:Color="#17365D"/><Interior ss:Color="#D9EAF7" ss:Pattern="Solid"/></Style>
-  <Style ss:ID="Label"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Bold="1"/><Interior ss:Color="#D9EAF7" ss:Pattern="Solid"/></Style>
-  <Style ss:ID="Value"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
-  <Style ss:ID="Money"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00 &quot;ر.س&quot;"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
-  <Style ss:ID="Number"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><NumberFormat ss:Format="0.00"/></Style>
-  <Style ss:ID="Integer"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><NumberFormat ss:Format="0"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
-  <Style ss:ID="Warning"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Color="#9C0006"/><Interior ss:Color="#FFC7CE" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="10"/></Style>
+  <Style ss:ID="Spacer"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="Title"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="17" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#17365D" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="Subtitle"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#17365D"/><Interior ss:Color="#D9EAF7" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="KpiLabel"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2F75B5" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="KpiLabelLight"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#17365D"/><Interior ss:Color="#EEF5FB" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="SummaryMoney"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="15" ss:Bold="1" ss:Color="#17365D"/><NumberFormat ss:Format="#,##0.00 &quot;ر.س&quot;"/></Style>
+  <Style ss:ID="SummaryNumber"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="15" ss:Bold="1" ss:Color="#17365D"/><NumberFormat ss:Format="0"/></Style>
+  <Style ss:ID="SectionTitle"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="12" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#17365D" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="DetailLabel"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Bold="1" ss:Color="#17365D"/><Interior ss:Color="#D9EAF7" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="DetailText"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Color="#1F2937"/></Style>
+  <Style ss:ID="DetailMoney"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Color="#1F2937"/><NumberFormat ss:Format="#,##0.00 &quot;ر.س&quot;"/></Style>
+  <Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#17365D" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#8EA9C1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#8EA9C1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#8EA9C1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#8EA9C1"/></Borders></Style>
+  <Style ss:ID="Text"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="TextAlt"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Interior ss:Color="#EEF5FB" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="Center"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="CenterAlt"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Interior ss:Color="#EEF5FB" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="Money"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00 &quot;ر.س&quot;"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="MoneyAlt"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Interior ss:Color="#EEF5FB" ss:Pattern="Solid"/><NumberFormat ss:Format="#,##0.00 &quot;ر.س&quot;"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="Integer"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><NumberFormat ss:Format="0"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="IntegerAlt"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Interior ss:Color="#EEF5FB" ss:Pattern="Solid"/><NumberFormat ss:Format="0"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+  <Style ss:ID="Warning"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Color="#9C0006" ss:Bold="1"/><Interior ss:Color="#FFC7CE" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F4B084"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F4B084"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F4B084"/></Borders></Style>
+  <Style ss:ID="Success"><Alignment ss:Horizontal="Right" ss:Vertical="Center" ss:WrapText="1" ss:ReadingOrder="RightToLeft"/><Font ss:FontName="Arial" ss:Color="#375623" ss:Bold="1"/><Interior ss:Color="#E2F0D9" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A9D18E"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A9D18E"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A9D18E"/></Borders></Style>
  </Styles>
- ${worksheets.join("")}
+ ${worksheets.map(renderWorksheet).join("")}
 </Workbook>`;
 };
 
@@ -299,7 +623,7 @@ export const subscriptionPaymentsExcelFileName = (
 };
 
 export const downloadExcelFile = (contents: string, fileName: string) => {
-  const blob = new Blob(["\ufeff", contents], {
+  const blob = new Blob(["﻿", contents], {
     type: "application/vnd.ms-excel;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
@@ -312,7 +636,7 @@ export const downloadExcelFile = (contents: string, fileName: string) => {
   URL.revokeObjectURL(url);
 };
 
-// Compatibility aliases for any existing callers while the UI moves to Excel wording.
+// Compatibility aliases for existing callers.
 export const buildSubscriptionPaymentsCsv = buildSubscriptionPaymentsExcel;
 export const subscriptionPaymentsCsvFileName = subscriptionPaymentsExcelFileName;
 export const downloadTextFile = downloadExcelFile;
