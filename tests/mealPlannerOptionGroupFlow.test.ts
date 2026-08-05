@@ -134,15 +134,15 @@ describe("Meal Builder composed option-group flow", () => {
     });
   });
 
-  it("keeps canonical menu options selectable when the optional picker omits them", () => {
+  it("keeps menu options visible but disabled when the authoritative picker omits them", () => {
     const rows = mergeMenuOptionsWithPicker(menuOptions, [], []);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
       optionId: "option-chicken",
-      assignable: true,
-      eligible: true,
-      state: "menu_option",
-      reasonCodes: [],
+      assignable: false,
+      eligible: false,
+      state: "not_in_authoritative_picker",
+      reasonCodes: ["NO_AUTHORITATIVE_CANDIDATE"],
     });
   });
 

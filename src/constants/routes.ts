@@ -12,6 +12,7 @@ const SUPERADMIN_ROUTES = [
   "/delivery",
   "/payments",
   "/accounting",
+  "/subscription-audit",
   "/promo-codes",
   "/zones",
   "/manual-deduction",
@@ -36,6 +37,7 @@ const ADMIN_ROUTES = [
   "/delivery",
   "/payments",
   "/accounting",
+  "/subscription-audit",
   "/promo-codes",
   "/zones",
   "/manual-deduction",
@@ -57,7 +59,7 @@ const KITCHEN_ROUTES = [
   "/profile",
 ];
 
-const COURIER_ROUTES = ["/delivery", "/profile"];
+const COURIER_ROUTES = ["/delivery", "/operations", "/profile"];
 
 const CASHIER_ROUTES = [
   "/manual-deduction",

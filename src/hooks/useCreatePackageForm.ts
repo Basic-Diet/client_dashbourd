@@ -21,6 +21,7 @@ const DEFAULT_GRAM = {
 const EMPTY_DEFAULTS: CreatePackageSchemaType = {
   name: { ar: "", en: "" },
   daysCount: 0,
+  timelineExtraDays: 0,
   currency: "SAR",
   sortOrder: 1,
   isActive: true,

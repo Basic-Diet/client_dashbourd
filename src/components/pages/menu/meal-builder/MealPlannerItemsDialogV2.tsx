@@ -113,6 +113,11 @@ export function MealPlannerItemsDialogV2({
             />
           ) : (
             <MealPlannerCandidatePickerV2
+              key={`${section.key}:${sourceGroupId}:${String(
+                section.metadata?.familyKey ||
+                  section.metadata?.proteinFamilyKey ||
+                  ""
+              )}`}
               type="option"
               targetSectionKey={section.key}
               selectedIds={selectedIds}

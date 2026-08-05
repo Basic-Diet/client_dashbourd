@@ -14,6 +14,7 @@ test("subscriptionPlansContract.test", () => {
       en: "7-day meal subscription",
     },
     daysCount: 7,
+    timelineExtraDays: 1,
     durationDays: 7,
     gramsOptions: [
       {

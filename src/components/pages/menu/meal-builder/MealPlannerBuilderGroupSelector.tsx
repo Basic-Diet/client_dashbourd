@@ -3,46 +3,51 @@ import { Check, Layers3, Search, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import type { MenuOptionGroup } from "@/types/menuTypes";
 import type { MealPlannerBuilderGroup } from "@/types/mealPlannerDashboardTypes";
 import {
-  isMenuGroupSaveable,
-  matchingEligibleBuilderGroups,
-  menuGroupLabel,
+  builderGroupContextLabel,
   optionRoleLabel,
 } from "./mealPlannerOptionGroupFlow";
 
 export function MealPlannerBuilderGroupSelector({
-  menuGroups,
-  builderGroups,
-  selectedMenuGroupId,
+  groups,
+  selectedGroupId,
   disabled = false,
   loading = false,
   error = false,
   onRetry,
   onSelect,
 }: {
-  menuGroups: MenuOptionGroup[];
-  builderGroups: MealPlannerBuilderGroup[];
-  selectedMenuGroupId?: string;
+  groups: MealPlannerBuilderGroup[];
+  selectedGroupId?: string;
   disabled?: boolean;
   loading?: boolean;
   error?: boolean;
   onRetry?: () => void;
-  onSelect: (group: MenuOptionGroup) => void;
+  onSelect: (group: MealPlannerBuilderGroup) => void;
 }) {
   const [search, setSearch] = useState("");
   const visibleGroups = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return menuGroups;
-    return menuGroups.filter((group) =>
-      [group.id, group.key, group.name?.ar, group.name?.en]
+    if (!query) return groups;
+    return groups.filter((group) =>
+      [
+        group.id,
+        group.productContextId,
+        group.sourceGroupId,
+        group.product?.key,
+        group.product?.name?.ar,
+        group.product?.name?.en,
+        group.group?.key,
+        group.group?.name?.ar,
+        group.group?.name?.en,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(query)
     );
-  }, [menuGroups, search]);
+  }, [groups, search]);
 
   return (
     <section className="space-y-3" aria-labelledby="meal-builder-group-label">
@@ -56,7 +61,7 @@ export function MealPlannerBuilderGroupSelector({
           </p>
         </div>
         <Badge variant="outline" className="w-fit">
-          {menuGroups.length} مجموعة
+          {groups.length} مجموعة
         </Badge>
       </div>
 
@@ -86,11 +91,15 @@ export function MealPlannerBuilderGroupSelector({
       ) : visibleGroups.length ? (
         <div className="grid max-h-72 gap-2 overflow-y-auto rounded-2xl border bg-muted/10 p-2 sm:grid-cols-2">
           {visibleGroups.map((group) => {
-            const matches = matchingEligibleBuilderGroups(group.id, builderGroups);
-            const saveable = isMenuGroupSaveable(group, builderGroups);
-            const selected = saveable && group.id === selectedMenuGroupId;
-            const role = matches.length === 1 ? matches[0].optionRole : null;
+            const saveable = group.eligible === true;
+            const selected = saveable && group.id === selectedGroupId;
             const groupDisabled = disabled || !saveable;
+            const groupName =
+              group.group?.name?.ar ||
+              group.group?.name?.en ||
+              group.group?.key ||
+              group.sourceGroupId;
+            const label = `${builderGroupContextLabel(group)} ← ${groupName}`;
             return (
               <button
                 key={group.id}
@@ -115,17 +124,17 @@ export function MealPlannerBuilderGroupSelector({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-semibold">{menuGroupLabel(group)}</span>
-                    <Badge variant="outline">{group.key}</Badge>
+                    <span className="truncate text-sm font-semibold">{label}</span>
+                    <Badge variant="outline">{group.sourceGroupId}</Badge>
                     <Badge variant={saveable ? "secondary" : "outline"}>
                       {saveable ? "متاح للاختيار" : "غير مدعوم حاليًا"}
                     </Badge>
-                    {role ? <Badge variant="outline">{optionRoleLabel(role)}</Badge> : null}
+                    <Badge variant="outline">{optionRoleLabel(group.optionRole)}</Badge>
                   </span>
                   <span className="mt-2 block text-xs leading-5 text-muted-foreground">
                     {saveable
-                      ? group.name?.en || group.key
-                      : "لا يوجد سياق منتج مرتبط بهذه المجموعة في Meal Builder"}
+                      ? `${group.optionCount} خيارات • ${group.assignableOptionCount} قابلة للاختيار`
+                      : builderGroupReason(group)}
                   </span>
                 </span>
                 <span className="grid size-6 shrink-0 place-items-center rounded-full border bg-background">
@@ -148,4 +157,14 @@ function Message({ text }: { text: string }) {
       {text}
     </div>
   );
+}
+
+function builderGroupReason(group: MealPlannerBuilderGroup) {
+  if (group.reasonCodes?.includes("PRODUCT_NOT_READY")) {
+    return "المنتج غير جاهز للاشتراكات";
+  }
+  if (group.reasonCodes?.includes("GROUP_NOT_READY")) {
+    return "مجموعة الخيارات غير جاهزة للاشتراكات";
+  }
+  return "العلاقة غير جاهزة للاستخدام في Meal Builder";
 }

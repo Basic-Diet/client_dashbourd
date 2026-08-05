@@ -8,6 +8,9 @@ import {
 } from "@tanstack/react-query";
 import { sessionQueryOptions } from "@/lib/authApi";
 import type {
+  SubscriptionPaymentRangeParams,
+} from "@/features/accounting/accountingRangeTypes";
+import type {
   AccountingDailyReportParams,
   DashboardLogFilters,
   DashboardNotificationLogFilters,
@@ -33,8 +36,10 @@ import {
   fetchNotificationLogs,
   fetchSubscriptionPaymentDailyReport,
   fetchSubscriptionPaymentMonthlyReport,
+  fetchSubscriptionPaymentRangeReport,
   resolveSubscriptionPaymentDailyParams,
   resolveSubscriptionPaymentMonthlyParams,
+  resolveSubscriptionPaymentRangeParams,
   fetchSubscriptionTerms,
   updateSubscriptionTerms,
 } from "@/utils/fetchDashboardSupportData";
@@ -123,6 +128,20 @@ export const subscriptionPaymentMonthlyReportQueryOptions = (
   });
 };
 
+export const subscriptionPaymentRangeReportQueryOptions = (
+  params: SubscriptionPaymentRangeParams = {}
+) => {
+  const resolvedParams = resolveSubscriptionPaymentRangeParams(params);
+
+  return queryOptions({
+    queryKey: ["subscription-payment-report", "range", resolvedParams],
+    queryFn: () => fetchSubscriptionPaymentRangeReport(resolvedParams),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60,
+    retry: false,
+  });
+};
+
 export const dashboardLogsQueryOptions = (params: DashboardLogFilters = {}) =>
   queryOptions({
     queryKey: ["dashboard-logs", params],
@@ -188,6 +207,15 @@ export const useSubscriptionPaymentMonthlyReportQuery = (
 ) =>
   useQuery({
     ...subscriptionPaymentMonthlyReportQueryOptions(params),
+    enabled,
+  });
+
+export const useSubscriptionPaymentRangeReportQuery = (
+  params: SubscriptionPaymentRangeParams = {},
+  enabled = true
+) =>
+  useQuery({
+    ...subscriptionPaymentRangeReportQueryOptions(params),
     enabled,
   });
 

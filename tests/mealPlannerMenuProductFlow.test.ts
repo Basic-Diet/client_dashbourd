@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { it as test } from "vitest";
 
 import type { MenuCategory, MenuProduct } from "../src/types/menuTypes";
 import {

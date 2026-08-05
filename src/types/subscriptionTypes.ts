@@ -56,6 +56,23 @@ export interface ManualDeductionPayload {
   notes?: string;
 }
 
+export interface SubscriptionMealBalanceReadModel {
+  totalMeals: number;
+  displayRemainingMeals: number;
+  availableMeals: number;
+  reservedMeals: number;
+  consumedMeals: number;
+  forfeitedMeals: number;
+  accountedMeals: number;
+  equationDifference: number;
+  balanced: boolean;
+  projectionApplied: boolean;
+  canManualDeduct: boolean;
+  manualDeductionMaxMeals: number;
+  displaySemantics: string;
+  availableSemantics: string;
+}
+
 export interface ManualDeductionResponse {
   success?: boolean;
   status?: boolean;
@@ -71,11 +88,17 @@ export interface ManualDeductionResponse {
       regularMeals?: number;
       premiumMeals?: number;
       totalMeals?: number;
+      availableMeals?: number;
+      displayRemainingMeals?: number;
+      reservedMeals?: number;
+      consumedMeals?: number;
+      forfeitedMeals?: number;
       addons?: Array<{
         addonId: string;
         remainingQty: number;
       }>;
     };
+    balance?: SubscriptionMealBalanceReadModel;
     businessDate?: string;
     fulfillmentMethod?: string;
   };
@@ -149,6 +172,13 @@ export interface Subscription {
   canceledAt: string | null;
   totalMeals: number;
   remainingMeals: number;
+  availableMeals?: number;
+  displayRemainingMeals?: number;
+  reservedMeals?: number;
+  consumedMeals?: number;
+  forfeitedMeals?: number;
+  remainingMealsSemantics?: string;
+  balance?: SubscriptionMealBalanceReadModel;
   remainingRegularMeals?: number;
   remainingPremiumMeals?: number;
   premiumRemaining: number;

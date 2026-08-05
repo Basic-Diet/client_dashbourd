@@ -46,8 +46,11 @@ export const isDashboardStaffRole = (
   ASSIGNABLE_DASHBOARD_STAFF_ROLES.includes(role as DashboardStaffRole);
 
 export const normalizeDashboardStaffRoles = (
-  _roles: unknown
-): DashboardStaffRole[] => [...ASSIGNABLE_DASHBOARD_STAFF_ROLES];
+  roles: unknown
+): DashboardStaffRole[] => {
+  void roles;
+  return [...ASSIGNABLE_DASHBOARD_STAFF_ROLES];
+};
 
 const normalizeStaffUsersListResponse = (
   response: DashboardStaffUsersListResponse

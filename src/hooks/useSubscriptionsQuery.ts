@@ -59,6 +59,7 @@ export const subscriptionDetailsQueryOptions = (id: string) =>
   queryOptions({
     queryKey: ["subscription-details", id],
     queryFn: () => fetchSubscriptionDetails(id),
+    enabled: Boolean(id),
     staleTime: 1000 * 60 * 5,
   });
 

@@ -69,12 +69,6 @@ export function MealPlannerCandidatePickerV2({
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => {
-    setSearch("");
-    setDebouncedSearch("");
-    setCategory("all");
-  }, [type, sourceGroupId, productContextId, familyKey]);
-
   const contextReady =
     type === "product" || Boolean(productContextId && sourceGroupId && optionRole);
 
@@ -138,7 +132,14 @@ export function MealPlannerCandidatePickerV2({
 
   const candidates = useMemo(() => {
     if (type === "option") {
-      return mergeMenuOptionsWithPicker(menuOptions, fetchedCandidates, selectedIds);
+      const authoritative = mergeCandidates(
+        seedCandidates,
+        fetchedCandidates,
+        selectedIds
+      );
+      return menuOptions.length
+        ? mergeMenuOptionsWithPicker(menuOptions, authoritative, selectedIds)
+        : authoritative;
     }
     return mergeCandidates(seedCandidates, fetchedCandidates, selectedIds);
   }, [fetchedCandidates, menuOptions, seedCandidates, selectedIds, type]);
@@ -199,7 +200,7 @@ export function MealPlannerCandidatePickerV2({
             onChange={(event) => setSearch(event.target.value)}
             placeholder="ابحث بالاسم أو المفتاح..."
             className="pr-9"
-            disabled={type === "product" ? disabled || !contextReady : menuOptionsLoading}
+            disabled={disabled || !contextReady || menuOptionsLoading}
           />
         </div>
         {type === "product" ? (
@@ -237,7 +238,7 @@ export function MealPlannerCandidatePickerV2({
         <>
           {type === "option" && pickerQuery.error ? (
             <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-700 dark:text-amber-300">
-              تعذر تحميل بيانات الإتاحة الإضافية، لكن يمكنك اختيار خيارات المجموعة وسيتم التحقق منها عند الحفظ.
+              تعذر تحميل بيانات الإتاحة من الـBackend. الخيارات غير المؤكدة ستظل معطلة حتى إعادة المحاولة.
             </p>
           ) : null}
 

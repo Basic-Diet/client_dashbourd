@@ -10,29 +10,17 @@ export function optionRoleLabel(role?: string | null, lang: "ar" | "en" = "ar") 
   return lang === "ar" ? "دور غير مدعوم" : "Unsupported role";
 }
 
-/**
- * Prefer contexts explicitly marked eligible. If the backend catalog contains
- * only structurally valid contexts with `eligible: false`, keep the editor
- * usable and let the create/update mutation perform the final validation.
- */
 export function matchingEligibleBuilderGroups(
   menuGroupId: string,
   builderGroups: MealPlannerBuilderGroup[]
 ) {
-  const validContexts = builderGroups.filter(
+  return builderGroups.filter(
     (group) =>
       String(group.sourceGroupId) === String(menuGroupId) &&
       Boolean(group.productContextId) &&
-      (group.optionRole === "protein" || group.optionRole === "carbs")
+      (group.optionRole === "protein" || group.optionRole === "carbs") &&
+      group.eligible === true
   );
-  const explicitlyEligible = validContexts.filter((group) => group.eligible === true);
-  if (explicitlyEligible.length) return explicitlyEligible;
-
-  // The same catalog objects are consumed by the dialog's supported-context
-  // guard later in the render. Normalize this authoring-only fallback so a
-  // stale eligibility flag cannot disable every option in the UI.
-  for (const group of validContexts) group.eligible = true;
-  return validContexts;
 }
 
 export function isMenuGroupSaveable(
@@ -56,11 +44,8 @@ export function canonicalPickerOptionId(candidate: MealPlannerCatalogCandidate) 
 }
 
 /**
- * MenuOptionGroup is the canonical visible option source for card authoring.
- * When the optional Meal Builder picker returns a matching row we preserve its
- * assignment/availability metadata. When it does not, the MenuOption itself is
- * still a valid selectable ID and the create/update mutation remains the final
- * backend validation boundary.
+ * Menu options stay visible for context, but the relation-scoped picker is the
+ * authority for whether an option may be assigned to this card.
  */
 export function mergeMenuOptionsWithPicker(
   menuOptions: MenuOption[],
@@ -107,10 +92,12 @@ export function mergeMenuOptionsWithPicker(
       selected,
       assigned: authoritative?.assigned,
       assignedSectionKey: authoritative?.assignedSectionKey,
-      assignable: menuFallback ? true : authoritative.assignable === true,
-      eligible: menuFallback ? true : authoritative.eligible === true,
-      state: menuFallback ? "menu_option" : authoritative.state,
-      reasonCodes: menuFallback ? [] : authoritative.reasonCodes,
+      assignable: menuFallback ? false : authoritative.assignable === true,
+      eligible: menuFallback ? false : authoritative.eligible === true,
+      state: menuFallback ? "not_in_authoritative_picker" : authoritative.state,
+      reasonCodes: menuFallback
+        ? ["NO_AUTHORITATIVE_CANDIDATE"]
+        : authoritative.reasonCodes,
       relationStatus: authoritative?.relationStatus,
       effectiveStatus: authoritative?.effectiveStatus,
       currency: authoritative?.currency,

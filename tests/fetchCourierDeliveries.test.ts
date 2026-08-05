@@ -1,19 +1,45 @@
 import assert from "node:assert/strict";
 import { beforeEach, test, vi } from "vitest";
-import { fetchCourierDeliveryList } from "../src/utils/fetchCourierDeliveries";
+import {
+  executeCourierDeliveryAction,
+  fetchCourierDeliveryList,
+} from "../src/utils/fetchCourierDeliveries";
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
+  request: vi.fn(),
 }));
 
 vi.mock("@/lib/apis", () => ({
   default: {
     get: mocks.get,
+    request: mocks.request,
   },
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+test("courier actions reject encoded path traversal from backend metadata", async () => {
+  await assert.rejects(
+    executeCourierDeliveryAction({
+      action: "fulfill",
+      payload: {
+        entityId: "delivery-1",
+        entityType: "subscription_day",
+        payload: {},
+      },
+      actionDef: {
+        id: "fulfill",
+        label: "Fulfill",
+        endpoint: "/api/courier/deliveries/%2e%2e/admin/delete",
+        method: "PUT",
+      },
+    }),
+    /Unsupported courier action endpoint/
+  );
+  assert.equal(mocks.request.mock.calls.length, 0);
 });
 
 test("courier delivery list renders actions only from backend allowedActions", async () => {

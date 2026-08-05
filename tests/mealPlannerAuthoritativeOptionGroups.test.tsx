@@ -292,9 +292,8 @@ describe("authoritative option-family create dialog", () => {
       '"sourceGroupId":"group-proteins"'
     );
 
-    await user.type(screen.getByPlaceholderText("مثال: وجبات جاهزة"), "سمك");
-    await user.type(screen.getByPlaceholderText("Example: Ready Meals"), "Fish");
-    await user.type(screen.getByPlaceholderText("ready_meals"), "fish_options");
+    await user.type(screen.getByLabelText("الاسم العربي"), "سمك");
+    await user.type(screen.getByLabelText("الاسم الإنجليزي"), "Fish");
     await user.click(screen.getByRole("button", { name: "فيليه سمك" }));
     await user.click(screen.getByRole("button", { name: "إنشاء الكارت" }));
 

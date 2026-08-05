@@ -102,7 +102,7 @@ export function buildSubscriptionCreationPayload(
 export function buildSubscriptionQuotePayload(
   data: CreateSubscriptionSchemaType
 ): SubscriptionQuotePayload {
-  const { payment: _payment, ...quotePayload } =
-    buildSubscriptionCreationPayload(data);
+  const quotePayload = { ...buildSubscriptionCreationPayload(data) };
+  Reflect.deleteProperty(quotePayload, "payment");
   return quotePayload;
 }

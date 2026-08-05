@@ -27,10 +27,7 @@ async function removePackage(pkg: Package) {
     window.dispatchEvent(new CustomEvent("packages:refresh"));
   } catch (error: unknown) {
     const err = error as { response?: { data?: { message?: string } } };
-    ToastMessage(
-      err?.response?.data?.message || "تعذرت إزالة الباقة",
-      "error"
-    );
+    ToastMessage(err?.response?.data?.message || "تعذرت إزالة الباقة", "error");
   }
 }
 
@@ -55,7 +52,9 @@ export const packagesColumns: ColumnDef<Package>[] = [
     cell: ({ row }) => (
       <div className="min-w-44">
         <p className="font-semibold">{displayName(row.original.name.ar)}</p>
-        <p className="text-xs text-muted-foreground">{displayName(row.original.name.en)}</p>
+        <p className="text-xs text-muted-foreground">
+          {displayName(row.original.name.en)}
+        </p>
       </div>
     ),
   },
@@ -67,7 +66,18 @@ export const packagesColumns: ColumnDef<Package>[] = [
   {
     accessorKey: "daysCount",
     header: "الأيام",
-    cell: ({ row }) => <span>{row.original.daysCount ?? "—"}</span>,
+    cell: ({ row }) => {
+      const baseDays = Number(row.original.daysCount || 0);
+      const extraDays = Number(row.original.timelineExtraDays || 0);
+      return (
+        <div className="whitespace-nowrap">
+          <p className="font-medium">{baseDays} أساسي</p>
+          <p className="text-xs text-muted-foreground">
+            + {extraDays} إضافي = {baseDays + extraDays} في الخط الزمني
+          </p>
+        </div>
+      );
+    },
   },
   {
     accessorKey: "isActive",
@@ -75,7 +85,9 @@ export const packagesColumns: ColumnDef<Package>[] = [
     cell: ({ row }) => <StatusBadge pkg={row.original} />,
     filterFn: (row, _columnId, filterValue) => {
       if (!filterValue || filterValue === "all") return true;
-      return filterValue === "active" ? row.original.isActive : !row.original.isActive;
+      return filterValue === "active"
+        ? row.original.isActive
+        : !row.original.isActive;
     },
   },
   {
@@ -93,7 +105,13 @@ export const packagesColumns: ColumnDef<Package>[] = [
           <div className="space-y-1 text-xs text-muted-foreground">
             {grams.slice(0, 2).map((tier, index) => (
               <p key={`${String(tier.grams)}-${index}`} className="truncate">
-                {String(tier.grams)} جم: {tier.mealsOptions?.map((option) => `${option.mealsPerDay} وجبة · ${formatSar(option.priceHalala, row.original.currency)}`).join("، ") || "لا توجد أسعار"}
+                {String(tier.grams)} جم:{" "}
+                {tier.mealsOptions
+                  ?.map(
+                    (option) =>
+                      `${option.mealsPerDay} وجبة · ${formatSar(option.priceHalala, row.original.currency)}`
+                  )
+                  .join("، ") || "لا توجد أسعار"}
               </p>
             ))}
             {grams.length > 2 ? <p>+ {grams.length - 2} مستويات أخرى</p> : null}
@@ -111,7 +129,7 @@ export const packagesColumns: ColumnDef<Package>[] = [
     accessorKey: "updatedAt",
     header: "آخر تحديث",
     cell: ({ row }) => (
-      <span className="whitespace-nowrap text-xs text-muted-foreground">
+      <span className="text-xs whitespace-nowrap text-muted-foreground">
         {row.original.updatedAt
           ? new Date(row.original.updatedAt).toLocaleString("ar-EG")
           : "—"}

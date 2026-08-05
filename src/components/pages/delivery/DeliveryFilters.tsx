@@ -1,9 +1,13 @@
+import { useEffect, useMemo } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DashboardOpsStatusFilter, UnifiedQueueItem } from "@/types/dashboardOpsTypes";
-import { countByFilter } from "@/types/dashboardOpsTypes";
+import type {
+  DashboardOpsStatusFilter,
+  UnifiedQueueItem,
+} from "@/types/dashboardOpsTypes";
 import {
+  countDeliveryByStatusFilter,
   getDeliveryOperationWindow,
   getDeliveryOperationZone,
   type DeliveryActionFilter,
@@ -33,18 +37,74 @@ interface DeliveryFiltersProps {
   onActionFilterChange: (val: DeliveryActionFilter) => void;
   onReset: () => void;
   baseData: UnifiedQueueItem[];
+  statusCountData: UnifiedQueueItem[];
+  visibleCount: number;
 }
 
-function uniqueValues(values: string[]) {
-  return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ar"));
+interface CountedOption {
+  label: string;
+  value: string;
+  count: number;
 }
 
-function SelectFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ label: string; value: string }> }) {
+function normalizeOptionKey(value: string) {
+  return value.trim().toLocaleLowerCase("ar").replace(/\s+/g, " ");
+}
+
+function buildCountedOptions(
+  items: UnifiedQueueItem[],
+  getValue: (item: UnifiedQueueItem) => string
+): CountedOption[] {
+  const values = new Map<string, CountedOption>();
+
+  for (const item of items) {
+    const value = getValue(item).trim();
+    if (!value) continue;
+    const key = normalizeOptionKey(value);
+    const existing = values.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    values.set(key, { label: value, value, count: 1 });
+  }
+
+  return Array.from(values.values()).sort((a, b) =>
+    a.label.localeCompare(b.label, "ar")
+  );
+}
+
+function containsOption(options: CountedOption[], value: string) {
+  const key = normalizeOptionKey(value);
+  return options.some((option) => normalizeOptionKey(option.value) === key);
+}
+
+function SelectFilter({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+}) {
   return (
     <label className="space-y-1.5">
-      <span className="block text-xs font-bold text-muted-foreground">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/15">
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      <span className="block text-xs font-bold text-muted-foreground">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
       </select>
     </label>
   );
@@ -65,29 +125,86 @@ export function DeliveryFilters({
   onActionFilterChange,
   onReset,
   baseData,
+  statusCountData,
+  visibleCount,
 }: DeliveryFiltersProps) {
-  const windows = uniqueValues(baseData.map(getDeliveryOperationWindow));
-  const zones = uniqueValues(baseData.map(getDeliveryOperationZone));
+  const windows = useMemo(
+    () => buildCountedOptions(baseData, getDeliveryOperationWindow),
+    [baseData]
+  );
+  const areas = useMemo(
+    () => buildCountedOptions(baseData, getDeliveryOperationZone),
+    [baseData]
+  );
+
+  useEffect(() => {
+    if (windowFilter !== "all" && !containsOption(windows, windowFilter)) {
+      onWindowFilterChange("all");
+    }
+  }, [onWindowFilterChange, windowFilter, windows]);
+
+  useEffect(() => {
+    if (zoneFilter !== "all" && !containsOption(areas, zoneFilter)) {
+      onZoneFilterChange("all");
+    }
+  }, [areas, onZoneFilterChange, zoneFilter]);
 
   return (
     <div className="space-y-3 rounded-2xl border bg-card p-3 shadow-sm md:p-4">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="relative w-full">
           <Search className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="ابحث بالاسم، الهاتف، المرجع، العنوان، المنطقة..." value={searchStr} onChange={(e) => onSearchChange(e.target.value)} className="min-h-11 w-full border-muted bg-background pr-10 text-sm shadow-sm" />
+          <Input
+            placeholder="ابحث بالاسم أو الهاتف أو المرجع أو العنوان أو الحي..."
+            value={searchStr}
+            onChange={(event) => onSearchChange(event.target.value)}
+            className="min-h-11 w-full border-muted bg-background pr-10 text-sm shadow-sm"
+          />
         </div>
-        <Button type="button" variant="outline" className="h-11" onClick={onReset}>مسح الفلاتر</Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11"
+          onClick={onReset}
+        >
+          مسح الفلاتر
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+        <span>
+          عرض <strong className="text-foreground">{visibleCount}</strong> من أصل{" "}
+          <strong className="text-foreground">{baseData.length}</strong> توصيل
+        </span>
+        <span>أعداد الحالات تتحدث حسب باقي الفلاتر المختارة.</span>
       </div>
 
       <div className="relative w-full overflow-hidden">
         <div className="custom-scrollbar flex w-full overflow-x-auto rounded-full bg-muted/50 p-1">
           {FILTER_TABS.map((tab) => {
             const isActive = statusFilter === tab.value;
-            const count = countByFilter(baseData, tab.value);
+            const count = countDeliveryByStatusFilter(statusCountData, tab.value);
             return (
-              <button key={tab.value} type="button" onClick={() => onStatusChange(tab.value)} className={`flex min-w-max items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all md:px-5 md:text-sm ${isActive ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"}`}>
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => onStatusChange(tab.value)}
+                className={`flex min-w-max items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all md:px-5 md:text-sm ${
+                  isActive
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                }`}
+              >
                 {tab.label}
-                <span className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1.5 text-[10px] md:h-5 md:min-w-5 md:text-xs ${isActive ? "bg-muted text-muted-foreground" : "bg-background/50 text-muted-foreground/70"}`}>{count}</span>
+                <span
+                  className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1.5 text-[10px] md:h-5 md:min-w-5 md:text-xs ${
+                    isActive
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-background/50 text-muted-foreground/70"
+                  }`}
+                >
+                  {count}
+                </span>
               </button>
             );
           })}
@@ -95,10 +212,56 @@ export function DeliveryFilters({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SelectFilter label="نوع الطلب" value={sourceFilter} onChange={(value) => onSourceFilterChange(value as DeliverySourceFilter)} options={[{ label: "كل الأنواع", value: "all" }, { label: "اشتراكات", value: "subscription" }, { label: "طلبات فردية", value: "one_time_order" }]} />
-        <SelectFilter label="نافذة التوصيل" value={windowFilter} onChange={onWindowFilterChange} options={[{ label: "كل الأوقات", value: "all" }, ...windows.map((value) => ({ label: value, value }))]} />
-        <SelectFilter label="المنطقة" value={zoneFilter} onChange={onZoneFilterChange} options={[{ label: "كل المناطق", value: "all" }, ...zones.map((value) => ({ label: value, value }))]} />
-        <SelectFilter label="الإجراء" value={actionFilter} onChange={(value) => onActionFilterChange(value as DeliveryActionFilter)} options={[{ label: "كل الحالات", value: "all" }, { label: "يحتاج إجراء", value: "needs_action" }, { label: "جاهز للاستلام", value: "ready_to_collect" }, { label: "في الطريق", value: "out_for_delivery" }, { label: "بدون إجراءات", value: "no_actions" }]} />
+        <SelectFilter
+          label="نوع الطلب"
+          value={sourceFilter}
+          onChange={(value) =>
+            onSourceFilterChange(value as DeliverySourceFilter)
+          }
+          options={[
+            { label: "كل الأنواع", value: "all" },
+            { label: "اشتراكات", value: "subscription" },
+            { label: "طلبات فردية", value: "one_time_order" },
+          ]}
+        />
+        <SelectFilter
+          label="نافذة التوصيل"
+          value={windowFilter}
+          onChange={onWindowFilterChange}
+          options={[
+            { label: "كل الأوقات", value: "all" },
+            ...windows.map((option) => ({
+              label: `${option.label} (${option.count})`,
+              value: option.value,
+            })),
+          ]}
+        />
+        <SelectFilter
+          label="الحي / المنطقة"
+          value={zoneFilter}
+          onChange={onZoneFilterChange}
+          options={[
+            { label: "كل الأحياء والمناطق", value: "all" },
+            ...areas.map((option) => ({
+              label: `${option.label} (${option.count})`,
+              value: option.value,
+            })),
+          ]}
+        />
+        <SelectFilter
+          label="الإجراء"
+          value={actionFilter}
+          onChange={(value) =>
+            onActionFilterChange(value as DeliveryActionFilter)
+          }
+          options={[
+            { label: "كل الإجراءات", value: "all" },
+            { label: "يحتاج إجراء", value: "needs_action" },
+            { label: "جاهز للخروج للتوصيل", value: "ready_to_collect" },
+            { label: "في الطريق", value: "out_for_delivery" },
+            { label: "بدون إجراءات", value: "no_actions" },
+          ]}
+        />
       </div>
     </div>
   );

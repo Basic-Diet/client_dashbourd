@@ -30,12 +30,16 @@ export interface SubscriptionPaymentDashboardCard {
   labelAr?: string | null;
   value?: string | number | null;
   valueAr?: string | null;
+  valueHalala?: number | null;
+  valueSar?: number | null;
+  valueFormattedAr?: string | null;
   amountHalala?: number | null;
   amountSar?: number | null;
   amountFormattedAr?: string | null;
   count?: number | null;
   countLabelAr?: string | null;
   descriptionAr?: string | null;
+  subtitleAr?: string | null;
   tone?: string | null;
   icon?: string | null;
 }
@@ -65,6 +69,7 @@ export interface SubscriptionPaymentBucket {
   labelAr?: string | null;
   count?: number | null;
   customersCount?: number | null;
+  uniqueCustomersCount?: number | null;
   totalHalala?: number | null;
   totalSar?: number | null;
   totalFormattedAr?: string | null;
@@ -97,6 +102,9 @@ export interface SubscriptionPricingSnapshot {
 }
 
 export interface SubscriptionPaymentReportItem {
+  movementId?: string | null;
+  movementType?: "collection" | "refund" | string | null;
+  movementTypeLabelAr?: string | null;
   paymentId?: string | null;
   paymentReference?: string | null;
   subscriptionId?: string | null;
@@ -107,22 +115,36 @@ export interface SubscriptionPaymentReportItem {
   planNameAr?: string | null;
   paymentType?: string | null;
   paymentTypeLabelAr?: string | null;
-  paymentMethod?: "cash" | "visa" | "unknown" | string | null;
+  paymentMethod?: "cash" | "card" | "bank_transfer" | "unknown" | string | null;
   paymentMethodLabelAr?: string | null;
+  legacyPaymentMethod?: string | null;
+  legacyPaymentMethodLabelAr?: string | null;
   paymentMethodClassificationSource?: string | null;
   paymentMethodClassificationSourceAr?: string | null;
   provider?: string | null;
   providerLabelAr?: string | null;
+  sourceChannel?: "app" | "dashboard" | "unknown" | string | null;
+  sourceChannelLabelAr?: string | null;
+  paymentProvider?: "moyasar" | "manual_gateway" | "none" | "unknown" | string | null;
+  paymentProviderLabelAr?: string | null;
   status?: string | null;
   statusLabelAr?: string | null;
   amountHalala?: number | null;
   amountSar?: number | null;
   amountFormattedAr?: string | null;
+  grossCollectionHalala?: number | null;
+  grossCollectionFormattedAr?: string | null;
+  refundsHalala?: number | null;
+  refundsFormattedAr?: string | null;
+  netMovementHalala?: number | null;
+  netMovementFormattedAr?: string | null;
   vatIncluded?: boolean | null;
   vatPercentage?: number | null;
   vatHalala?: number | null;
   vatSar?: number | null;
   vatFormattedAr?: string | null;
+  refundVatHalala?: number | null;
+  refundVatFormattedAr?: string | null;
   netBeforeVatHalala?: number | null;
   netBeforeVatSar?: number | null;
   netBeforeVatFormattedAr?: string | null;
@@ -151,6 +173,13 @@ export interface SubscriptionPaymentReportItem {
   businessDateLabelAr?: string | null;
   paidAt?: string | null;
   paidAtLabelAr?: string | null;
+  refundId?: string | null;
+  providerRefundId?: string | null;
+  refundStatus?: string | null;
+  refundStatusLabelAr?: string | null;
+  refundedAt?: string | null;
+  refundedAtLabelAr?: string | null;
+  countedInTotals?: boolean | null;
   createdAt?: string | null;
   createdAtLabelAr?: string | null;
   accountingTreatmentAr?: string | null;
@@ -167,6 +196,8 @@ export interface SubscriptionPaymentSummary {
   totalHalala?: number | null;
   totalSar?: number | null;
   totalFormattedAr?: string | null;
+  grossCollectionHalala?: number | null;
+  grossCollectionFormattedAr?: string | null;
   cashCount?: number | null;
   cashCustomersCount?: number | null;
   cashTotalHalala?: number | null;
@@ -187,19 +218,50 @@ export interface SubscriptionPaymentSummary {
   refundsTrackingStatus?: string | null;
   refundsTrackingStatusAr?: string | null;
   refundsTrackingNoteAr?: string | null;
+  refundsCount?: number | null;
+  netCollectionHalala?: number | null;
+  netCollectionFormattedAr?: string | null;
+  salesBeforeVatHalala?: number | null;
+  salesBeforeVatFormattedAr?: string | null;
+  refundBeforeVatHalala?: number | null;
+  refundBeforeVatFormattedAr?: string | null;
+  salesVatHalala?: number | null;
+  salesVatFormattedAr?: string | null;
+  refundVatHalala?: number | null;
+  refundVatFormattedAr?: string | null;
+  netVatHalala?: number | null;
+  netVatFormattedAr?: string | null;
+  cardCount?: number | null;
+  cardCustomersCount?: number | null;
+  cardTotalHalala?: number | null;
+  cardTotalFormattedAr?: string | null;
+  moyasarCount?: number | null;
+  moyasarCustomersCount?: number | null;
+  moyasarTotalHalala?: number | null;
+  moyasarTotalFormattedAr?: string | null;
+  reviewItemsCount?: number | null;
   cancelledSubscriptionsCount?: number | null;
 }
 
 export interface SubscriptionPaymentDailyBreakdownItem {
   businessDate?: string | null;
   businessDateLabelAr?: string | null;
+  paymentsCount?: number | null;
   totalPaymentsCount?: number | null;
   totalHalala?: number | null;
   totalFormattedAr?: string | null;
+  grossCollectionHalala?: number | null;
+  grossCollectionFormattedAr?: string | null;
+  refundsHalala?: number | null;
+  refundsFormattedAr?: string | null;
+  netCollectionHalala?: number | null;
+  netCollectionFormattedAr?: string | null;
   cashTotalHalala?: number | null;
   cashTotalFormattedAr?: string | null;
   visaTotalHalala?: number | null;
   visaTotalFormattedAr?: string | null;
+  moyasarTotalHalala?: number | null;
+  moyasarTotalFormattedAr?: string | null;
 }
 
 export interface SubscriptionPaymentMonthlyStatistics {
@@ -216,6 +278,7 @@ export interface SubscriptionPaymentAccountingPolicy {
   vatTreatment?: string | null;
   cancellationTreatment?: string | null;
   paymentMethodTreatment?: string | null;
+  refundTreatment?: string | null;
 }
 
 interface SubscriptionPaymentReportBase {
@@ -236,6 +299,8 @@ interface SubscriptionPaymentReportBase {
   byFulfillmentMethod?: SubscriptionPaymentBucket[] | null;
   bySubscriptionStatus?: SubscriptionPaymentBucket[] | null;
   byPaymentType?: SubscriptionPaymentBucket[] | null;
+  bySourceChannel?: SubscriptionPaymentBucket[] | null;
+  byPaymentProvider?: SubscriptionPaymentBucket[] | null;
   reconciliation?: SubscriptionPaymentReconciliation | null;
   warnings?: SubscriptionPaymentWarning[] | null;
   items?: SubscriptionPaymentReportItem[] | null;

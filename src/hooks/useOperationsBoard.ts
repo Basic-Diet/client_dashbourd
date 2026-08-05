@@ -128,6 +128,7 @@ export function useOperationsBoard(params: UseOperationsBoardParams = {}) {
       "queue",
       visibleScreens,
       params.date,
+      params.q,
     ],
     queryFn: async () => {
       const response = await fetchDashboardOpsList(params.date || "");
