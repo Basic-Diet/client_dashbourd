@@ -10,14 +10,6 @@ import type {
   MealPlannerStateResponseV2,
   MealPlannerValidationV2,
 } from "@/types/mealPlannerDashboardTypes";
-import {
-  addOptionFamilyItems,
-  createOptionFamilyCard,
-  deleteOptionFamilyCard,
-  removeOptionFamilyItem,
-  replaceOptionFamilyItems,
-  updateOptionFamilyCard,
-} from "./mealPlannerOptionDraftActions";
 
 export const MEAL_PLANNER_DASHBOARD_ROUTE = "/api/dashboard/meal-builder";
 const SUPPORTED_CARD_ACTION_CONTRACTS = new Set([
@@ -86,18 +78,17 @@ export async function getMealPlannerOptionsPicker(
   params: MealPlannerPickerParamsV2,
   signal?: AbortSignal
 ): Promise<MealPlannerPickerResponseV2> {
-  const sectionKey = String(
-    params.targetSectionKey ||
-      (params.optionRole === "carbs" ? "carbs" : params.familyKey || "chicken")
-  ).trim();
   const response = await api.get(
-    `${MEAL_PLANNER_DASHBOARD_ROUTE}/pickers/${encodeURIComponent(sectionKey)}`,
+    `${MEAL_PLANNER_DASHBOARD_ROUTE}/pickers/options`,
     {
       params: cleanParams({
         targetSectionKey: params.targetSectionKey,
+        productContextId: params.productContextId,
+        sourceGroupId: params.sourceGroupId,
+        optionRole: params.optionRole,
+        familyKey: params.familyKey,
         q: params.q || params.search,
         includeUnavailable: params.includeUnavailable,
-        includeNotLinked: true,
         unassignedOnly: params.unassignedOnly,
         page: params.page,
         limit: params.limit,
@@ -112,9 +103,6 @@ export async function getMealPlannerOptionsPicker(
 export async function createMealPlannerCard(
   payload: MealPlannerCreatePayloadV2
 ): Promise<MealPlannerCardActionResponseV2> {
-  if (payload.cardType === "option_family") {
-    return createOptionFamilyCard(payload);
-  }
   const response = await api.post(
     `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections`,
     payload
@@ -129,9 +117,6 @@ export async function updateMealPlannerCard({
   sectionKey: string;
   patch: MealPlannerPatchPayloadV2;
 }): Promise<MealPlannerCardActionResponseV2> {
-  if (patch.cardType === "option_family") {
-    return updateOptionFamilyCard(sectionKey, patch);
-  }
   const response = await api.patch(
     `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections/${encodeURIComponent(sectionKey)}`,
     patch
@@ -146,9 +131,6 @@ export async function replaceMealPlannerCardItems({
   sectionKey: string;
   payload: { productIds?: string[]; optionIds?: string[] };
 }): Promise<MealPlannerCardActionResponseV2> {
-  if (Array.isArray(payload.optionIds)) {
-    return replaceOptionFamilyItems(sectionKey, payload.optionIds);
-  }
   const response = await api.put(
     `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections/${encodeURIComponent(sectionKey)}/items`,
     payload
@@ -163,7 +145,11 @@ export async function addMealPlannerOptions({
   sectionKey: string;
   optionIds: string[];
 }): Promise<MealPlannerCardActionResponseV2> {
-  return addOptionFamilyItems(sectionKey, optionIds);
+  const response = await api.post(
+    `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections/${encodeURIComponent(sectionKey)}/options`,
+    { optionIds }
+  );
+  return assertCardActionResponse(response.data);
 }
 
 export async function removeMealPlannerOption({
@@ -173,14 +159,15 @@ export async function removeMealPlannerOption({
   sectionKey: string;
   optionId: string;
 }): Promise<MealPlannerCardActionResponseV2> {
-  return removeOptionFamilyItem(sectionKey, optionId);
+  const response = await api.delete(
+    `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections/${encodeURIComponent(sectionKey)}/options/${encodeURIComponent(optionId)}`
+  );
+  return assertCardActionResponse(response.data);
 }
 
 export async function deleteMealPlannerCard(
   sectionKey: string
 ): Promise<MealPlannerCardActionResponseV2> {
-  const optionResponse = await deleteOptionFamilyCard(sectionKey);
-  if (optionResponse) return optionResponse;
   const response = await api.delete(
     `${MEAL_PLANNER_DASHBOARD_ROUTE}/sections/${encodeURIComponent(sectionKey)}`
   );
@@ -227,6 +214,22 @@ export function assertCatalogResponse(value: unknown): {
   }
   const data = value.data;
   if (!Array.isArray(data.products) || !Array.isArray(data.optionGroups)) {
+    throw new Error("Meal Planner catalog is incomplete");
+  }
+  const authoringVersion = String(data.authoringContractVersion || "");
+  const nestedAuthoring = isRecord(data.authoring) ? data.authoring : null;
+  const nestedVersion = String(nestedAuthoring?.contractVersion || "");
+  if (
+    authoringVersion !== "dashboard_meal_builder_authoring.v1" ||
+    nestedVersion !== "dashboard_meal_builder_authoring.v1"
+  ) {
+    throw new Error("Meal Planner authoring catalog version mismatch");
+  }
+  if (
+    nestedAuthoring?.complete !== true ||
+    !Array.isArray(data.builderGroups) ||
+    !Array.isArray(nestedAuthoring.builderGroups)
+  ) {
     throw new Error("Meal Planner catalog is incomplete");
   }
   return value as unknown as { status: true; data: MealPlannerCatalogV2 };

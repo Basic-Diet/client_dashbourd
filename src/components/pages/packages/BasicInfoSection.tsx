@@ -20,6 +20,9 @@ interface BasicInfoSectionProps {
 
 export function BasicInfoSection({ form }: BasicInfoSectionProps) {
   const isActive = form.watch("isActive") ?? true;
+  const daysCount = Number(form.watch("daysCount") || 0);
+  const timelineExtraDays = Number(form.watch("timelineExtraDays") || 0);
+  const timelineDays = Math.max(0, daysCount) + Math.max(0, timelineExtraDays);
 
   return (
     <Card>
@@ -65,9 +68,11 @@ export function BasicInfoSection({ form }: BasicInfoSectionProps) {
         </div>
 
         {/* Days, Currency, Sort Order */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">عدد الأيام</Label>
+            <Label className="text-sm font-medium">
+              الأيام الأساسية المحتسبة للوجبات
+            </Label>
             <Input
               type="number"
               min="1"
@@ -80,6 +85,31 @@ export function BasicInfoSection({ form }: BasicInfoSectionProps) {
                 {form.formState.errors.daysCount.message}
               </p>
             )}
+            <p className="text-xs text-muted-foreground">
+              يُحسب منها رصيد الوجبات والسعر.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">
+              أيام إضافية في الخط الزمني
+            </Label>
+            <Input
+              type="number"
+              min="0"
+              max="365"
+              placeholder="5"
+              {...form.register("timelineExtraDays")}
+              aria-invalid={!!form.formState.errors.timelineExtraDays}
+            />
+            {form.formState.errors.timelineExtraDays && (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.timelineExtraDays.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              تظهر في التطبيق ولا تضيف وجبات جديدة.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -97,6 +127,12 @@ export function BasicInfoSection({ form }: BasicInfoSectionProps) {
               </p>
             )}
           </div>
+        </div>
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+          الخط الزمني سيظهر لمدة{" "}
+          <span className="font-bold">{timelineDays} يومًا</span>، بينما رصيد
+          الوجبات يُحسب من{" "}
+          <span className="font-bold">{Math.max(0, daysCount)} يومًا</span> فقط.
         </div>
 
         {/* Active & Skip Compensated */}

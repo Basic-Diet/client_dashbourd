@@ -112,10 +112,15 @@ export function DeductionForm({
   onCancel,
   isPending,
 }: DeductionFormProps) {
+  const availableMeals = subscription.availableMeals ?? subscription.remainingMeals;
+  const reservedMeals = subscription.reservedMeals ?? 0;
+  const displayRemainingMeals =
+    subscription.displayRemainingMeals ?? availableMeals + reservedMeals;
   const regularRemaining =
-    subscription.remainingRegularMeals ?? subscription.remainingMeals;
+    subscription.remainingRegularMeals ?? availableMeals;
   const premiumRemaining =
     subscription.remainingPremiumMeals ?? subscription.premiumRemaining ?? 0;
+  const balanceNeedsReview = subscription.balance?.balanced === false;
   const addonBalances = useMemo(
     () => subscription.addonBalances ?? [],
     [subscription.addonBalances]
@@ -150,12 +155,49 @@ export function DeductionForm({
   const watched = form.watch();
   const selectedAddonTotal =
     watched.addons?.reduce((sum, addon) => sum + Number(addon.qty || 0), 0) ?? 0;
-  const selectedTotal =
-    Number(watched.regularMeals || 0) +
-    Number(watched.premiumMeals || 0) +
-    selectedAddonTotal;
+  const selectedMealTotal =
+    Number(watched.regularMeals || 0) + Number(watched.premiumMeals || 0);
+  const selectedTotal = selectedMealTotal + selectedAddonTotal;
 
   const handleSubmit = (values: DeductionFormValues) => {
+    if (balanceNeedsReview) {
+      form.setError("regularMeals", {
+        type: "manual",
+        message: "الرصيد غير متوازن ويجب مراجعته قبل الخصم",
+      });
+      return;
+    }
+    if (values.regularMeals > regularRemaining) {
+      form.setError("regularMeals", {
+        type: "manual",
+        message: `المتاح من الوجبات العادية هو ${regularRemaining}`,
+      });
+      return;
+    }
+    if (values.premiumMeals > premiumRemaining) {
+      form.setError("premiumMeals", {
+        type: "manual",
+        message: `المتاح من الوجبات المميزة هو ${premiumRemaining}`,
+      });
+      return;
+    }
+    if (values.regularMeals + values.premiumMeals > availableMeals) {
+      form.setError("regularMeals", {
+        type: "manual",
+        message: `إجمالي الوجبات المتاح للخصم هو ${availableMeals}`,
+      });
+      return;
+    }
+    const invalidAddonIndex = values.addons.findIndex(
+      (addon) => addon.qty > addon.remainingQty
+    );
+    if (invalidAddonIndex >= 0) {
+      form.setError(`addons.${invalidAddonIndex}.qty`, {
+        type: "manual",
+        message: "الكمية أكبر من الرصيد المتاح",
+      });
+      return;
+    }
     onSubmit(values, form);
   };
 
@@ -171,21 +213,31 @@ export function DeductionForm({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <BalanceCard
-            label="الرصيد الكلي"
-            value={`${subscription.remainingMeals} وجبة`}
+            label="متبقي للعميل في التطبيق"
+            value={`${displayRemainingMeals} وجبة`}
+            icon={<Package className="h-4 w-4" />}
+          />
+          <BalanceCard
+            label="متاح للخصم الآن"
+            value={`${availableMeals} وجبة`}
             icon={<Package className="h-4 w-4" />}
             tone="primary"
           />
           <BalanceCard
-            label="وجبات عادية"
-            value={`${regularRemaining} متاح`}
+            label="محجوز لأيام قادمة"
+            value={`${reservedMeals} وجبة`}
+            icon={<Calendar className="h-4 w-4" />}
+          />
+          <BalanceCard
+            label="وجبات عادية متاحة"
+            value={`${regularRemaining} وجبة`}
             icon={<Package className="h-4 w-4" />}
           />
           <BalanceCard
-            label="وجبات مميزة"
-            value={`${premiumRemaining} متاح`}
+            label="وجبات مميزة متاحة"
+            value={`${premiumRemaining} وجبة`}
             icon={<Package className="h-4 w-4" />}
           />
           {subscription.endDate ? (
@@ -203,6 +255,18 @@ export function DeductionForm({
           )}
         </div>
 
+        {reservedMeals > 0 ? (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            يوجد {reservedMeals} وجبة محجوزة ضمن رصيد العميل، لذلك لا تدخل في الحد المتاح للخصم اليدوي. استخدم تنفيذ يوم الاشتراك للحجوزات بدل خصمها يدويًا.
+          </div>
+        ) : null}
+
+        {balanceNeedsReview ? (
+          <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-900">
+            معادلة رصيد هذا الاشتراك غير متوازنة. تم إيقاف الخصم لحماية بيانات العميل حتى تتم مراجعة السجل.
+          </div>
+        ) : null}
+
         <Separator />
 
         <Form {...form}>
@@ -215,7 +279,7 @@ export function DeductionForm({
                 <div>
                   <h3 className="font-semibold">خصم الوجبات</h3>
                   <p className="text-sm text-muted-foreground">
-                    اكتب الكمية المطلوبة. الخادم هو صاحب القرار النهائي عند عدم كفاية الرصيد.
+                    الخصم يتم من الرصيد غير المحجوز فقط، والخادم يعيد التحقق داخل معاملة ذرية قبل الحفظ.
                   </p>
                 </div>
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
@@ -399,10 +463,14 @@ export function DeductionForm({
 
             <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-6 text-muted-foreground">
-                سيتم إرسال العملية كمعاملة واحدة. لو أي رصيد غير كافٍ سيرفض الخادم العملية بالكامل.
+                سيتم إرسال العملية كمعاملة واحدة. لو الرصيد تغيّر بالتزامن أو توجد حجوزات لليوم سيرفض الخادم العملية بالكامل.
               </p>
               <div className="flex gap-3">
-                <Button type="submit" disabled={isPending} className="min-w-[120px]">
+                <Button
+                  type="submit"
+                  disabled={isPending || balanceNeedsReview || selectedMealTotal > availableMeals}
+                  className="min-w-[120px]"
+                >
                   {isPending ? "جاري الخصم..." : "تأكيد الخصم"}
                 </Button>
                 <Button type="button" variant="outline" onClick={onCancel}>

@@ -62,7 +62,10 @@ function parseGrams(raw: unknown) {
   return null;
 }
 
-function normalizeGramsOption(value: unknown, index: number): GramsOption | null {
+function normalizeGramsOption(
+  value: unknown,
+  index: number
+): GramsOption | null {
   const record = asRecord(value);
   const parsed = parseGrams(record.grams ?? record.key ?? record.value);
   if (!parsed) return null;
@@ -114,6 +117,7 @@ export function normalizePackage(value: unknown): Package {
     image: asString(record.image) ?? null,
     imageUrl: asString(record.imageUrl) ?? asString(record.image) ?? null,
     daysCount: asNumber(record.daysCount) ?? asNumber(record.durationDays) ?? 0,
+    timelineExtraDays: asNumber(record.timelineExtraDays) ?? 0,
     currency: asString(record.currency) ?? "SAR",
     grams: gramsOptions,
     gramsOptions,

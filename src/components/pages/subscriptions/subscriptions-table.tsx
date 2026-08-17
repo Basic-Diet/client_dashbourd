@@ -25,7 +25,10 @@ import { PlusIcon, SearchIcon } from "lucide-react";
 import { DataTableViewOptions } from "@/components/ui/data-table-view-options";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { getSubscriptionsColumns } from "./subscriptions-columns";
-import { useSubscriptionsListQuery } from "@/hooks/useSubscriptionsQuery";
+import {
+  useSubscriptionsFulfillmentListQuery,
+  type SubscriptionFulfillmentFilter,
+} from "@/hooks/useSubscriptionsFulfillmentListQuery";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Link } from "@tanstack/react-router";
 import { buttonVariants } from "@/components/custom/button-variants";
@@ -35,6 +38,8 @@ import { SubscriptionQuickViewDialog } from "./SubscriptionQuickViewDialog";
 
 export function SubscriptionsTable() {
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
+  const [fulfillmentFilter, setFulfillmentFilter] =
+    React.useState<SubscriptionFulfillmentFilter>("all");
   const [globalFilter, setGlobalFilter] = React.useState("");
   const debouncedSearch = useDebounce(globalFilter, 500);
   const [pagination, setPagination] = React.useState({
@@ -44,12 +49,14 @@ export function SubscriptionsTable() {
   const [selectedSubscription, setSelectedSubscription] =
     React.useState<Subscription | null>(null);
 
-  const { data: response, isLoading } = useSubscriptionsListQuery(
-    statusFilter === "all" ? null : statusFilter,
-    pagination.pageIndex + 1,
-    pagination.pageSize,
-    debouncedSearch
-  );
+  const { data: response, isLoading } =
+    useSubscriptionsFulfillmentListQuery({
+      status: statusFilter === "all" ? null : statusFilter,
+      fulfillmentMethod: fulfillmentFilter,
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+      q: debouncedSearch,
+    });
 
   const data = response?.data || [];
   const meta = response?.meta || { total: 0, totalPages: 1 };
@@ -77,7 +84,7 @@ export function SubscriptionsTable() {
     <div className="w-full flex-col justify-start gap-6" dir="rtl">
       {/* Toolbar */}
       <div className="flex flex-col gap-4 px-4 lg:px-6">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Status filter */}
           <Select
             value={statusFilter}
@@ -91,7 +98,7 @@ export function SubscriptionsTable() {
             </SelectTrigger>
             <SelectContent dir="rtl">
               <SelectGroup>
-                <SelectItem value="all">الكل</SelectItem>
+                <SelectItem value="all">كل الحالات</SelectItem>
                 <SelectItem value="active">نشط</SelectItem>
                 <SelectItem value="pending">قيد الانتظار</SelectItem>
                 <SelectItem value="expired">منتهي</SelectItem>
@@ -101,8 +108,28 @@ export function SubscriptionsTable() {
             </SelectContent>
           </Select>
 
+          {/* Fulfillment filter */}
+          <Select
+            value={fulfillmentFilter}
+            onValueChange={(value) => {
+              setFulfillmentFilter(value as SubscriptionFulfillmentFilter);
+              setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+            }}
+          >
+            <SelectTrigger className="w-44" size="sm">
+              <SelectValue placeholder="طريقة التنفيذ" />
+            </SelectTrigger>
+            <SelectContent dir="rtl">
+              <SelectGroup>
+                <SelectItem value="all">كل طرق التنفيذ</SelectItem>
+                <SelectItem value="delivery">توصيل</SelectItem>
+                <SelectItem value="pickup">استلام من الفرع</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+
           {/* Search box */}
-          <div className="relative flex-1">
+          <div className="relative min-w-64 flex-1">
             <SearchIcon className="absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="البحث باسم المشترك"
@@ -184,7 +211,7 @@ export function SubscriptionsTable() {
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    لا توجد اشتراكات.
+                    لا توجد اشتراكات مطابقة للفلاتر المحددة.
                   </TableCell>
                 </TableRow>
               )}

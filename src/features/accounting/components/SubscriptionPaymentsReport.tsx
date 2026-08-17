@@ -51,9 +51,9 @@ import type {
   SubscriptionPaymentReportItem,
 } from "@/features/accounting/accountingTypes";
 import {
-  buildSubscriptionPaymentsCsv,
-  downloadTextFile,
-  subscriptionPaymentsCsvFileName,
+  buildSubscriptionPaymentsExcel,
+  downloadExcelFile,
+  subscriptionPaymentsExcelFileName,
 } from "@/features/accounting/accountingCsv";
 import {
   formatBooleanAr,
@@ -64,7 +64,9 @@ import {
   formatSarFromHalala,
   fulfillmentMethodLabel,
   paymentMethodLabel,
+  paymentProviderLabel,
   reportErrorMessage,
+  sourceChannelLabel,
   textOrDash,
 } from "@/features/accounting/accountingFormatters";
 
@@ -91,6 +93,7 @@ export function SubscriptionPaymentsReport({
 }: SubscriptionPaymentsReportProps) {
   const [search, setSearch] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
+  const [providerFilter, setProviderFilter] = useState("all");
   const [reviewFilter, setReviewFilter] = useState("all");
   const [pageSize, setPageSize] = useState("10");
   const [page, setPage] = useState(1);
@@ -115,13 +118,16 @@ export function SubscriptionPaymentsReport({
           .some((value) => String(value).toLowerCase().includes(query));
       const matchesMethod =
         methodFilter === "all" || item.paymentMethod === methodFilter;
+      const matchesProvider =
+        providerFilter === "all" ||
+        (item.paymentProvider ?? item.provider) === providerFilter;
       const matchesReview =
         reviewFilter === "all" ||
         (reviewFilter === "needs-review" && item.needsReview === true) ||
         (reviewFilter === "clean" && item.needsReview !== true);
-      return matchesSearch && matchesMethod && matchesReview;
+      return matchesSearch && matchesMethod && matchesProvider && matchesReview;
     });
-  }, [methodFilter, report?.items, reviewFilter, search]);
+  }, [methodFilter, providerFilter, report?.items, reviewFilter, search]);
 
   const numericPageSize = Number(pageSize);
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / numericPageSize));
@@ -131,11 +137,11 @@ export function SubscriptionPaymentsReport({
     safePage * numericPageSize
   );
 
-  const exportCsv = () => {
+  const exportExcel = () => {
     if (!report) return;
-    downloadTextFile(
-      buildSubscriptionPaymentsCsv(report, filteredItems),
-      subscriptionPaymentsCsvFileName(report)
+    downloadExcelFile(
+      buildSubscriptionPaymentsExcel(report, filteredItems),
+      subscriptionPaymentsExcelFileName(report)
     );
   };
 
@@ -176,26 +182,24 @@ export function SubscriptionPaymentsReport({
     >
       <Card className={PANEL_CLASS}>
         <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 id="subscription-payments-title" className="text-xl font-semibold tracking-normal">
-            {report.titleAr || "تحصيل الاشتراكات"}
-          </h2>
-          <p className="text-sm leading-6 text-muted-foreground">
-            {report.reportType === "monthly"
-              ? report.businessMonthLabelAr || report.businessMonth
-              : report.businessDateLabelAr || report.businessDate}
-            {report.generatedAtLabelAr ? ` · ${report.generatedAtLabelAr}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-start gap-2 md:justify-end">
-          <Button variant="outline" onClick={onRetry} disabled={isFetching}>
-            <RefreshCwIcon className={isFetching ? "size-4 animate-spin" : "size-4"} />
-            تحديث التقرير
-          </Button>
-          <Button onClick={exportCsv}>
-            تصدير CSV
-          </Button>
-        </div>
+          <div>
+            <h2 id="subscription-payments-title" className="text-xl font-semibold tracking-normal">
+              {report.titleAr || "تحصيل الاشتراكات"}
+            </h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {report.reportType === "monthly"
+                ? report.businessMonthLabelAr || report.businessMonth
+                : report.businessDateLabelAr || report.businessDate}
+              {report.generatedAtLabelAr ? ` · ${report.generatedAtLabelAr}` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-start gap-2 md:justify-end">
+            <Button variant="outline" onClick={onRetry} disabled={isFetching}>
+              <RefreshCwIcon className={isFetching ? "size-4 animate-spin" : "size-4"} />
+              تحديث التقرير
+            </Button>
+            <Button onClick={exportExcel}>تصدير Excel منسق</Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -213,7 +217,7 @@ export function SubscriptionPaymentsReport({
               ابحث وراجع الدفعات بدون تغيير الفلاتر القادمة من التقرير.
             </p>
           </div>
-          <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px_120px]">
+          <div className="grid gap-3 lg:grid-cols-[1fr_170px_170px_170px_120px]">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -226,24 +230,49 @@ export function SubscriptionPaymentsReport({
                 placeholder="ابحث بالعميل أو الهاتف أو رقم الدفعة أو الاشتراك"
               />
             </div>
-            <Select value={methodFilter} onValueChange={(value) => {
-              setMethodFilter(value);
-              setPage(1);
-            }}>
+            <Select
+              value={methodFilter}
+              onValueChange={(value) => {
+                setMethodFilter(value);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">كل طرق الدفع</SelectItem>
                 <SelectItem value="cash">نقدي</SelectItem>
-                <SelectItem value="visa">فيزا</SelectItem>
+                <SelectItem value="card">بطاقة</SelectItem>
+                <SelectItem value="bank_transfer">تحويل بنكي</SelectItem>
                 <SelectItem value="unknown">غير مصنف</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={reviewFilter} onValueChange={(value) => {
-              setReviewFilter(value);
-              setPage(1);
-            }}>
+            <Select
+              value={providerFilter}
+              onValueChange={(value) => {
+                setProviderFilter(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل مزودي الدفع</SelectItem>
+                <SelectItem value="moyasar">ميسر</SelectItem>
+                <SelectItem value="manual_gateway">بوابة مسجلة يدويًا</SelectItem>
+                <SelectItem value="none">نقدي / بدون مزود</SelectItem>
+                <SelectItem value="unknown">مزود غير محدد</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={reviewFilter}
+              onValueChange={(value) => {
+                setReviewFilter(value);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-11">
                 <SelectValue />
               </SelectTrigger>
@@ -253,10 +282,13 @@ export function SubscriptionPaymentsReport({
                 <SelectItem value="clean">لا تحتاج مراجعة</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={pageSize} onValueChange={(value) => {
-              setPageSize(value);
-              setPage(1);
-            }}>
+            <Select
+              value={pageSize}
+              onValueChange={(value) => {
+                setPageSize(value);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-11">
                 <SelectValue />
               </SelectTrigger>
@@ -336,17 +368,21 @@ function DashboardCard({
         <p className="text-2xl font-semibold leading-tight tracking-normal">
           {textOrDash(
             card.valueAr,
+            card.valueFormattedAr,
             card.amountFormattedAr,
             card.value,
+            card.valueHalala === null || card.valueHalala === undefined
+              ? undefined
+              : formatSarFromHalala(card.valueHalala, currency),
             card.amountHalala === null || card.amountHalala === undefined
               ? undefined
               : formatSarFromHalala(card.amountHalala, currency),
             card.count
           )}
         </p>
-        {card.descriptionAr || card.countLabelAr ? (
+        {card.descriptionAr || card.subtitleAr || card.countLabelAr ? (
           <p className="text-xs leading-5 text-muted-foreground">
-            {card.descriptionAr || card.countLabelAr}
+            {card.descriptionAr || card.subtitleAr || card.countLabelAr}
           </p>
         ) : null}
       </CardContent>
@@ -360,11 +396,24 @@ function fallbackCards(
   const summary = report.summary;
   return [
     {
-      key: "total",
-      titleAr: "إجمالي التحصيل",
-      amountHalala: summary?.totalHalala,
-      amountFormattedAr: summary?.totalFormattedAr,
+      key: "gross",
+      titleAr: "إجمالي تحصيل الاشتراكات",
+      amountHalala: summary?.grossCollectionHalala ?? summary?.totalHalala,
+      amountFormattedAr: summary?.grossCollectionFormattedAr ?? summary?.totalFormattedAr,
       count: summary?.totalPaymentsCount,
+    },
+    {
+      key: "refunds",
+      titleAr: "المرتجعات",
+      amountHalala: summary?.refundsHalala,
+      amountFormattedAr: summary?.refundsFormattedAr,
+      count: summary?.refundsCount,
+    },
+    {
+      key: "net",
+      titleAr: "صافي الحركة",
+      amountHalala: summary?.netCollectionHalala,
+      amountFormattedAr: summary?.netCollectionFormattedAr,
     },
     {
       key: "cash",
@@ -374,11 +423,11 @@ function fallbackCards(
       count: summary?.cashCount,
     },
     {
-      key: "visa",
-      titleAr: "تحصيل فيزا",
-      amountHalala: summary?.visaTotalHalala,
-      amountFormattedAr: summary?.visaTotalFormattedAr,
-      count: summary?.visaCount,
+      key: "card",
+      titleAr: "تحصيل البطاقات (يشمل ميسر)",
+      amountHalala: summary?.cardTotalHalala ?? summary?.visaTotalHalala,
+      amountFormattedAr: summary?.cardTotalFormattedAr ?? summary?.visaTotalFormattedAr,
+      count: summary?.cardCount ?? summary?.visaCount,
     },
     {
       key: "unknown",
@@ -401,13 +450,14 @@ function SummaryBreakdown({ report }: { report: SubscriptionPaymentReportData })
           <CardTitle>الضريبة وصافي التحصيل</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Metric label="الإجمالي" value={formatMoney(summary?.totalFormattedAr, summary?.totalHalala, currency)} />
+          <Metric label="إجمالي تحصيل الاشتراكات" value={formatMoney(summary?.grossCollectionFormattedAr ?? summary?.totalFormattedAr, summary?.grossCollectionHalala ?? summary?.totalHalala, currency)} />
+          <Metric label="المرتجعات" value={formatMoney(summary?.refundsFormattedAr, summary?.refundsHalala, currency)} />
+          <Metric label="صافي الحركة" value={formatMoney(summary?.netCollectionFormattedAr, summary?.netCollectionHalala, currency)} />
           <Metric label="الصافي قبل الضريبة" value={formatMoney(summary?.netBeforeVatFormattedAr, summary?.netBeforeVatHalala, currency)} />
-          <Metric label="ضريبة القيمة المضافة" value={formatMoney(summary?.vatFormattedAr, summary?.vatHalala, currency)} />
+          <Metric label="ضريبة المبيعات" value={formatMoney(summary?.salesVatFormattedAr ?? summary?.vatFormattedAr, summary?.salesVatHalala ?? summary?.vatHalala, currency)} />
+          <Metric label="ضريبة المرتجعات" value={formatMoney(summary?.refundVatFormattedAr, summary?.refundVatHalala, currency)} />
+          <Metric label="صافي الضريبة" value={formatMoney(summary?.netVatFormattedAr, summary?.netVatHalala, currency)} />
           <Metric label="عدد العملاء" value={formatInteger(summary?.uniqueCustomersCount)} />
-          {summary?.refundsHalala !== null && summary?.refundsHalala !== undefined ? (
-            <Metric label="المرتجعات" value={formatMoney(summary.refundsFormattedAr, summary.refundsHalala, currency)} />
-          ) : null}
           {summary?.cancelledSubscriptionsCount !== null &&
           summary?.cancelledSubscriptionsCount !== undefined ? (
             <Metric label="اشتراكات ملغاة" value={formatInteger(summary.cancelledSubscriptionsCount)} />
@@ -420,6 +470,8 @@ function SummaryBreakdown({ report }: { report: SubscriptionPaymentReportData })
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <BucketList title="حسب طريقة الدفع" buckets={report.byPaymentMethod} currency={currency} />
+          <BucketList title="حسب مزود الدفع" buckets={report.byPaymentProvider} currency={currency} />
+          <BucketList title="حسب قناة المصدر" buckets={report.bySourceChannel} currency={currency} />
           <BucketList title="حسب طريقة التنفيذ" buckets={report.byFulfillmentMethod} currency={currency} />
           <BucketList title="حسب حالة الاشتراك" buckets={report.bySubscriptionStatus} currency={currency} />
           <BucketList title="حسب نوع الدفعة" buckets={report.byPaymentType} currency={currency} />
@@ -505,14 +557,14 @@ function WarningsAndReconciliation({ report }: { report: SubscriptionPaymentRepo
               {reconciliation.noteAr}
             </p>
           ) : null}
-          {summary?.refundsTrackingStatus === "not_available" ? (
+          {["not_available", "needs_review"].includes(summary?.refundsTrackingStatus ?? "") ? (
             <Alert>
               <AlertTriangleIcon className="size-4" />
               <AlertTitle>
-                {summary.refundsTrackingStatusAr || "تتبع المرتجعات غير متاح"}
+                {summary?.refundsTrackingStatusAr || "تتبع المرتجعات غير متاح"}
               </AlertTitle>
               <AlertDescription>
-                {summary.refundsTrackingNoteAr ||
+                {summary?.refundsTrackingNoteAr ||
                   "تتبع المرتجعات حسب تاريخ الاسترداد غير متاح حاليا."}
               </AlertDescription>
             </Alert>
@@ -554,7 +606,9 @@ function MonthlySection({
   const rows = report.dailyBreakdown ?? [];
   const chartRows = rows.map((row) => ({
     date: row.businessDateLabelAr || row.businessDate || "-",
-    total: (row.totalHalala ?? 0) / 100,
+    gross: (row.grossCollectionHalala ?? row.totalHalala ?? 0) / 100,
+    refunds: (row.refundsHalala ?? 0) / 100,
+    net: (row.netCollectionHalala ?? row.totalHalala ?? 0) / 100,
   }));
 
   return (
@@ -580,7 +634,7 @@ function MonthlySection({
       </Card>
       <Card className={PANEL_CLASS}>
         <CardHeader className="border-b">
-          <CardTitle>الرسم الشهري للتحصيل اليومي</CardTitle>
+          <CardTitle>الرسم الشهري للحركة اليومية</CardTitle>
         </CardHeader>
         <CardContent>
           {chartRows.length === 0 ? (
@@ -595,7 +649,9 @@ function MonthlySection({
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
-                  <Bar dataKey="total" name="الإجمالي" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="gross" name="إجمالي التحصيل" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="refunds" name="المرتجعات" fill="hsl(var(--destructive))" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="net" name="صافي الحركة" fill="hsl(var(--chart-2))" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -621,6 +677,7 @@ function AccountingPolicyCard({ report }: { report: SubscriptionPaymentReportDat
         <Metric label="معالجة الضريبة" value={textOrDash(policy.vatTreatment)} />
         <Metric label="معالجة الإلغاء" value={textOrDash(policy.cancellationTreatment)} />
         <Metric label="معالجة طريقة الدفع" value={textOrDash(policy.paymentMethodTreatment)} />
+        <Metric label="معالجة المرتجعات" value={textOrDash(policy.refundTreatment)} />
       </CardContent>
     </Card>
   );
@@ -643,13 +700,17 @@ function SubscriptionPaymentsTable({
 
   return (
     <div className="overflow-x-auto" dir="rtl">
-      <Table className="min-w-[980px]">
+      <Table className="min-w-[1280px]">
         <TableHeader>
           <TableRow>
             <TableHead className="text-right">العميل</TableHead>
             <TableHead className="text-right">رقم الاشتراك</TableHead>
+            <TableHead className="text-right">الحركة</TableHead>
+            <TableHead className="text-right">المصدر</TableHead>
             <TableHead className="text-right">طريقة الدفع</TableHead>
-            <TableHead className="text-right">الإجمالي</TableHead>
+            <TableHead className="text-right">المزود</TableHead>
+            <TableHead className="text-right">المبلغ</TableHead>
+            <TableHead className="text-right">صافي الحركة</TableHead>
             <TableHead className="text-right">الضريبة</TableHead>
             <TableHead className="text-right">طريقة التنفيذ</TableHead>
             <TableHead className="text-right">الحالة</TableHead>
@@ -659,7 +720,7 @@ function SubscriptionPaymentsTable({
         </TableHeader>
         <TableBody>
           {items.map((item, index) => (
-            <TableRow key={item.paymentId || item.paymentReference || item.subscriptionId || index}>
+            <TableRow key={item.movementId || item.paymentId || item.paymentReference || item.subscriptionId || index}>
               <TableCell className="min-w-44 align-middle">
                 <div className="font-medium">{textOrDash(item.customerName)}</div>
                 <div className="text-xs text-muted-foreground" dir="ltr">
@@ -670,12 +731,29 @@ function SubscriptionPaymentsTable({
                 {textOrDash(item.subscriptionId)}
               </TableCell>
               <TableCell className="align-middle">
+                <Badge variant={item.movementType === "refund" ? "destructive" : "secondary"}>
+                  {textOrDash(item.movementTypeLabelAr, item.movementType, "تحصيل")}
+                </Badge>
+              </TableCell>
+              <TableCell className="align-middle">
+                {sourceChannelLabel(item.sourceChannel, item.sourceChannelLabelAr)}
+              </TableCell>
+              <TableCell className="align-middle">
                 <Badge variant="secondary">
                   {paymentMethodLabel(item.paymentMethod, item.paymentMethodLabelAr)}
                 </Badge>
               </TableCell>
+              <TableCell className="align-middle">
+                {paymentProviderLabel(
+                  item.paymentProvider ?? item.provider,
+                  item.paymentProviderLabelAr ?? item.providerLabelAr
+                )}
+              </TableCell>
               <TableCell className="align-middle font-semibold">
                 {formatMoney(item.amountFormattedAr, item.amountHalala, currency)}
+              </TableCell>
+              <TableCell className="align-middle font-semibold">
+                {formatMoney(item.netMovementFormattedAr, item.netMovementHalala, currency)}
               </TableCell>
               <TableCell className="align-middle">
                 {formatMoney(item.vatFormattedAr, item.vatHalala, currency)}
@@ -731,9 +809,11 @@ function SubscriptionPaymentDetails({
               ["مرجع الدفعة", item.paymentReference, true],
               ["رقم الدفعة", item.paymentId, true],
               ["نوع الدفعة", textOrDash(item.paymentTypeLabelAr, item.paymentType)],
+              ["نوع الحركة", textOrDash(item.movementTypeLabelAr, item.movementType, "تحصيل")],
+              ["قناة المصدر", sourceChannelLabel(item.sourceChannel, item.sourceChannelLabelAr)],
               ["طريقة الدفع", paymentMethodLabel(item.paymentMethod, item.paymentMethodLabelAr)],
               ["مصدر التصنيف", textOrDash(item.paymentMethodClassificationSourceAr)],
-              ["مزود الدفع", textOrDash(item.providerLabelAr, item.provider)],
+              ["مزود الدفع", paymentProviderLabel(item.paymentProvider ?? item.provider, item.paymentProviderLabelAr ?? item.providerLabelAr)],
               ["طريقة التسجيل", textOrDash(item.recordingModeLabelAr, item.recordingMode)],
               ["بوابة الدفع مستخدمة", textOrDash(item.gatewayUsedLabelAr, formatBooleanAr(item.gatewayUsed))],
               ["رقم عملية المزود", item.providerPaymentId, true],
@@ -744,8 +824,10 @@ function SubscriptionPaymentDetails({
             title="المعلومات المالية"
             rows={[
               ["إجمالي الدفعة", formatMoney(item.amountFormattedAr, item.amountHalala, currency)],
+              ["صافي الحركة", formatMoney(item.netMovementFormattedAr, item.netMovementHalala, currency)],
               ["الصافي قبل الضريبة", formatMoney(item.netBeforeVatFormattedAr, item.netBeforeVatHalala, currency)],
               ["ضريبة القيمة المضافة", formatMoney(item.vatFormattedAr, item.vatHalala, currency)],
+              ["ضريبة المرتجع", formatMoney(item.refundVatFormattedAr, item.refundVatHalala, currency)],
               ["نسبة الضريبة", item.vatPercentage === null || item.vatPercentage === undefined ? "-" : `${item.vatPercentage}%`],
               ["مصدر حساب الضريبة", textOrDash(item.vatCalculationSourceAr)],
               ["المعالجة المحاسبية", textOrDash(item.accountingTreatmentAr)],
@@ -773,6 +855,9 @@ function SubscriptionPaymentDetails({
             rows={[
               ["تاريخ العمل", textOrDash(item.businessDateLabelAr, item.businessDate)],
               ["تاريخ الدفع", textOrDash(item.paidAtLabelAr, formatDateTimeAr(item.paidAt))],
+              ["تاريخ الاسترداد", textOrDash(item.refundedAtLabelAr, formatDateTimeAr(item.refundedAt))],
+              ["رقم المرتجع", textOrDash(item.providerRefundId, item.refundId), true],
+              ["محتسب في الإجماليات", formatBooleanAr(item.countedInTotals)],
               ["تاريخ إنشاء السجل", textOrDash(item.createdAtLabelAr, formatDateTimeAr(item.createdAt))],
               ["المحصّل بواسطة", textOrDash(item.collectedBy?.name, item.collectedBy?.email)],
               ["دور المحصّل", textOrDash(item.collectedBy?.roleLabelAr, item.collectedBy?.role)],

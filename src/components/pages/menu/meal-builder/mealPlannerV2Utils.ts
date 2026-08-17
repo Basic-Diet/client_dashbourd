@@ -31,6 +31,16 @@ export type MealPlannerCardFormValue = {
   multiSelect?: boolean;
 };
 
+export function createInternalCardKey(
+  cardType: "direct_product" | "option_family"
+) {
+  const token =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+      : Math.random().toString(36).slice(2, 14);
+  return `${cardType}_${token}`.slice(0, 64);
+}
+
 export function buildDirectProductPayload(
   value: MealPlannerCardFormValue
 ): DirectProductCardPayloadV2 {

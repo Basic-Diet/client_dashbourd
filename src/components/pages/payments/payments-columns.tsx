@@ -17,7 +17,21 @@ const methodLabels: Record<string, string> = {
   apple_pay: "Apple Pay",
   google_pay: "Google Pay",
   wallet: "المحفظة",
-  moyasar: "Moyasar",
+  moyasar: "ميسر",
+  electronic_gateway: "بوابة دفع إلكتروني",
+  cash: "كاش",
+};
+
+const paymentMethodLabel = (payment: Payment) => {
+  const explicitLabel = payment.paymentMethodLabel;
+  if (typeof explicitLabel === "string" && explicitLabel.trim()) {
+    return explicitLabel.trim();
+  }
+  if (explicitLabel && typeof explicitLabel === "object") {
+    const localized = explicitLabel.ar?.trim() || explicitLabel.en?.trim();
+    if (localized) return localized;
+  }
+  return methodLabels[payment.method] || payment.method;
 };
 
 const typeLabels: Record<string, string> = {
@@ -81,7 +95,7 @@ export const paymentsColumns: ColumnDef<Payment>[] = [
       <div className="flex items-center gap-2">
         <CreditCard className="size-4 text-muted-foreground" />
         <span className="text-muted-foreground">
-          {methodLabels[row.original.method] || row.original.method}
+          {paymentMethodLabel(row.original)}
         </span>
       </div>
     ),

@@ -59,6 +59,7 @@ function UpdatePackagePage() {
   const initialData: CreatePackageSchemaType = {
     name: planData.name,
     daysCount: planData.daysCount ?? planData.durationDays ?? 1,
+    timelineExtraDays: planData.timelineExtraDays ?? 0,
     currency: planData.currency || "SAR",
     sortOrder: planData.sortOrder,
     isActive: planData.isActive ?? planData.active ?? true,

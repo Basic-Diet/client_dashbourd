@@ -7,7 +7,7 @@ import {
   buildSubscriptionCreationPayload,
   buildSubscriptionQuotePayload,
 } from "../src/utils/buildSubscriptionCreationPayload";
-import { isSelectablePremiumMeal } from "../src/components/pages/subscriptions/create/PremiumMealsSection";
+import { isSelectablePremiumMeal } from "../src/components/pages/subscriptions/create/premiumMeals";
 import {
   getDeliverySlotSelectionValues,
   getSubscriptionFulfillmentResetValues,
@@ -68,7 +68,8 @@ function issuePaths(
 
 describe("subscription creation contract", () => {
   it("requires an explicit payment method", () => {
-    const { paymentMethod: _paymentMethod, ...withoutPayment } = baseData;
+    const withoutPayment = { ...baseData };
+    Reflect.deleteProperty(withoutPayment, "paymentMethod");
     const result = createSubscriptionSchema.safeParse(withoutPayment);
 
     expect(result.success).toBe(false);

@@ -1,29 +1,31 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { format } from "date-fns";
-import { Info, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CalendarIcon, ChefHat, Info, RefreshCw, Truck } from "lucide-react";
 import { DeliveryDashboardCards } from "@/components/pages/delivery/DeliveryDashboardCards";
 import { DeliveryFilters } from "@/components/pages/delivery/DeliveryFilters";
 import { DeliveryList } from "@/components/pages/delivery/DeliveryList";
+import { DeliveryOperationsBoard } from "@/components/pages/delivery/DeliveryOperationsBoard";
 import {
   ReasonActionDialog,
   type ReasonDialogState,
 } from "@/components/pages/pickup-board/ReasonActionDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useCourierDeliveryActionMutation,
   useCourierDeliveryListQuery,
 } from "@/hooks/useCourierDeliveriesQuery";
-import {
-  buildOperationsActionPayload,
-  safeText,
-} from "@/lib/operationsBoard";
 import {
   filterDeliveryOperations,
   getAllDeliveryOperationItems,
   type DeliveryActionFilter,
   type DeliverySourceFilter,
 } from "@/lib/deliveryOperations";
+import {
+  buildOperationsActionPayload,
+  safeText,
+} from "@/lib/operationsBoard";
 import type {
   DashboardOpsActionRequest,
   DashboardOpsStatusFilter,
@@ -43,14 +45,38 @@ const EMPTY_REASON_DIALOG: ReasonDialogState = {
   isDangerous: false,
 };
 
+type DeliveryWorkspace = "tracking" | "preparation";
+
+function getTodayRiyadhDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function DeliveryDashboard() {
-  const [statusFilter, setStatusFilter] = useState<DashboardOpsStatusFilter>("all");
-  const [sourceFilter, setSourceFilter] = useState<DeliverySourceFilter>("all");
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<DeliveryWorkspace>("tracking");
+  const [selectedDate, setSelectedDate] = useState(getTodayRiyadhDate);
+  const [statusFilter, setStatusFilter] =
+    useState<DashboardOpsStatusFilter>("all");
+  const [sourceFilter, setSourceFilter] =
+    useState<DeliverySourceFilter>("all");
   const [windowFilter, setWindowFilter] = useState("all");
   const [zoneFilter, setZoneFilter] = useState("all");
-  const [actionFilter, setActionFilter] = useState<DeliveryActionFilter>("all");
+  const [actionFilter, setActionFilter] =
+    useState<DeliveryActionFilter>("all");
   const [searchStr, setSearchStr] = useState("");
-  const [reasonDialog, setReasonDialog] = useState<ReasonDialogState>(EMPTY_REASON_DIALOG);
+  const [reasonDialog, setReasonDialog] =
+    useState<ReasonDialogState>(EMPTY_REASON_DIALOG);
 
   const {
     data: listRes,
@@ -60,7 +86,7 @@ function DeliveryDashboard() {
     error,
     refetch,
     dataUpdatedAt,
-  } = useCourierDeliveryListQuery();
+  } = useCourierDeliveryListQuery(selectedDate);
   const actionMutation = useCourierDeliveryActionMutation();
 
   const baseData = useMemo(
@@ -84,6 +110,26 @@ function DeliveryDashboard() {
       searchStr,
       sourceFilter,
       statusFilter,
+      windowFilter,
+      zoneFilter,
+    ]
+  );
+
+  const statusCountData = useMemo(
+    () =>
+      filterDeliveryOperations(baseData, {
+        search: searchStr,
+        statusFilter: "all",
+        sourceFilter,
+        windowFilter,
+        zoneFilter,
+        actionFilter,
+      }),
+    [
+      actionFilter,
+      baseData,
+      searchStr,
+      sourceFilter,
       windowFilter,
       zoneFilter,
     ]
@@ -144,7 +190,7 @@ function DeliveryDashboard() {
     setReasonDialog(EMPTY_REASON_DIALOG);
   };
 
-  const businessDate = listRes?.data?.date || format(new Date(), "yyyy-MM-dd");
+  const businessDate = listRes?.data?.date || selectedDate;
   const lastUpdated = dataUpdatedAt
     ? new Intl.DateTimeFormat("ar-SA", {
         hour: "2-digit",
@@ -166,89 +212,160 @@ function DeliveryDashboard() {
     <div className="mx-auto flex min-h-[calc(100vh-var(--header-height))] w-full max-w-[1800px] flex-col gap-3 px-3 pb-6 sm:px-4 md:gap-4 md:px-6 md:pt-4">
       <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">التوصيل</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">
+            التوصيل
+          </h1>
           <p className="mt-0.5 text-xs leading-5 text-muted-foreground md:text-sm">
-            متابعة كاملة لتوصيلات الاشتراكات والطلبات الفردية مع أحدث حالة من الخادم.
+            متابعة التوصيلات وتحضير الطلبات من شاشة واحدة لصلاحية التوصيل.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="rounded-xl border bg-muted/30 px-4 py-2 text-right">
-            <span className="block text-[11px] font-bold text-muted-foreground">يوم التشغيل</span>
-            <span dir="ltr" className="font-mono text-sm font-bold">{businessDate}</span>
+        {activeWorkspace === "tracking" ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="space-y-1 text-right">
+              <span className="block text-[11px] font-bold text-muted-foreground">
+                يوم التشغيل
+              </span>
+              <div className="relative">
+                <CalendarIcon className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  className="h-11 min-w-44 pr-10 font-mono"
+                  dir="ltr"
+                  aria-label="اختيار يوم تشغيل التوصيل"
+                />
+              </div>
+            </label>
+            <div className="rounded-xl border bg-muted/30 px-4 py-2 text-right">
+              <span className="block text-[11px] font-bold text-muted-foreground">
+                البيانات المعروضة
+              </span>
+              <span dir="ltr" className="font-mono text-sm font-bold">
+                {businessDate}
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-xl"
+              disabled={isFetching}
+              onClick={() => refetch()}
+              aria-label="تحديث بيانات التوصيل"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+              />
+              {isFetching ? "جارٍ التحديث" : "تحديث"}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 rounded-xl"
-            disabled={isFetching}
-            onClick={() => refetch()}
-            aria-label="تحديث بيانات التوصيل"
+        ) : null}
+      </div>
+
+      <Tabs
+        value={activeWorkspace}
+        onValueChange={(value) =>
+          setActiveWorkspace(value as DeliveryWorkspace)
+        }
+        className="flex flex-col gap-4"
+        dir="rtl"
+      >
+        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm sm:w-fit">
+          <TabsTrigger
+            value="tracking"
+            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5"
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-            {isFetching ? "جارٍ التحديث" : "تحديث"}
-          </Button>
-        </div>
-      </div>
+            <Truck className="h-4 w-4" />
+            متابعة التوصيل
+          </TabsTrigger>
+          <TabsTrigger
+            value="preparation"
+            className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5"
+          >
+            <ChefHat className="h-4 w-4" />
+            تحضير طلبات التوصيل
+          </TabsTrigger>
+        </TabsList>
 
-      <div aria-live="polite" className="min-h-5 px-1 text-xs text-muted-foreground">
-        {isFetching && !isLoading
-          ? "جارٍ جلب أحدث بيانات التوصيل من الخادم..."
-          : `آخر تحديث: ${lastUpdated}`}
-      </div>
-
-      {isError ? (
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 text-center">
-          <h2 className="font-bold text-destructive">تعذر تحميل بيانات التوصيل</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {(error as Error)?.message || "حدث خطأ غير متوقع أثناء الاتصال بالخادم."}
-          </p>
-          <Button className="mt-4" variant="outline" onClick={() => refetch()}>
-            إعادة المحاولة
-          </Button>
-        </div>
-      ) : (
-        <>
-          <div className="hidden md:block">
-            <DeliveryDashboardCards data={baseData} isLoading={isLoading} />
+        <TabsContent value="tracking" className="mt-0 flex flex-col gap-4">
+          <div
+            aria-live="polite"
+            className="min-h-5 px-1 text-xs text-muted-foreground"
+          >
+            {isFetching && !isLoading
+              ? "جارٍ جلب أحدث بيانات التوصيل من الخادم..."
+              : `آخر تحديث: ${lastUpdated}`}
           </div>
 
-          <DeliveryFilters
-            searchStr={searchStr}
-            onSearchChange={setSearchStr}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            sourceFilter={sourceFilter}
-            onSourceFilterChange={setSourceFilter}
-            windowFilter={windowFilter}
-            onWindowFilterChange={setWindowFilter}
-            zoneFilter={zoneFilter}
-            onZoneFilterChange={setZoneFilter}
-            actionFilter={actionFilter}
-            onActionFilterChange={setActionFilter}
-            onReset={resetFilters}
-            baseData={baseData}
-          />
+          {isError ? (
+            <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 text-center">
+              <h2 className="font-bold text-destructive">
+                تعذر تحميل بيانات التوصيل
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {(error as Error)?.message ||
+                  "حدث خطأ غير متوقع أثناء الاتصال بالخادم."}
+              </p>
+              <Button className="mt-4" variant="outline" onClick={() => refetch()}>
+                إعادة المحاولة
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="hidden md:block">
+                <DeliveryDashboardCards data={baseData} isLoading={isLoading} />
+              </div>
 
-          <div className="flex items-start gap-2 rounded-xl border border-blue-500/15 bg-blue-50/70 p-3 text-xs text-blue-800 md:text-sm dark:bg-blue-950/30 dark:text-blue-300">
-            <Info className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>الإجراءات الظاهرة مملوكة للباكند ويتم تحديث الكارت بعد نجاح كل إجراء.</span>
-          </div>
+              <DeliveryFilters
+                searchStr={searchStr}
+                onSearchChange={setSearchStr}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                sourceFilter={sourceFilter}
+                onSourceFilterChange={setSourceFilter}
+                windowFilter={windowFilter}
+                onWindowFilterChange={setWindowFilter}
+                zoneFilter={zoneFilter}
+                onZoneFilterChange={setZoneFilter}
+                actionFilter={actionFilter}
+                onActionFilterChange={setActionFilter}
+                onReset={resetFilters}
+                baseData={baseData}
+                statusCountData={statusCountData}
+                visibleCount={displayData.length}
+              />
 
-          <div className="rounded-2xl border bg-muted/5 p-3 md:p-4">
-            <DeliveryList
-              data={displayData}
-              isLoading={isLoading}
-              onActionClick={handleActionClick}
-              pendingItemId={pendingItemId}
-              emptyMessage={
-                hasActiveFilters
-                  ? "لا توجد نتائج مطابقة للفلاتر الحالية. أعد ضبط الفلاتر لعرض كل التوصيلات."
-                  : "لا توجد توصيلات في يوم التشغيل الحالي."
-              }
-            />
+              <div className="flex items-start gap-2 rounded-xl border border-blue-500/15 bg-blue-50/70 p-3 text-xs text-blue-800 md:text-sm dark:bg-blue-950/30 dark:text-blue-300">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  الفلاتر تعمل على جميع توصيلات يوم التشغيل المحدد، والإجراءات الظاهرة
+                  مملوكة للباكند ويتم تحديث الكارت بعد نجاح كل إجراء.
+                </span>
+              </div>
+
+              <div className="rounded-2xl border bg-muted/5 p-3 md:p-4">
+                <DeliveryList
+                  data={displayData}
+                  isLoading={isLoading}
+                  onActionClick={handleActionClick}
+                  pendingItemId={pendingItemId}
+                  emptyMessage={
+                    hasActiveFilters
+                      ? "لا توجد نتائج مطابقة للفلاتر الحالية. أعد ضبط الفلاتر لعرض كل التوصيلات."
+                      : "لا توجد توصيلات في يوم التشغيل المحدد."
+                  }
+                />
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="preparation" className="mt-0">
+          <div className="rounded-2xl border bg-card p-3 shadow-sm md:p-4">
+            <DeliveryOperationsBoard />
           </div>
-        </>
-      )}
+        </TabsContent>
+      </Tabs>
 
       <ReasonActionDialog
         dialogState={reasonDialog}

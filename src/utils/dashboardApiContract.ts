@@ -25,6 +25,9 @@ export const subscriptionPaymentDailyReportUrl = (params: QueryParams = {}) =>
 export const subscriptionPaymentMonthlyReportUrl = (params: QueryParams = {}) =>
   `/api/dashboard/accounting/subscription-payments/monthly${buildListQuery(params)}`;
 
+export const subscriptionPaymentRangeReportUrl = (params: QueryParams = {}) =>
+  `/api/dashboard/accounting/subscription-payments/range${buildListQuery(params)}`;
+
 export const dashboardStaffUsersUrl = (params: QueryParams = {}) =>
   `/api/dashboard/staff-users${buildListQuery(params)}`;
 

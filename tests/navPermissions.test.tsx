@@ -60,13 +60,14 @@ test("navPermissions.test", () => {
   assert.equal(kitchenUrls.includes("/users"), false);
   assert.equal(kitchenUrls.includes("/delivery"), false);
 
-  assert.deepEqual(navMainUrlsForRole("courier"), ["/delivery"]);
-  assert.equal(navMainUrlsForRole("courier").includes("/operations"), false);
+  assert.deepEqual(navMainUrlsForRole("courier"), ["/operations", "/delivery"]);
+  assert.equal(navMainUrlsForRole("courier").includes("/operations"), true);
 
   assert.deepEqual(navMainUrlsForRole("admin"), [
     "/dashboard",
     "/payments",
     "/accounting",
+    "/subscription-audit",
     "/promo-codes",
     "/addons",
     "/packages",

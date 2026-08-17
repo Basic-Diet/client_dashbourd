@@ -78,11 +78,15 @@ export const formatDisplayValue = (value: unknown, currency = "SAR"): string => 
     record.email,
     record.phone,
     record.valueAr,
+    record.valueFormattedAr,
     record.amountFormattedAr
   );
   if (formatted !== "-") return formatted;
   if (typeof record.amountHalala === "number") {
     return formatSarFromHalala(record.amountHalala, currency);
+  }
+  if (typeof record.valueHalala === "number") {
+    return formatSarFromHalala(record.valueHalala, currency);
   }
   return "-";
 };
@@ -92,9 +96,34 @@ export const paymentMethodLabel = (
   labelAr?: string | null
 ) => {
   if (labelAr?.trim()) return labelAr.trim();
-  if (value === "visa") return "فيزا";
+  if (value === "visa" || value === "card") return "بطاقة";
+  if (value === "bank_transfer") return "تحويل بنكي";
+  if (value === "moyasar") return "بطاقة عبر ميسر";
   if (value === "cash") return "نقدي";
   if (value === "unknown") return "غير مصنف";
+  return value?.trim() || "-";
+};
+
+export const sourceChannelLabel = (
+  value: string | null | undefined,
+  labelAr?: string | null
+) => {
+  if (labelAr?.trim()) return labelAr.trim();
+  if (value === "app") return "التطبيق";
+  if (value === "dashboard") return "لوحة التحكم";
+  if (value === "unknown") return "غير محدد";
+  return value?.trim() || "-";
+};
+
+export const paymentProviderLabel = (
+  value: string | null | undefined,
+  labelAr?: string | null
+) => {
+  if (labelAr?.trim()) return labelAr.trim();
+  if (value === "moyasar") return "ميسر";
+  if (value === "manual_gateway") return "بوابة مسجلة يدويًا";
+  if (value === "none") return "بدون مزود";
+  if (value === "unknown") return "غير محدد";
   return value?.trim() || "-";
 };
 

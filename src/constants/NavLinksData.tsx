@@ -16,6 +16,7 @@ import {
   MinusCircle,
   PlusSquare,
   Settings2Icon,
+  ShieldCheck,
   ShieldUser,
   Sparkles,
   Ticket,
@@ -39,6 +40,11 @@ export const NavLinksData = {
       title: "المحاسبة",
       url: "/accounting",
       icon: <ChartNoAxesCombined />,
+    },
+    {
+      title: "مراجعة خصم الوجبات",
+      url: "/subscription-audit",
+      icon: <ShieldCheck />,
     },
     {
       title: "أكواد الخصم",

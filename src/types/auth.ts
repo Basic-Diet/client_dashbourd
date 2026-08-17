@@ -14,7 +14,13 @@ export interface User {
 export interface AuthResponse {
   status: boolean;
   token: string;
+  expiresIn?: number | null;
   user: User | null;
+}
+
+export interface ChangeDashboardPasswordPayload {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export const UserRoles = {

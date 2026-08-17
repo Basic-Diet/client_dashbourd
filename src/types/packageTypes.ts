@@ -38,6 +38,7 @@ export interface Package {
   image?: string | null;
   imageUrl?: string | null;
   daysCount: number;
+  timelineExtraDays: number;
   currency: string;
   grams?: GramsOption[];
   gramsOptions: GramsOption[];

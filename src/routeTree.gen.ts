@@ -15,6 +15,7 @@ import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dash
 import { Route as ProtectedZonesIndexRouteImport } from './routes/_protected/zones/index'
 import { Route as ProtectedUsersIndexRouteImport } from './routes/_protected/users/index'
 import { Route as ProtectedSubscriptionsIndexRouteImport } from './routes/_protected/subscriptions/index'
+import { Route as ProtectedSubscriptionAuditIndexRouteImport } from './routes/_protected/subscription-audit/index'
 import { Route as ProtectedSettingsIndexRouteImport } from './routes/_protected/settings/index'
 import { Route as ProtectedRestaurantHoursIndexRouteImport } from './routes/_protected/restaurant-hours/index'
 import { Route as ProtectedPromoCodesIndexRouteImport } from './routes/_protected/promo-codes/index'
@@ -79,6 +80,12 @@ const ProtectedSubscriptionsIndexRoute =
   ProtectedSubscriptionsIndexRouteImport.update({
     id: '/subscriptions/',
     path: '/subscriptions/',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedSubscriptionAuditIndexRoute =
+  ProtectedSubscriptionAuditIndexRouteImport.update({
+    id: '/subscription-audit/',
+    path: '/subscription-audit/',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
 const ProtectedSettingsIndexRoute = ProtectedSettingsIndexRouteImport.update({
@@ -307,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/promo-codes/': typeof ProtectedPromoCodesIndexRoute
   '/restaurant-hours/': typeof ProtectedRestaurantHoursIndexRoute
   '/settings/': typeof ProtectedSettingsIndexRoute
+  '/subscription-audit/': typeof ProtectedSubscriptionAuditIndexRoute
   '/subscriptions/': typeof ProtectedSubscriptionsIndexRoute
   '/users/': typeof ProtectedUsersIndexRoute
   '/zones/': typeof ProtectedZonesIndexRoute
@@ -349,6 +357,7 @@ export interface FileRoutesByTo {
   '/promo-codes': typeof ProtectedPromoCodesIndexRoute
   '/restaurant-hours': typeof ProtectedRestaurantHoursIndexRoute
   '/settings': typeof ProtectedSettingsIndexRoute
+  '/subscription-audit': typeof ProtectedSubscriptionAuditIndexRoute
   '/subscriptions': typeof ProtectedSubscriptionsIndexRoute
   '/users': typeof ProtectedUsersIndexRoute
   '/zones': typeof ProtectedZonesIndexRoute
@@ -393,6 +402,7 @@ export interface FileRoutesById {
   '/_protected/promo-codes/': typeof ProtectedPromoCodesIndexRoute
   '/_protected/restaurant-hours/': typeof ProtectedRestaurantHoursIndexRoute
   '/_protected/settings/': typeof ProtectedSettingsIndexRoute
+  '/_protected/subscription-audit/': typeof ProtectedSubscriptionAuditIndexRoute
   '/_protected/subscriptions/': typeof ProtectedSubscriptionsIndexRoute
   '/_protected/users/': typeof ProtectedUsersIndexRoute
   '/_protected/zones/': typeof ProtectedZonesIndexRoute
@@ -437,6 +447,7 @@ export interface FileRouteTypes {
     | '/promo-codes/'
     | '/restaurant-hours/'
     | '/settings/'
+    | '/subscription-audit/'
     | '/subscriptions/'
     | '/users/'
     | '/zones/'
@@ -479,6 +490,7 @@ export interface FileRouteTypes {
     | '/promo-codes'
     | '/restaurant-hours'
     | '/settings'
+    | '/subscription-audit'
     | '/subscriptions'
     | '/users'
     | '/zones'
@@ -522,6 +534,7 @@ export interface FileRouteTypes {
     | '/_protected/promo-codes/'
     | '/_protected/restaurant-hours/'
     | '/_protected/settings/'
+    | '/_protected/subscription-audit/'
     | '/_protected/subscriptions/'
     | '/_protected/users/'
     | '/_protected/zones/'
@@ -587,6 +600,13 @@ declare module '@tanstack/react-router' {
       path: '/subscriptions'
       fullPath: '/subscriptions/'
       preLoaderRoute: typeof ProtectedSubscriptionsIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/subscription-audit/': {
+      id: '/_protected/subscription-audit/'
+      path: '/subscription-audit'
+      fullPath: '/subscription-audit/'
+      preLoaderRoute: typeof ProtectedSubscriptionAuditIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
     '/_protected/settings/': {
@@ -861,6 +881,7 @@ interface ProtectedRouteRouteChildren {
   ProtectedPromoCodesIndexRoute: typeof ProtectedPromoCodesIndexRoute
   ProtectedRestaurantHoursIndexRoute: typeof ProtectedRestaurantHoursIndexRoute
   ProtectedSettingsIndexRoute: typeof ProtectedSettingsIndexRoute
+  ProtectedSubscriptionAuditIndexRoute: typeof ProtectedSubscriptionAuditIndexRoute
   ProtectedSubscriptionsIndexRoute: typeof ProtectedSubscriptionsIndexRoute
   ProtectedUsersIndexRoute: typeof ProtectedUsersIndexRoute
   ProtectedZonesIndexRoute: typeof ProtectedZonesIndexRoute
@@ -903,6 +924,7 @@ const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedPromoCodesIndexRoute: ProtectedPromoCodesIndexRoute,
   ProtectedRestaurantHoursIndexRoute: ProtectedRestaurantHoursIndexRoute,
   ProtectedSettingsIndexRoute: ProtectedSettingsIndexRoute,
+  ProtectedSubscriptionAuditIndexRoute: ProtectedSubscriptionAuditIndexRoute,
   ProtectedSubscriptionsIndexRoute: ProtectedSubscriptionsIndexRoute,
   ProtectedUsersIndexRoute: ProtectedUsersIndexRoute,
   ProtectedZonesIndexRoute: ProtectedZonesIndexRoute,

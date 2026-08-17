@@ -17,6 +17,7 @@ export function normalizeSaudiPhoneForSubmit(value: string): string {
   const compact = String(value ?? "").replace(/[\s()-]/g, "");
   if (/^00966\d+$/.test(compact)) return `+${compact.slice(2)}`;
   if (/^966\d+$/.test(compact)) return `+${compact}`;
+  if (/^5\d{8}$/.test(compact)) return `${SAUDI_COUNTRY_CODE}${compact}`;
   if (/^0\d{9,12}$/.test(compact)) return `${SAUDI_COUNTRY_CODE}${compact.slice(1)}`;
   return compact;
 }
