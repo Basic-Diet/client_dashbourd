@@ -9,15 +9,6 @@ Built with **React 19.2, TypeScript 5.9, Vite 7, TanStack Query, TanStack Router
 </div>
 
 ---
-
-## Visual Preview
-
-These **source-based visual previews** were reconstructed from the current React/Tailwind components, protected routes, RTL operations workflows, dashboard charts, and data-heavy administration surfaces. They use fictional values and do not expose production customer or payment data.
-
-![Basic Diet dashboard overview](docs/screenshots/basic-diet-dashboard-overview.svg)
-
-![Basic Diet operations gallery](docs/screenshots/basic-diet-operations-gallery.svg)
-
 ---
 
 ## Table of Contents
