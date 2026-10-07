@@ -8,6 +8,13 @@
 Built with **React 19.2, TypeScript 5.9, Vite 7, TanStack Query, TanStack Router, TanStack Table, Tailwind CSS 4, React Hook Form, Zod 4, Recharts, Radix UI, and dnd-kit**.
 </div>
 
+
+<!-- PROJECT_BANNER_START -->
+<p align="center">
+  <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791414963/ChatGPT_Image_Oct_8_2026_02_15_04_AM-1_yqa63s.png" alt="Basic Diet Project Banner" width="100%" />
+</p>
+<!-- PROJECT_BANNER_END -->
+
 ---
 ---
 
