@@ -13,35 +13,70 @@ Built with **React 19.2, TypeScript 5.9, Vite 7, TanStack Query, TanStack Router
 
 ## Screenshots
 
-These are the **approved Basic Diet visual previews** used for the portfolio and repository presentation. They reflect the current Arabic-first RTL dashboard structure and use fictional/sample values; no authenticated production customer, subscription, payment, or accounting data is shown.
+These are the **approved Basic Diet dashboard visuals** used for repository and portfolio presentation. The images are hosted on Cloudinary so the same assets can be reused consistently across GitHub, the organization profile, and the portfolio.
+
+<p align="center">
+    <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404032/01-basic-diet-dashboard-overview_h0zrl1.png" alt="Basic Diet Dashboard Overview" width="100%" />
+</p>
 
 <table>
   <tr>
     <td width="50%">
-      <strong>Dashboard</strong><br />
-      <img src="docs/screenshots/01-basic-diet-dashboard.png" alt="Basic Diet dashboard" />
+      <strong>Subscriptions Management</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404033/02-basic-diet-subscriptions-management_orste7.png" alt="Basic Diet Subscriptions Management" />
     </td>
     <td width="50%">
-      <strong>Subscriptions</strong><br />
-      <img src="docs/screenshots/02-basic-diet-subscriptions.png" alt="Basic Diet subscriptions" />
+      <strong>Payments Overview</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404031/03-basic-diet-payments-overview_gp3vw3.png" alt="Basic Diet Payments Overview" />
     </td>
   </tr>
   <tr>
     <td width="50%">
-      <strong>Operations</strong><br />
-      <img src="docs/screenshots/03-basic-diet-operations.png" alt="Basic Diet operations board" />
+      <strong>Accounting Overview</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404034/04-basic-diet-accounting-overview_h3ehkb.png" alt="Basic Diet Accounting Overview" />
     </td>
     <td width="50%">
-      <strong>Accounting</strong><br />
-      <img src="docs/screenshots/04-basic-diet-accounting.png" alt="Basic Diet accounting dashboard" />
+      <strong>Discount Codes Management</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404029/05-basic-diet-discount-codes-management_oyyozs.png" alt="Basic Diet Discount Codes Management" />
     </td>
   </tr>
+  <tr>
+    <td width="50%">
+      <strong>Packages & Plans Management</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404037/06-basic-diet-packages-plans-management_gpkdkp.png" alt="Basic Diet Packages & Plans Management" />
+    </td>
+    <td width="50%">
+      <strong>Kitchen Operations Board</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404033/07-basic-diet-kitchen-operations-board_rve6sy.png" alt="Basic Diet Kitchen Operations Board" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Delivery Operations</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404039/08-basic-diet-delivery-operations_vela5v.png" alt="Basic Diet Delivery Operations" />
+    </td>
+    <td width="50%">
+      <strong>Users Management</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404038/09-basic-diet-users-management_jgx4xk.png" alt="Basic Diet Users Management" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Menu Management</strong><br />
+      <img src="https://res.cloudinary.com/dqs43oqer/image/upload/v1791404039/10-basic-diet-menu-management_yw7fdr.png" alt="Basic Diet Menu Management" />
+    </td>
+    <td width="50%"></td>
+  </tr>
 </table>
+
+> These visuals are hosted on Cloudinary and use fictional/sample values. They do not expose authenticated production customer, subscription, payment, or accounting data.
+
 
 ---
 
 ## Table of Contents
 
+- [Screenshots](#screenshots)
 - [Overview](#overview)
 - [Platform Ecosystem](#platform-ecosystem)
 - [Who Uses This Dashboard](#who-uses-this-dashboard)
