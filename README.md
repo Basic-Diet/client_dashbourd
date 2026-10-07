@@ -13,23 +13,30 @@ Built with **React 19.2, TypeScript 5.9, Vite 7, TanStack Query, TanStack Router
 
 ## Screenshots
 
-These previews are **source-faithful reconstructions** built from the current React/Tailwind components, RTL layout, navigation structure, chart composition, tables, and operations workflows in this repository. The values shown are fictional/sample data; these are not authenticated production captures.
+These are the **approved Basic Diet visual previews** used for the portfolio and repository presentation. They reflect the current Arabic-first RTL dashboard structure and use fictional/sample values; no authenticated production customer, subscription, payment, or accounting data is shown.
 
-### Dashboard
-
-![Basic Diet dashboard](docs/screenshots/01-basic-diet-dashboard.webp)
-
-### Subscriptions
-
-![Basic Diet subscriptions](docs/screenshots/02-basic-diet-subscriptions.webp)
-
-### Operations
-
-![Basic Diet operations board](docs/screenshots/03-basic-diet-operations.webp)
-
-### Accounting
-
-![Basic Diet accounting](docs/screenshots/04-basic-diet-accounting.webp)
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Dashboard</strong><br />
+      <img src="docs/screenshots/01-basic-diet-dashboard.png" alt="Basic Diet dashboard" />
+    </td>
+    <td width="50%">
+      <strong>Subscriptions</strong><br />
+      <img src="docs/screenshots/02-basic-diet-subscriptions.png" alt="Basic Diet subscriptions" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Operations</strong><br />
+      <img src="docs/screenshots/03-basic-diet-operations.png" alt="Basic Diet operations board" />
+    </td>
+    <td width="50%">
+      <strong>Accounting</strong><br />
+      <img src="docs/screenshots/04-basic-diet-accounting.png" alt="Basic Diet accounting dashboard" />
+    </td>
+  </tr>
+</table>
 
 ---
 
