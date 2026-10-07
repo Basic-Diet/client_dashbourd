@@ -11,6 +11,28 @@ Built with **React 19.2, TypeScript 5.9, Vite 7, TanStack Query, TanStack Router
 ---
 ---
 
+## Screenshots
+
+These previews are **source-faithful reconstructions** built from the current React/Tailwind components, RTL layout, navigation structure, chart composition, tables, and operations workflows in this repository. The values shown are fictional/sample data; these are not authenticated production captures.
+
+### Dashboard
+
+![Basic Diet dashboard](docs/screenshots/01-basic-diet-dashboard.webp)
+
+### Subscriptions
+
+![Basic Diet subscriptions](docs/screenshots/02-basic-diet-subscriptions.webp)
+
+### Operations
+
+![Basic Diet operations board](docs/screenshots/03-basic-diet-operations.webp)
+
+### Accounting
+
+![Basic Diet accounting](docs/screenshots/04-basic-diet-accounting.webp)
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
