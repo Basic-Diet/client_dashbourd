@@ -16,7 +16,6 @@ Built with **React 19.2, TypeScript 5.9, Vite 7, TanStack Query, TanStack Router
 <!-- PROJECT_BANNER_END -->
 
 ---
----
 
 ## Screenshots
 
